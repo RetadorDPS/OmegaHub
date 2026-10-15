@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrackStoreButton } from "@/components/domain/track-store-button";
-import { cn, formatCompactNumber, formatCurrency, formatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
+import { cn, formatCompactNumber, formatCurrency, formatCurrencyPrecise } from "@/lib/utils";
 import type { StoreChangeDTO, StoreDTO } from "@/types";
+import { RelativeTime } from "@/components/domain/relative-time";
 
 /** Tienda con datos de seguimiento (devuelto por `listTrackedStores`). */
 export interface TrackedStore extends StoreDTO {
@@ -144,7 +145,7 @@ export function StoreCard({ store, index = 0, className }: StoreCardProps) {
           <div className="rounded-xl border border-border/60 bg-surface/40 p-3">
             <div className="flex items-center justify-between gap-2">
               <Badge variant="violet">{ETIQUETAS_CAMBIO[store.ultimoCambio.type] ?? "Cambio"}</Badge>
-              <span className="text-[11px] text-muted-foreground">{formatRelativeTime(store.ultimoCambio.detectedAt)}</span>
+              <span className="text-[11px] text-muted-foreground"><RelativeTime value={store.ultimoCambio.detectedAt} /></span>
             </div>
             <p className="mt-2 line-clamp-2 text-sm text-slate-100">{store.ultimoCambio.title}</p>
             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{store.ultimoCambio.description}</p>
@@ -156,7 +157,7 @@ export function StoreCard({ store, index = 0, className }: StoreCardProps) {
         )}
 
         <p className="text-[11px] text-muted-foreground">
-          En seguimiento desde {formatRelativeTime(store.trackedSince)} · impacto del último cambio{" "}
+          En seguimiento desde <RelativeTime value={store.trackedSince} /> · impacto del último cambio{" "}
           {store.ultimoCambio?.impactScore ?? 0}/100
         </p>
 

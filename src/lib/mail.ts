@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer";
+import { urlApp } from "@/lib/app-url";
 
 /**
  * Envío de correo transaccional.
@@ -54,7 +55,7 @@ export async function sendMail({ to, subject, html, text }: EnviarParams): Promi
 
 /** URL base de la aplicación (para enlaces en los correos). */
 function appUrl(): string {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return urlApp();
 }
 
 /** Plantilla HTML común con la identidad visual de la plataforma. */

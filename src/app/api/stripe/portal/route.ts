@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { createBillingPortalSession, stripeConfigured } from "@/lib/stripe";
+import { urlApp } from "@/lib/app-url";
 
 /** Abre el portal de facturación de Stripe para gestionar la suscripción. */
 export async function POST(request: Request) {
@@ -13,7 +14,7 @@ export async function POST(request: Request) {
     select: { stripeCustomerId: true, planType: true },
   });
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin).replace(/\/$/, "");
+  const appUrl = urlApp(request);
 
   if (!stripeConfigured() || !usuario.stripeCustomerId) {
     return NextResponse.json({

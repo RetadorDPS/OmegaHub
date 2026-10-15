@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { urlApp } from "@/lib/app-url";
 import { createCheckoutSession, ensureStripeCustomer, stripeConfigured } from "@/lib/stripe";
 import type { PlanType } from "@/types";
 
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     select: { id: true, email: true, name: true, stripeCustomerId: true },
   });
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin).replace(/\/$/, "");
+  const appUrl = urlApp(request);
 
   // --- Modo demostración (sin claves de Stripe) ---
   if (!stripeConfigured()) {

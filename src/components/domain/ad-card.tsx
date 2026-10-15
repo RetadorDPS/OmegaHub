@@ -21,9 +21,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { cn, formatCompactNumber, formatPercent, formatRelativeTime } from "@/lib/utils";
+import { cn, formatCompactNumber, formatPercent } from "@/lib/utils";
 import { COUNTRY_FLAGS } from "@/lib/constants";
 import { PLATFORM_LABELS, type AdDTO } from "@/types";
+import { RelativeTime } from "@/components/domain/relative-time";
 
 interface AdCardProps {
   ad: AdDTO;
@@ -198,7 +199,7 @@ export function AdCard({ ad, index = 0, priority = false, saved = false, classNa
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Detectado {formatRelativeTime(ad.firstSeenAt)} · activo {ad.daysActive} días
+            Detectado <RelativeTime value={ad.firstSeenAt} /> · activo {ad.daysActive} días
             {ad.daysActive >= 30 && <span className="ml-1 text-emerald-400">· anuncio escalado</span>}
           </p>
 

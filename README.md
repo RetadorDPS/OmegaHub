@@ -113,7 +113,7 @@ Genera un secreto de producción con `openssl rand -base64 32`.
 | `npm run db:provider` | Cambia entre `sqlite` y `postgresql` |
 | `npm run db:studio` | Prisma Studio |
 | `npm run screenshots` | Genera las capturas de todas las pantallas en `screenshots/` |
-| `npm run verify:pages` | Verifica todas las páginas (código HTTP, consola) con una sesión real |
+| `npm run verify:pages` | Verifica 58 comprobaciones de página (usuario + administrador, HTTP y consola) |
 | `npm run verify:api` | Verifica 33 flujos de API de punta a punta (IA, scraper, trackers, admin, Stripe) |
 
 ---
@@ -239,6 +239,14 @@ Todo se puede regenerar con `npm run db:reset` y verificar con
 ---
 
 ## Despliegue
+
+> Ejecutar en producción es siempre `npm run build` y después `npm start`: el
+> servidor escucha en `0.0.0.0:3000` y la aplicación detecta su URL pública del
+> propio dominio (Auth.js con `trustHost` y `urlApp()`), así que funciona igual
+> detrás de cualquier dominio o proxy inverso. Basta con definir
+> `NEXT_PUBLIC_APP_URL` cuando quieras forzar una URL canónica.
+
+### Railway (recomendado)
 
 ### Opción A · Railway (app + PostgreSQL + Redis) — recomendada
 

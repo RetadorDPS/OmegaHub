@@ -27,8 +27,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { PRODUCT_CATEGORIES } from "@/lib/constants";
-import { cn, formatCompactNumber, formatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
+import { cn, formatCompactNumber, formatCurrencyPrecise } from "@/lib/utils";
 import { PLAN_LABELS, SATURATION_LABELS, type PlanType, type ProductStatus, type SaturationLevel } from "@/types";
+import { RelativeTime } from "@/components/domain/relative-time";
 
 /** Fila de usuario del panel de administración. */
 export interface AdminUser {
@@ -360,7 +361,7 @@ export function AdminPanel({ usuarios, productos, analisis, imagenes }: AdminPan
                           {usuario.email}
                           {usuario.emailVerificado && <BadgeCheck className="size-3 text-emerald-400" />}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">Alta {formatRelativeTime(usuario.alta)}</p>
+                        <p className="text-[11px] text-muted-foreground">Alta <RelativeTime value={usuario.alta} /></p>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -390,7 +391,7 @@ export function AdminPanel({ usuarios, productos, analisis, imagenes }: AdminPan
                       {usuario.analisis} análisis · {usuario.tiendasSeguidas} tiendas
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {usuario.ultimoAcceso ? formatRelativeTime(usuario.ultimoAcceso) : "nunca"}
+                      {usuario.ultimoAcceso ? <RelativeTime value={usuario.ultimoAcceso} /> : "nunca"}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1.5">
@@ -484,7 +485,7 @@ export function AdminPanel({ usuarios, productos, analisis, imagenes }: AdminPan
                     <TableCell className="text-xs text-muted-foreground">
                       {producto.source}
                       <br />
-                      {formatRelativeTime(producto.updatedAt)}
+                      <RelativeTime value={producto.updatedAt} />
                     </TableCell>
                     <TableCell>
                       <Badge variant={producto.status === "ACTIVE" ? "default" : "muted"}>
@@ -562,7 +563,7 @@ export function AdminPanel({ usuarios, productos, analisis, imagenes }: AdminPan
                           {analisis.tienda?.dominio ?? analisis.url}
                           {analisis.tienda ? ` · ${formatCompactNumber(analisis.tienda.ingresos)} $/mes` : ""}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">{formatRelativeTime(analisis.creadoEn)}</p>
+                        <p className="text-[11px] text-muted-foreground"><RelativeTime value={analisis.creadoEn} /></p>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">{analisis.usuario}</TableCell>
                       <TableCell>

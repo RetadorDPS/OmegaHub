@@ -13,8 +13,9 @@ import {
   XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
+import { cn, formatCurrencyPrecise } from "@/lib/utils";
 import type { StoreChangeDTO, StoreChangeType } from "@/types";
+import { RelativeTime } from "@/components/domain/relative-time";
 
 interface StoreTimelineProps {
   eventos: StoreChangeDTO[];
@@ -83,7 +84,7 @@ export function StoreTimeline({ eventos, mostrarTienda = false, limite, classNam
                   <span className="text-xs font-medium text-indigo-300">{evento.storeName}</span>
                 )}
                 <span className="ml-auto text-[11px] text-muted-foreground">
-                  {formatRelativeTime(evento.detectedAt)}
+                  <RelativeTime value={evento.detectedAt} />
                 </span>
               </div>
 

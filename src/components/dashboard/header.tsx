@@ -30,8 +30,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LOCALES } from "@/lib/constants";
-import { cn, formatRelativeTime, getInitials } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import type { NotificationDTO, PlanType, Role } from "@/types";
+import { RelativeTime } from "@/components/domain/relative-time";
 
 /** Icono y color por tipo de notificación. */
 const ESTILOS_NOTIFICACION: Record<string, string> = {
@@ -175,7 +176,7 @@ export function Header({ user, notifications, unreadCount, onOpenMenu }: HeaderP
                           </p>
                           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{notificacion.message}</p>
                           <p className="mt-1 text-[11px] text-muted-foreground/70">
-                            {formatRelativeTime(notificacion.createdAt)}
+                            <RelativeTime value={notificacion.createdAt} />
                           </p>
                         </div>
                         {!leida && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-indigo-500" />}

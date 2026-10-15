@@ -180,6 +180,24 @@ descartar, reintentar).
 
 ---
 
+## Entorno de demostración en vivo
+
+La aplicación está **desplegada y en ejecución en modo producción**
+(`npm run build` + `npm start`, servidor `0.0.0.0:3000`) sobre el entorno de
+vista previa de la sesión:
+
+    https://3000-ioctbfz8x5syunz9rn5rc.e2b.app
+
+Comprobado a través del dominio público: `/api/health` (entorno `production`,
+20 productos), inicio de sesión real (`demo@trendhunter.pro`) y las APIs
+protegidas (`/api/products`, `/api/notifications`, `/api/ai/history`) devuelven
+200. La aplicación no fija su dominio (Auth.js con `trustHost` y `urlApp()`), por
+lo que funciona igual detrás de cualquier dominio o proxy inverso.
+
+Para replicarlo en un servidor propio: Railway (recomendado, con PostgreSQL y
+Redis gestionados), `docker compose up` o cualquier host con Node 22 y
+PostgreSQL. Pasos en el README.
+
 ## Correcciones finales de calidad
 
 - Aviso de Next por `scroll-behavior: smooth` global → se añadió
@@ -192,6 +210,15 @@ descartar, reintentar).
   sugeridas del alta de productos se leen de la base de datos.
 - Se eliminaron las sondas temporales y se convirtieron en scripts versionados
   (`scripts/verify-pages.mjs`, `scripts/verify-api.mjs`).
+- **Error de hidratación** en las marcas de tiempo relativas (`hace 50 minutos`
+  frente a `hace 51 minutos` entre servidor y navegador): se añadió el
+  componente `RelativeTime`, que pinta la fecha absoluta en el primer render
+  (determinista) y cambia al texto relativo una vez montado, refrescándolo cada
+  minuto. Con esto el `verify:pages` queda en **58/58 sin errores de consola**.
+- **URL pública desacoplada del entorno**: nuevo `src/lib/app-url.ts`. Stripe y
+  los correos usan `NEXT_PUBLIC_APP_URL` cuando apunta a un dominio real y, en
+  caso contrario, el origen de la petición (vistas previas, desarrollo y
+  despliegues detrás de un proxy).
 
 ## Capturas de la interfaz
 

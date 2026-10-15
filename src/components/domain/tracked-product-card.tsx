@@ -14,8 +14,9 @@ import { Switch } from "@/components/ui/switch";
 import { TrendSparkline } from "@/components/domain/trend-sparkline";
 import { TrendScoreRing } from "@/components/domain/trend-score-ring";
 import { SaturationBadge } from "@/components/domain/saturation-badge";
-import { cn, formatCurrencyPrecise, formatRelativeTime } from "@/lib/utils";
+import { cn, formatCurrencyPrecise } from "@/lib/utils";
 import type { ProductDTO } from "@/types";
+import { RelativeTime } from "@/components/domain/relative-time";
 
 /** Producto en seguimiento devuelto por `listTrackedProducts`. */
 export interface TrackedProduct {
@@ -128,7 +129,7 @@ export function TrackedProductCard({ item, index = 0, className }: TrackedProduc
                 </Link>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {item.product.category} · {item.product.nicheTag} · siguiendo desde{" "}
-                  {formatRelativeTime(item.trackedSince)}
+                  <RelativeTime value={item.trackedSince} />
                 </p>
               </div>
               <Button

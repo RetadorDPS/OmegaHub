@@ -26,8 +26,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { cn, formatRelativeTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { AiToolType, ProductDTO } from "@/types";
+import { RelativeTime } from "@/components/domain/relative-time";
 
 /** Generación guardada en el historial del AI Studio. */
 export interface GenerationHistoryItem {
@@ -486,7 +487,7 @@ export function AiStudio({ productos, historial, proveedor, uso }: AiStudioProps
                       </Badge>
                       <Badge variant="muted">{generacion.provider === "SIMULATED" ? "Motor local" : generacion.model}</Badge>
                       <span className="text-[11px] text-muted-foreground">
-                        {formatRelativeTime(generacion.createdAt)}
+                        <RelativeTime value={generacion.createdAt} />
                       </span>
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-sm text-slate-100">{generacion.preview}</p>

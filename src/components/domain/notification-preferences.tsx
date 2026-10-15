@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn, formatRelativeTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { NOTIFICATION_TYPE_LABELS, type NotificationType } from "@/types";
+import { RelativeTime } from "@/components/domain/relative-time";
 
 interface TiendaSeguida {
   id: string;
@@ -219,7 +220,7 @@ export function NotificationPreferences({ tiendas, productos, notificaciones }: 
                         {NOTIFICATION_TYPE_LABELS[aviso.type]}
                       </Badge>
                       {!aviso.read && <span className="size-2 rounded-full bg-indigo-400" aria-label="Sin leer" />}
-                      <span className="text-[11px] text-muted-foreground">{formatRelativeTime(aviso.createdAt)}</span>
+                      <span className="text-[11px] text-muted-foreground"><RelativeTime value={aviso.createdAt} /></span>
                     </div>
                     <p className="mt-1.5 text-sm font-medium text-slate-100">{aviso.title}</p>
                     <p className="text-xs text-muted-foreground">{aviso.message}</p>
