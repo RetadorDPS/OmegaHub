@@ -10,6 +10,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Se oculta el indicador flotante de desarrollo (aparece en las capturas).
+  devIndicators: false,
   serverExternalPackages: [
     "better-sqlite3",
     "@prisma/adapter-better-sqlite3",

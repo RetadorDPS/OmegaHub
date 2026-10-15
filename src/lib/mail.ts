@@ -115,3 +115,39 @@ export async function sendPasswordResetEmail({ email, token }: { email: string; 
     text: `Restablece tu contraseña: ${enlace}`,
   });
 }
+
+/** Aviso de cambio de contraseña (seguridad). */
+export async function sendPasswordChangedEmail({ email }: { email: string }) {
+  return sendMail({
+    to: email,
+    subject: "Tu contraseña de TrendHunter Pro ha cambiado",
+    html: plantilla(
+      "Contraseña actualizada",
+      `<p style="color:#94a3b8;line-height:1.6">Tu contraseña se ha cambiado correctamente. Si no has sido tú, restablece el acceso de inmediato.</p>
+       <a href="${appUrl()}/forgot-password" style="display:inline-block;margin-top:16px;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Restablecer contraseña</a>`,
+    ),
+    text: `Tu contraseña ha cambiado. Si no has sido tú, restablece el acceso en ${appUrl()}/forgot-password`,
+  });
+}
+
+/** Aviso de cambio de plan (Stripe o modo demostración). */
+export async function sendPlanChangedEmail({
+  email,
+  plan,
+  montoMensual,
+}: {
+  email: string;
+  plan: string;
+  montoMensual: number;
+}) {
+  return sendMail({
+    to: email,
+    subject: `Tu plan de TrendHunter Pro es ahora ${plan}`,
+    html: plantilla(
+      `Plan ${plan} activado`,
+      `<p style="color:#94a3b8;line-height:1.6">Tu suscripción se ha actualizado. Facturación mensual: <strong style="color:#e2e8f0">${montoMensual} $</strong>.</p>
+       <a href="${appUrl()}/dashboard/settings/billing" style="display:inline-block;margin-top:16px;background:#4f46e5;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Ver mi suscripción</a>`,
+    ),
+    text: `Tu plan de TrendHunter Pro es ahora ${plan} (${montoMensual} $/mes).`,
+  });
+}

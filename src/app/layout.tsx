@@ -52,8 +52,10 @@ export const viewport: Viewport = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // `data-scroll-behavior="smooth"` evita el aviso de Next.js sobre el scroll
+  // suave global declarado en globals.css.
   return (
-    <html lang="es" className="dark" suppressHydrationWarning>
+    <html lang="es" className="dark" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
         <SessionProvider>
           {children}

@@ -654,3 +654,23 @@ export async function listAiGenerations(userId: string, tool?: string) {
     productImage: generacion.product?.mainImage ?? null,
   }));
 }
+
+/**
+ * Alertas generadas por los productos en seguimiento (subidas de tendencia,
+ * cambios de precio o saturación). Se usa en el Product Tracker.
+ */
+export async function listTrackedProductAlerts(userId: string, limite = 20): Promise<NotificationDTO[]> {
+  const seguimientos = await prisma.trackedProduct.findMany({
+    where: { userId },
+    select: { productId: true },
+  });
+  const ids = seguimientos.map((seguimiento) => seguimiento.productId);
+  if (ids.length === 0) return [];
+
+  const alertas = await prisma.alertNotification.findMany({
+    where: { userId, entityId: { in: ids } },
+    orderBy: { createdAt: "desc" },
+    take: limite,
+  });
+  return alertas.map(toNotificationDTO);
+}

@@ -8,6 +8,7 @@
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "node scripts/prisma-generate.mjs && next build",
     "start": "next start --hostname 0.0.0.0 --port 3000",
+    "worker": "tsx scripts/worker.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -21,6 +22,8 @@
     "db:migration:postgres": "node scripts/generate-postgres-migration.mjs",
     "setup": "npm run db:bootstrap && npm run db:seed",
     "screenshots": "node scripts/screenshots.mjs",
+    "verify:pages": "node scripts/verify-pages.mjs",
+    "verify:api": "node scripts/verify-api.mjs",
     "db:bootstrap": "node scripts/db-bootstrap.mjs",
     "db:verify": "node scripts/verify-db.mjs",
     "db:setup": "npm run db:bootstrap && npm run db:seed && npm run db:verify"

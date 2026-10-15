@@ -64,6 +64,15 @@ export const PLATFORM_LABELS: Record<AdPlatform, string> = {
   INSTAGRAM: "Instagram",
 };
 
+export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+  NEW_PRODUCT: "Producto nuevo",
+  TREND_ALERT: "Alerta de tendencia",
+  STORE_CHANGE: "Cambio en tienda",
+  PRICE_CHANGE: "Cambio de precio",
+  SYSTEM: "Sistema",
+  SUBSCRIPTION: "Suscripción",
+};
+
 export const TREND_DIRECTION_LABELS: Record<TrendDirection, string> = {
   RISING: "En ascenso",
   STABLE: "Estable",

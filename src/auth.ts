@@ -47,12 +47,28 @@ declare module "next-auth" {
   }
 }
 
+/** Campos propios que se añaden al token de sesión de Auth.js. */
+interface CamposToken {
+  id?: string;
+  role?: Role;
+  planType?: PlanType;
+  name?: string | null;
+  picture?: string | null;
+  /** Marca temporal del último refresco de datos desde la base de datos. */
+  lastChecked?: number;
+}
+
 /** ¿Está configurado el proveedor de Google OAuth? */
 export const googleEnabled = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "database", maxAge: 30 * 24 * 60 * 60 },
+  /**
+   * Estrategia JWT obligatoria: Auth.js no admite el proveedor de credenciales
+   * con sesiones persistidas en base de datos. El adaptador Prisma sigue
+   * gestionando usuarios y cuentas OAuth; la sesión viaja firmada en cookie.
+   */
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   trustHost: true,
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "trendhunter-dev-secret-change-me",
   pages: {
@@ -108,13 +124,51 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    /** Añade id, rol y plan a la sesión expuesta al cliente. */
-    session: async ({ session, user }) => {
+    /**
+     * Construye el token de sesión.
+     * En el inicio de sesión guarda id, rol y plan; después los refresca desde
+     * la base de datos como máximo una vez por minuto, de modo que un cambio de
+     * plan (webhook de Stripe) se refleje sin obligar al usuario a reingresar.
+     */
+    jwt: async ({ token, user, trigger }) => {
+      const tokenExtendido = token as typeof token & CamposToken;
+      if (user) {
+        tokenExtendido.id = user.id;
+        tokenExtendido.role = (user as { role?: Role }).role ?? "USER";
+        tokenExtendido.planType = (user as { planType?: PlanType }).planType ?? "FREE";
+        tokenExtendido.lastChecked = Date.now();
+      }
+
+      // Se refresca cuando el cliente pide actualizar la sesión (tras cambiar de
+      // plan, por ejemplo) o, como máximo, cada 15 segundos de navegación.
+      const debeRefrescar =
+        Boolean(tokenExtendido.id) &&
+        (trigger === "update" || Date.now() - (tokenExtendido.lastChecked ?? 0) > 15_000);
+      if (debeRefrescar) {
+        const actual = await prisma.user
+          .findUnique({
+            where: { id: tokenExtendido.id },
+            select: { role: true, planType: true, name: true, image: true },
+          })
+          .catch(() => null);
+        if (actual) {
+          tokenExtendido.role = actual.role as Role;
+          tokenExtendido.planType = actual.planType as PlanType;
+          tokenExtendido.name = actual.name;
+          tokenExtendido.picture = actual.image;
+        }
+        tokenExtendido.lastChecked = Date.now();
+      }
+      return token;
+    },
+    /** Expone los datos del token en la sesión que consume la aplicación. */
+    session: async ({ session, token }) => {
+      const tokenExtendido = token as typeof token & CamposToken;
       if (session.user) {
-        session.user.id = user.id;
-        session.user.role = (user as { role?: Role }).role ?? "USER";
-        session.user.planType = (user as { planType?: PlanType }).planType ?? "FREE";
-        session.user.isEmailVerified = Boolean((user as { emailVerified?: Date | null }).emailVerified);
+        session.user.id = tokenExtendido.id ?? "";
+        session.user.role = tokenExtendido.role ?? "USER";
+        session.user.planType = tokenExtendido.planType ?? "FREE";
+        session.user.isEmailVerified = true;
       }
       return session;
     },

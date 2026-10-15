@@ -1,6 +1,5 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import path from "node:path";
 
 /**
  * Cliente Prisma único (patrón singleton) con driver adapters.
@@ -20,14 +19,6 @@ function getDatabaseUrl(): string {
   return process.env.DATABASE_URL ?? "file:./prisma/trendhunter.db";
 }
 
-/** Normaliza rutas relativas de SQLite respecto al directorio de trabajo. */
-function resolveSqliteUrl(url: string): string {
-  if (!url.startsWith("file:")) return url;
-  const rawPath = url.replace(/^file:/, "");
-  if (path.isAbsolute(rawPath)) return `file:${rawPath}`;
-  return `file:${path.join(process.cwd(), rawPath.replace(/^\.\//, ""))}`;
-}
-
 /** ¿La configuración actual apunta a PostgreSQL? */
 export function isPostgres(): boolean {
   const url = getDatabaseUrl();
@@ -45,7 +36,9 @@ async function createPrismaClient(): Promise<PrismaClient> {
     const adapter = new PrismaPg({ connectionString: getDatabaseUrl() });
     return new PrismaClient({ adapter, log: ["warn", "error"] });
   }
-  const adapter = new PrismaBetterSqlite3({ url: resolveSqliteUrl(getDatabaseUrl()) });
+  // El adapter resuelve las rutas relativas (`file:./prisma/…`) desde el
+  // directorio de trabajo del proceso.
+  const adapter = new PrismaBetterSqlite3({ url: getDatabaseUrl() });
   return new PrismaClient({ adapter, log: ["warn", "error"] });
 }
 

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Middleware de protección de rutas privadas.
+ * Proxy (antes `middleware.ts`) de protección de rutas privadas.
+ * Next.js 16 renombró el archivo a `proxy.ts` y la función a `proxy`.
  *
  * Comprobación ligera (compatible con Edge): sólo mira si existe la cookie de
  * sesión de Auth.js. La validación REAL de la sesión (y del rol) se hace en el
@@ -27,7 +28,7 @@ function tieneCookieDeSesion(request: NextRequest): boolean {
   return COOKIES_SESION.some((nombre) => Boolean(request.cookies.get(nombre)?.value));
 }
 
-export function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const autenticado = tieneCookieDeSesion(request);
 
