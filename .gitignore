@@ -1,0 +1,57 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+
+# Producción
+/build
+/dist
+
+# Entorno (NUNCA subir credenciales)
+.env
+.env*.local
+.env.production
+
+# Base de datos local SQLite (datos de demo)
+prisma/*.db
+prisma/*.db-journal
+prisma/*.db-wal
+prisma/*.db-shm
+*.sqlite
+
+# Prisma client generado
+/src/generated/
+prisma/generated/
+
+# Testing
+/coverage
+.vitest
+
+# Sistema operativo / editor
+.DS_Store
+*.pem
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+*.log
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+
+# Capturas generadas por scripts/screenshots.mjs
+/screenshots/
+
+# Chromium empaquetado (solo herramienta de capturas)
+.chromium/
