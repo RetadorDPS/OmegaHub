@@ -15,10 +15,12 @@ Estado global: **11/11 módulos implementados y verificados en local**.
 | Build de producción | `npm run build` | **Correcto** |
 | Tests del motor de tendencias | `npm test` | **48/48** |
 | Base de datos | `npm run db:verify` | **OK** (20 productos, 4 dorados, 31 anuncios, 10 tiendas, 12 proveedores) |
-| Rutas del panel | sonda Playwright sobre 13 rutas + detalle | **Todas 200**, 0 errores de consola |
-| APIs | 10 endpoints GET + 23 flujos POST/PATCH/DELETE | **33/33 comprobaciones OK** |
+| Rutas y páginas | `npm run verify:pages` (Playwright) | **18/18 correctas**, 0 errores de consola |
+| APIs y flujos | `npm run verify:api` (Playwright, sesiones reales) | **33/33 comprobaciones OK** |
+| Capturas de la interfaz | `npm run screenshots` | **31 pantallas** en `screenshots/` |
 | Autenticación | registro, login, logout, sesión, roles | **OK** |
 | Stripe | checkout, portal y cancelación en modo demo | **OK** |
+| Docker | `Dockerfile` + `docker-compose.yml` (app, worker, PostgreSQL 17, Redis 7) | Listos (sin entorno Docker en el sandbox) |
 
 ---
 
@@ -177,6 +179,26 @@ descartar, reintentar).
 | Cancelación demo dejaba la suscripción activa | Sólo se actualizaba el usuario | La suscripción pasa a `CANCELED` en la misma transacción |
 
 ---
+
+## Correcciones finales de calidad
+
+- Aviso de Next por `scroll-behavior: smooth` global → se añadió
+  `data-scroll-behavior="smooth"` al `<html>`.
+- Aviso de LCP en las imágenes de tarjetas → `preload` + `loading="eager"` en
+  las tarjetas que quedan sobre el pliegue (`ProductCard` y `AdCard`).
+- Trazado del build recorría todo el proyecto por un acceso dinámico al sistema
+  de archivos en `src/lib/prisma.ts` y en el panel de administración → se
+  eliminaron: el adapter de SQLite resuelve las rutas relativas y las imágenes
+  sugeridas del alta de productos se leen de la base de datos.
+- Se eliminaron las sondas temporales y se convirtieron en scripts versionados
+  (`scripts/verify-pages.mjs`, `scripts/verify-api.mjs`).
+
+## Capturas de la interfaz
+
+`screenshots/` contiene 31 imágenes (31 pantallas + 3 hojas de contacto):
+landing, autenticación, precios, los 11 módulos del panel, resultados reales del
+Shop Analyzer y del AI Studio, y las vistas móviles. Se regeneran con
+`npm run screenshots`.
 
 ## Trabajo pendiente / siguientes pasos
 

@@ -113,6 +113,17 @@ Genera un secreto de producción con `openssl rand -base64 32`.
 | `npm run db:provider` | Cambia entre `sqlite` y `postgresql` |
 | `npm run db:studio` | Prisma Studio |
 | `npm run screenshots` | Genera las capturas de todas las pantallas en `screenshots/` |
+| `npm run verify:pages` | Verifica todas las páginas (código HTTP, consola) con una sesión real |
+| `npm run verify:api` | Verifica 33 flujos de API de punta a punta (IA, scraper, trackers, admin, Stripe) |
+
+---
+
+## Capturas de la interfaz
+
+Todas las pantallas están documentadas en [`screenshots/`](screenshots) (31
+imágenes, incluidas las vistas móviles y las hojas de contacto
+`00-hoja-contacto-*.png`). Se regeneran con `npm run screenshots` contra el
+servidor en ejecución.
 
 ---
 
