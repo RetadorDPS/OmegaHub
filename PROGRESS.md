@@ -229,8 +229,15 @@ prerenderizadas con los datos reales de demostración, base path `/OmegaHub`):
   identificadores reales.
 - Un aviso en la cabecera explica que es la versión estática y un intercepto de
   `fetch` responde con un mensaje claro cuando algo necesita el backend.
-- Publicación: `.github/workflows/pages.yml` (requiere repositorio público o
-  plan Pro, y Source = «GitHub Actions» en Settings → Pages).
+- Publicación: el repositorio es público y GitHub Pages está activo en
+  https://retadordps.github.io/OmegaHub/. Con la fuente «Deploy from a branch»
+  hay que indicar la carpeta **`/docs`** (no la raíz) para que se publique el
+  sitio y no el README; con la fuente «GitHub Actions» publica el flujo
+  `.github/workflows/pages.yml`, que detecta el modo configurado y nunca falla
+  por tener Pages de una u otra forma.
+- Incidencia de CI corregida: `npm ci` no genera el cliente de Prisma, así que
+  el workflow fallaba al inicializar los datos. `setup` y `db:setup` encadenan
+  ahora `db:generate`; reproducido y comprobado desde un estado en frío.
 
 Comprobado en local con `npm run preview:pages`: el sitio se ve idéntico a la
 aplicación real, con los gráficos, las imágenes y el panel de administración

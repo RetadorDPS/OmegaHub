@@ -105,7 +105,7 @@ Genera un secreto de producción con `openssl rand -base64 32`.
 | `npm run worker` | Workers de BullMQ (requiere `REDIS_URL`) |
 | `npm test` | Tests del motor de tendencias (Vitest) |
 | `npm run typecheck` | TypeScript estricto (`tsc --noEmit`) |
-| `npm run lint` | ESLint |
+| `npm run lint` | Análisis estático con oxlint (0 avisos) |
 | `npm run db:bootstrap` | Crea la base de datos y aplica el esquema |
 | `npm run db:seed` | Carga los datos reales de prueba |
 | `npm run db:verify` | Comprueba integridad y recuentos de la base de datos |
@@ -113,6 +113,9 @@ Genera un secreto de producción con `openssl rand -base64 32`.
 | `npm run db:provider` | Cambia entre `sqlite` y `postgresql` |
 | `npm run db:studio` | Prisma Studio |
 | `npm run screenshots` | Genera las capturas de todas las pantallas en `screenshots/` |
+| `npm run chromium` | Prepara el Chromium local que usan las capturas y las verificaciones |
+| `npm run build:pages` | Exporta el sitio estático para GitHub Pages a `docs/` |
+| `npm run preview:pages` | Sirve `docs/` igual que GitHub Pages (`http://localhost:4000/OmegaHub/`) |
 | `npm run verify:pages` | Verifica 58 comprobaciones de página (usuario + administrador, HTTP y consola) |
 | `npm run verify:api` | Verifica 33 flujos de API de punta a punta (IA, scraper, trackers, admin, Stripe) |
 
