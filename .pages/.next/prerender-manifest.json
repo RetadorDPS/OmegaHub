@@ -90,7 +90,7 @@
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 99795,
+      "htmlSize": 99793,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -118,7 +118,7 @@
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 99131,
+      "htmlSize": 99088,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -230,7 +230,7 @@
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 62610,
+      "htmlSize": 62618,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -366,7 +366,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghmdl00hjsinzner4elxx": {
+    "/dashboard/store-tracker/cmvan34y400hj4snz0zejj6w2": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -384,7 +384,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghmdl00hjsinzner4elxx.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34y400hj4snz0zejj6w2.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -394,7 +394,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghmdn00hosinzhfon2243": {
+    "/dashboard/store-tracker/cmvan34y700ho4snz4w3n05j4": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -412,7 +412,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghmdn00hosinzhfon2243.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34y700ho4snz4w3n05j4.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -422,7 +422,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghmdp00htsinzno7jcxic": {
+    "/dashboard/store-tracker/cmvan34y900ht4snzow1n3jpf": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -440,7 +440,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghmdp00htsinzno7jcxic.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34y900ht4snzow1n3jpf.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -450,7 +450,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghmdr00hysinzvoi82czp": {
+    "/dashboard/store-tracker/cmvan34yc00hy4snzzw45osiz": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -468,7 +468,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghmdr00hysinzvoi82czp.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34yc00hy4snzzw45osiz.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -478,7 +478,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghmdt00i2sinzb20j1anw": {
+    "/dashboard/store-tracker/cmvan34ye00i24snz69u0vr2q": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -496,7 +496,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghmdt00i2sinzb20j1anw.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34ye00i24snz69u0vr2q.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -506,7 +506,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghmdv00i6sinzcj3dtyb3": {
+    "/dashboard/store-tracker/cmvan34yf00i64snz6rlp3zsb": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -524,7 +524,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghmdv00i6sinzcj3dtyb3.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34yf00i64snz6rlp3zsb.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -534,7 +534,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghmdx00iasinznhx3fflx": {
+    "/dashboard/store-tracker/cmvan34yh00ia4snzb86e55iw": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -552,7 +552,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghmdx00iasinznhx3fflx.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34yh00ia4snzb86e55iw.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -562,7 +562,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghmdy00idsinz3v6pop1p": {
+    "/dashboard/store-tracker/cmvan34yj00id4snz0zbt7h68": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -580,7 +580,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghmdy00idsinz3v6pop1p.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34yj00id4snz0zbt7h68.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -590,7 +590,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghme400ihsinzuwm129rn": {
+    "/dashboard/store-tracker/cmvan34yl00ih4snzvvvwipdd": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -608,7 +608,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghme400ihsinzuwm129rn.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34yl00ih4snzvvvwipdd.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -618,7 +618,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/store-tracker/cmvaghme500iksinzhzve5cm9": {
+    "/dashboard/store-tracker/cmvan34yn00ik4snz535fvkmu": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
@@ -636,7 +636,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/store-tracker/[id]",
-      "dataRoute": "/dashboard/store-tracker/cmvaghme500iksinzhzve5cm9.rsc",
+      "dataRoute": "/dashboard/store-tracker/cmvan34yn00ik4snz535fvkmu.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -702,11 +702,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghm6f000bsinzm22wdb9d": {
+    "/dashboard/winning-products/cmvan34pf000b4snzsw3cbt4s": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 115321,
+      "htmlSize": 115319,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -720,7 +720,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghm6f000bsinzm22wdb9d.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34pf000b4snzsw3cbt4s.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -730,11 +730,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghm6q0016sinzhq5xkdty": {
+    "/dashboard/winning-products/cmvan34qo00164snz0k3x7bp5": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 115205,
+      "htmlSize": 115203,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -748,7 +748,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghm6q0016sinzhq5xkdty.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34qo00164snz0k3x7bp5.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -758,11 +758,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghm710021sinzrtbtyoms": {
+    "/dashboard/winning-products/cmvan34ra00214snzh4ss62bq": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 114104,
+      "htmlSize": 114102,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -776,7 +776,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghm710021sinzrtbtyoms.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34ra00214snzh4ss62bq.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -786,11 +786,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghm7a002wsinzjcect05z": {
+    "/dashboard/winning-products/cmvan34sh002w4snz7jki3h3b": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 111393,
+      "htmlSize": 111391,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -804,7 +804,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghm7a002wsinzjcect05z.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34sh002w4snz7jki3h3b.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -814,11 +814,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghm7m003rsinzphb0y0ig": {
+    "/dashboard/winning-products/cmvan34t2003r4snz7p0i8dbi": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 111777,
+      "htmlSize": 111775,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -832,7 +832,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghm7m003rsinzphb0y0ig.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34t2003r4snz7p0i8dbi.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -842,11 +842,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghm85004msinz3hr11m5e": {
+    "/dashboard/winning-products/cmvan34tq004m4snzos0yhlwi": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 119466,
+      "htmlSize": 119464,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -860,7 +860,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghm85004msinz3hr11m5e.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34tq004m4snzos0yhlwi.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -870,11 +870,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghm8p005hsinz4c6i3apv": {
+    "/dashboard/winning-products/cmvan34u1005h4snzp0nz43d0": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 111352,
+      "htmlSize": 111350,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -888,7 +888,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghm8p005hsinz4c6i3apv.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34u1005h4snzp0nz43d0.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -898,11 +898,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghm9h006csinz6cbxz1vb": {
+    "/dashboard/winning-products/cmvan34um006c4snzradoycke": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 109790,
+      "htmlSize": 109788,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -916,7 +916,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghm9h006csinz6cbxz1vb.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34um006c4snzradoycke.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -926,11 +926,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghma30077sinzashat55n": {
+    "/dashboard/winning-products/cmvan34v200774snzjc2qkjvc": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 110415,
+      "htmlSize": 110413,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -944,7 +944,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghma30077sinzashat55n.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34v200774snzjc2qkjvc.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -954,11 +954,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmb10082sinz521j7fe7": {
+    "/dashboard/winning-products/cmvan34va00824snzeihalwth": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 112821,
+      "htmlSize": 112819,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -972,7 +972,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmb10082sinz521j7fe7.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34va00824snzeihalwth.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -982,11 +982,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmbe008xsinzyfimd7f2": {
+    "/dashboard/winning-products/cmvan34vp008x4snzajqmxj3s": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 112188,
+      "htmlSize": 112186,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1000,7 +1000,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmbe008xsinzyfimd7f2.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34vp008x4snzajqmxj3s.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1010,11 +1010,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmbp009ssinzymhpjy7h": {
+    "/dashboard/winning-products/cmvan34vy009s4snzigs68iog": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 110192,
+      "htmlSize": 110190,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1028,7 +1028,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmbp009ssinzymhpjy7h.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34vy009s4snzigs68iog.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1038,11 +1038,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmbx00ansinzhtekelyg": {
+    "/dashboard/winning-products/cmvan34w500an4snzt1f0pisa": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 113536,
+      "htmlSize": 113534,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1056,7 +1056,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmbx00ansinzhtekelyg.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34w500an4snzt1f0pisa.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1066,11 +1066,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmc700bisinzvl38thud": {
+    "/dashboard/winning-products/cmvan34wf00bi4snz0am46e64": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 112032,
+      "htmlSize": 112030,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1084,7 +1084,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmc700bisinzvl38thud.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34wf00bi4snz0am46e64.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1094,11 +1094,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmcj00cdsinzvc64l6qb": {
+    "/dashboard/winning-products/cmvan34wo00cd4snzifs3o02h": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 111702,
+      "htmlSize": 111700,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1112,7 +1112,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmcj00cdsinzvc64l6qb.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34wo00cd4snzifs3o02h.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1122,11 +1122,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmcq00d8sinzfzcey92p": {
+    "/dashboard/winning-products/cmvan34wx00d84snzrslpbscx": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 112481,
+      "htmlSize": 112479,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1140,7 +1140,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmcq00d8sinzfzcey92p.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34wx00d84snzrslpbscx.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1150,11 +1150,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmcw00e3sinzcpkq51yo": {
+    "/dashboard/winning-products/cmvan34x400e34snz9wdvqi4o": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 110274,
+      "htmlSize": 110272,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1168,7 +1168,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmcw00e3sinzcpkq51yo.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34x400e34snz9wdvqi4o.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1178,11 +1178,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmd200eysinzaax00rnq": {
+    "/dashboard/winning-products/cmvan34xb00ey4snzbtl4yjby": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 110292,
+      "htmlSize": 110290,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1196,7 +1196,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmd200eysinzaax00rnq.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34xb00ey4snzbtl4yjby.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1206,11 +1206,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmd800ftsinzgxqnhy3m": {
+    "/dashboard/winning-products/cmvan34xn00ft4snzkfehhti6": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 110136,
+      "htmlSize": 110134,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1224,7 +1224,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmd800ftsinzgxqnhy3m.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34xn00ft4snzkfehhti6.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1234,11 +1234,11 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/dashboard/winning-products/cmvaghmde00gosinzpvc36a71": {
+    "/dashboard/winning-products/cmvan34xv00go4snzxxg2xx8m": {
       "routeType": "page",
       "response": "complete",
       "compute": "static",
-      "htmlSize": 113488,
+      "htmlSize": 113486,
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -1252,7 +1252,7 @@
       ],
       "initialRevalidateSeconds": false,
       "srcRoute": "/dashboard/winning-products/[id]",
-      "dataRoute": "/dashboard/winning-products/cmvaghmde00gosinzpvc36a71.rsc",
+      "dataRoute": "/dashboard/winning-products/cmvan34xv00go4snzxxg2xx8m.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -1469,8 +1469,8 @@
   },
   "notFoundRoutes": [],
   "preview": {
-    "previewModeId": "0ebb5ac8c9983b79358ba98d55e44d7f",
-    "previewModeSigningKey": "5ccd1eb9e2ca3191482d1d526ab2a18e55fa632b4844bca18a68e3f8c6a032d2",
-    "previewModeEncryptionKey": "3cbd8bab2dbcd49a4484a2a28b7be1ea9a3e2a101dd7c946cce71085012edaf1"
+    "previewModeId": "8ccea3b2116d02b4e93f17fa350000f5",
+    "previewModeSigningKey": "81154d44c36787e79fa9e03ea8bc6989e741e3647b751e51bab9a8d4588ab32b",
+    "previewModeEncryptionKey": "2dfcb668760fcef9b570abd3bec518a562dd25e3ee3300c62e0f4aa67d4dfa84"
   }
 }
