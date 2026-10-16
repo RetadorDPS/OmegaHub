@@ -1,0 +1,83 @@
+name: Publicar en GitHub Pages
+
+# Construye la exportación estática de TrendHunter Pro y la publica en GitHub
+# Pages cada vez que cambia la rama principal.
+#
+# Requisitos (una sola vez):
+#   · El repositorio debe ser público, o la cuenta tener plan Pro/Team (GitHub
+#     Pages no existe en repositorios privados con plan gratuito).
+#   · En Settings → Pages, la fuente debe ser "GitHub Actions". El propio flujo
+#     intenta habilitarla automáticamente (`enablement: true`).
+#
+# El sitio queda en https://<usuario>.github.io/<repositorio>/
+
+on:
+  push:
+    branches: [main, arena/fcb585f3-omegahub]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un despliegue a la vez; si llega otro, se espera sin cancelar la publicación.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construir:
+    name: Construir el sitio estático
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v5
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Preparar la base de datos de demostración
+        # La exportación prerenderiza con datos reales: el seed crea los 20
+        # productos, las tiendas, los anuncios y las cuentas de acceso.
+        run: npm run db:setup
+        env:
+          DATABASE_PROVIDER: sqlite
+          DATABASE_URL: file:./prisma/trendhunter.db
+          AUTH_SECRET: secreto-solo-para-el-build-estatico
+
+      - name: Generar la exportación estática
+        run: npm run build:pages
+        env:
+          DATABASE_PROVIDER: sqlite
+          DATABASE_URL: file:./prisma/trendhunter.db
+          URL_APP_COMPLETA: ${{ github.server_url }}/${{ github.repository }}
+
+      - name: Preparar GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Habilita Pages automáticamente si aún no está activado.
+          enablement: true
+
+      - name: Subir el sitio
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  publicar:
+    name: Publicar
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - name: Desplegar en GitHub Pages
+        id: despliegue
+        uses: actions/deploy-pages@v4

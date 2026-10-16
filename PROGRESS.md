@@ -198,6 +198,44 @@ Para replicarlo en un servidor propio: Railway (recomendado, con PostgreSQL y
 Redis gestionados), `docker compose up` o cualquier host con Node 22 y
 PostgreSQL. Pasos en el README.
 
+## Revisión completa solicitada antes de publicar
+
+Antes de publicar se revisó la aplicación entera y se corrigió todo lo
+encontrado:
+
+| Revisión | Resultado | Acción |
+|---|---|---|
+| `npm run lint` | **Roto**: ESLint no puede ejecutarse con TypeScript 7 (`typescript-eslint` exige < 6.1) | El linter pasa a **oxlint**: 0 avisos y 0 errores sobre 147 ficheros |
+| Avisos del linter (12) | Imports y parámetros sin usar en 5 ficheros | Corregidos; además se añadió el selector de **estilo creativo** que faltaba en AI Studio |
+| Entorno de trabajo | La copia de trabajo se reinició y perdió el estado no versionado (base de datos, `.env`, cliente Prisma, Chromium) | Recuperado desde el remoto; la base de datos y el cliente se regeneran con `npm run db:setup`, y `npm run chromium` prepara el navegador de las verificaciones |
+| Código | Sin `TODO`/`FIXME` pendientes ni `console.log` en la aplicación | — |
+| Hidratación | 0 avisos en todas las páginas (usuario y administrador) | `npm run verify:pages`: **58/58** |
+| Flujos de API | IA, scraper, trackers, exportación, admin y Stripe | `npm run verify:api`: **33/33** |
+| Tipos y build | `npx tsc --noEmit` y `npm run build` | 0 errores, 0 avisos, 45 rutas |
+| Motor de negocio | `npm test` | 48/48 |
+| Base de datos | `npm run db:verify` | Esquema consistente, sin drift |
+
+## Versión estática para GitHub Pages
+
+`npm run build:pages` exporta la aplicación completa a `docs/` (50 páginas
+prerenderizadas con los datos reales de demostración, base path `/OmegaHub`):
+
+- Se construye en una copia de trabajo (`.pages/`), sin tocar el código de
+  producción.
+- Se retiran las rutas de API y el proxy, `auth()` devuelve el administrador de
+  demostración y las páginas que dependen de la URL se exportan con los filtros
+  por defecto.
+- Se prerenderizan las 20 fichas de producto y las 10 de tienda con sus
+  identificadores reales.
+- Un aviso en la cabecera explica que es la versión estática y un intercepto de
+  `fetch` responde con un mensaje claro cuando algo necesita el backend.
+- Publicación: `.github/workflows/pages.yml` (requiere repositorio público o
+  plan Pro, y Source = «GitHub Actions» en Settings → Pages).
+
+Comprobado en local con `npm run preview:pages`: el sitio se ve idéntico a la
+aplicación real, con los gráficos, las imágenes y el panel de administración
+funcionando.
+
 ## Correcciones finales de calidad
 
 - Aviso de Next por `scroll-behavior: smooth` global → se añadió

@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "node scripts/prisma-generate.mjs && next build",
+    "build:pages": "node scripts/build-pages.mjs",
+    "preview:pages": "node scripts/servir-pages.mjs",
     "start": "next start --hostname 0.0.0.0 --port 3000",
     "worker": "tsx scripts/worker.ts",
     "lint": "oxlint src scripts prisma",

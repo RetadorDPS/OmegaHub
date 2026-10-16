@@ -1,0 +1,215 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * ============================================================================
+ *  TrendHunter Pro · Tema oscuro profesional (Tailwind CSS 4)
+ * ============================================================================
+ *  Paleta: fondo slate-950, superficies slate-900, acentos indigo-600 /
+ *  violet-600 y texto slate-100. Los tokens `--color-*` generan automáticamente
+ *  las utilidades (bg-surface, text-muted, border-border...).
+ * ============================================================================
+ */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* Superficies */
+  --background: oklch(0.145 0.02 265);      /* slate-950 */
+  --foreground: oklch(0.97 0.005 265);      /* slate-100 */
+  --card: oklch(0.19 0.02 265);             /* slate-900 */
+  --card-foreground: oklch(0.97 0.005 265);
+  --popover: oklch(0.21 0.022 265);
+  --popover-foreground: oklch(0.97 0.005 265);
+  --surface: oklch(0.19 0.02 265);
+  --surface-elevated: oklch(0.235 0.025 265);
+
+  /* Acentos de marca */
+  --primary: oklch(0.55 0.22 275);          /* indigo-600 */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.28 0.03 275);
+  --secondary-foreground: oklch(0.97 0.005 265);
+  --accent: oklch(0.58 0.24 300);           /* violet-600 */
+  --accent-foreground: oklch(0.99 0 0);
+
+  /* Estados */
+  --muted: oklch(0.26 0.02 265);
+  --muted-foreground: oklch(0.72 0.02 265);
+  --destructive: oklch(0.62 0.23 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.72 0.18 150);
+  --warning: oklch(0.8 0.16 85);
+  --info: oklch(0.7 0.14 230);
+
+  /* Bordes y anillos */
+  --border: oklch(0.3 0.02 265);
+  --input: oklch(0.3 0.02 265);
+  --ring: oklch(0.55 0.22 275);
+  --radius: 0.75rem;
+
+  /* Colores semánticos de saturación de mercado */
+  --saturation-low: oklch(0.75 0.18 150);
+  --saturation-medium: oklch(0.82 0.16 85);
+  --saturation-high: oklch(0.65 0.22 25);
+
+  /* Gráficas */
+  --chart-1: oklch(0.62 0.22 275);
+  --chart-2: oklch(0.68 0.24 300);
+  --chart-3: oklch(0.72 0.16 200);
+  --chart-4: oklch(0.76 0.18 150);
+  --chart-5: oklch(0.8 0.16 85);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-saturation-low: var(--saturation-low);
+  --color-saturation-medium: var(--saturation-medium);
+  --color-saturation-high: var(--saturation-high);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Pila de fuentes del sistema: mismo aspecto, sin descargas externas. */
+  --font-sans: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Fira Code", Menlo,
+    Consolas, monospace;
+
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -700px 0; }
+  100% { background-position: 700px 0; }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Barra de desplazamiento discreta acorde al tema oscuro */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.34 0.02 265);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.44 0.04 275);
+    background-clip: content-box;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 40%, transparent);
+  }
+
+  /* Accesibilidad: foco siempre visible */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Tarjeta con borde degradado sutil (patrón visual de Linear/Vercel) */
+  .gradient-border {
+    position: relative;
+    background:
+      linear-gradient(var(--color-card), var(--color-card)) padding-box,
+      linear-gradient(135deg, oklch(0.55 0.22 275 / 0.5), oklch(0.58 0.24 300 / 0.15) 40%, transparent 70%) border-box;
+    border: 1px solid transparent;
+  }
+
+  /* Texto con degradado de marca */
+  .text-gradient {
+    background: linear-gradient(100deg, oklch(0.85 0.14 285), oklch(0.72 0.2 300) 50%, oklch(0.8 0.14 210));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Fondo con rejilla y halo para las cabeceras */
+  .hero-glow {
+    background-image:
+      radial-gradient(60% 120% at 50% 0%, oklch(0.55 0.22 275 / 0.25) 0%, transparent 60%),
+      linear-gradient(to right, oklch(1 0 0 / 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(1 0 0 / 0.04) 1px, transparent 1px);
+    background-size: 100% 100%, 44px 44px, 44px 44px;
+  }
+
+  /* Ocultar la barra de desplazamiento manteniendo el scroll */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .animate-in-up {
+    animation: in-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

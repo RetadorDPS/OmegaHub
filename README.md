@@ -246,6 +246,33 @@ Todo se puede regenerar con `npm run db:reset` y verificar con
 > detrás de cualquier dominio o proxy inverso. Basta con definir
 > `NEXT_PUBLIC_APP_URL` cuando quieras forzar una URL canónica.
 
+### GitHub Pages (versión estática de demostración)
+
+El panel completo también se publica como **sitio estático** en GitHub Pages:
+es una exportación real de la aplicación (mismas páginas, mismos datos de
+demostración) sin backend.
+
+```bash
+npm run setup          # datos de demostración (20 productos, tiendas, anuncios)
+npm run build:pages    # exporta el sitio a docs/ (base path /OmegaHub)
+npm run preview:pages  # comprueba el resultado en http://localhost:4000/OmegaHub/
+```
+
+Para publicarlo hace falta, una sola vez:
+
+1. **Repositorio público** (o cuenta Pro/Team): GitHub Pages no existe en
+   repositorios privados con plan gratuito.
+2. **Settings → Pages → Source: «GitHub Actions»**. El flujo
+   `.github/workflows/pages.yml` publica en cada push a `main` y también admite
+   ejecución manual. Deja el sitio en `https://<usuario>.github.io/<repositorio>/`.
+
+Qué funciona en la versión estática: todas las pantallas (landing, precios,
+panel completo con datos reales, catálogo con filtros por URL, fichas de
+producto y de tienda, administración) y los gráficos. Qué necesita servidor: la
+IA, el guardado de favoritos, los trackers, el Shop Analyzer, los pagos y el
+alta de cuentas. Un aviso en la cabecera lo explica y las llamadas al backend
+responden con un mensaje claro en lugar de fallar en silencio.
+
 ### Railway (recomendado)
 
 ### Opción A · Railway (app + PostgreSQL + Redis) — recomendada
