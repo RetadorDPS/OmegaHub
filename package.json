@@ -22,14 +22,14 @@
     "db:reset": "npm run db:bootstrap -- --force && npm run db:seed",
     "db:provider": "node scripts/set-db-provider.mjs",
     "db:migration:postgres": "node scripts/generate-postgres-migration.mjs",
-    "setup": "npm run db:bootstrap && npm run db:seed",
+    "setup": "npm run db:generate && npm run db:bootstrap && npm run db:seed",
     "screenshots": "node scripts/screenshots.mjs",
     "chromium": "node scripts/preparar-chromium.mjs",
     "verify:pages": "node scripts/verify-pages.mjs",
     "verify:api": "node scripts/verify-api.mjs",
     "db:bootstrap": "node scripts/db-bootstrap.mjs",
     "db:verify": "node scripts/verify-db.mjs",
-    "db:setup": "npm run db:bootstrap && npm run db:seed && npm run db:verify"
+    "db:setup": "npm run db:generate && npm run db:bootstrap && npm run db:seed && npm run db:verify"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
