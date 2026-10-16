@@ -1,0 +1,116 @@
+name: Publicar en GitHub Pages
+
+# Construye la exportación estática de TrendHunter Pro y la publica en GitHub
+# Pages cada vez que cambia la rama principal.
+#
+# Requisitos (una sola vez):
+#   · El repositorio debe ser público, o la cuenta tener plan Pro/Team (GitHub
+#     Pages no existe en repositorios privados con plan gratuito).
+#   · En Settings → Pages, la fuente puede ser cualquiera de las dos:
+#       a) "Deploy from a branch" → rama `main` + carpeta `/docs`.
+#          El sitio lo publica GitHub Pages directamente desde la carpeta `docs/`
+#          que se versiona en el repositorio; el flujo solo comprueba que la
+#          exportación se construye sin errores.
+#       b) "GitHub Actions" → el flujo despliega el artefacto que genera.
+#
+# El flujo detecta el modo configurado y se adapta, así que nunca falla por
+# tener Pages configurado de una u otra forma.
+#
+# El sitio queda en https://<usuario>.github.io/<repositorio>/
+
+on:
+  push:
+    branches: [main, arena/fcb585f3-omegahub]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un despliegue a la vez; si llega otro, se espera sin cancelar la publicación.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construir:
+    name: Construir el sitio estático
+    runs-on: ubuntu-latest
+    outputs:
+      modo: ${{ steps.comprobar.outputs.modo }}
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v5
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Preparar la base de datos de demostración
+        # La exportación prerenderiza con datos reales: el seed crea los 20
+        # productos, las tiendas, los anuncios y las cuentas de acceso.
+        run: npm run db:setup
+        env:
+          DATABASE_PROVIDER: sqlite
+          DATABASE_URL: file:./prisma/trendhunter.db
+          AUTH_SECRET: secreto-solo-para-el-build-estatico
+
+      - name: Generar la exportación estática
+        run: npm run build:pages
+        env:
+          DATABASE_PROVIDER: sqlite
+          DATABASE_URL: file:./prisma/trendhunter.db
+          URL_APP_COMPLETA: ${{ github.server_url }}/${{ github.repository }}
+
+      - name: Comprobar cómo está configurado GitHub Pages
+        id: comprobar
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # `build_type` vale "workflow" (GitHub Actions) o "legacy" (rama).
+          configuracion=$(curl -sS \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages")
+          tipo=$(printf '%s' "$configuracion" | grep -o '"build_type"[[:space:]]*:[[:space:]]*"[a-z]*"' | cut -d'"' -f4)
+          if [ "$tipo" = "workflow" ]; then
+            echo "modo=acciones" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages usa GitHub Actions: se desplegará el artefacto generado."
+          else
+            echo "modo=rama" >> "$GITHUB_OUTPUT"
+            echo "GitHub Pages publica desde la rama (carpeta docs/): el sitio ya se actualiza con este push."
+          fi
+
+      - name: Subir el sitio
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Avisar si el sitio no cambia
+        if: steps.comprobar.outputs.modo == 'rama'
+        run: |
+          echo "::notice title=Publicación desde la rama::GitHub Pages publica la carpeta docs/ de la rama main; este flujo solo verifica la exportación."
+
+  publicar:
+    name: Publicar
+    # Solo tiene sentido cuando Pages está configurado con GitHub Actions; si
+    # publica desde la rama, ese mecanismo ya dejó el sitio actualizado.
+    if: needs.construir.outputs.modo == 'acciones'
+    needs: construir
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - name: Preparar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Desplegar en GitHub Pages
+        id: despliegue
+        uses: actions/deploy-pages@v4

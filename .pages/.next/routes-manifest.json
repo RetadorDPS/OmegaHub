@@ -1,0 +1,205 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "/OmegaHub",
+  "redirects": [
+    {
+      "source": "/OmegaHub",
+      "destination": "/OmegaHub/",
+      "basePath": false,
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^/OmegaHub$"
+    },
+    {
+      "source": "/:file((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/]+\\.\\w+)/",
+      "destination": "/:file",
+      "internal": true,
+      "priority": true,
+      "missing": [
+        {
+          "type": "header",
+          "key": "x-nextjs-data"
+        }
+      ],
+      "statusCode": 308,
+      "regex": "^(?:/((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/]+\\.\\w+))/$"
+    },
+    {
+      "source": "/:notfile((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/\\.]+)",
+      "destination": "/:notfile/",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?!\\.well-known(?:/.*)?)(?:[^/]+/)*[^/\\.]+))$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/dashboard/store-tracker/[id]",
+      "regex": "^/dashboard/store\\-tracker/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/dashboard/store\\-tracker/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/dashboard/winning-products/[id]",
+      "regex": "^/dashboard/winning\\-products/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/dashboard/winning\\-products/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/dashboard",
+      "regex": "^/dashboard(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard(?:/)?$"
+    },
+    {
+      "page": "/dashboard/admin",
+      "regex": "^/dashboard/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/admin(?:/)?$"
+    },
+    {
+      "page": "/dashboard/ads-spy",
+      "regex": "^/dashboard/ads\\-spy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/ads\\-spy(?:/)?$"
+    },
+    {
+      "page": "/dashboard/ai-studio",
+      "regex": "^/dashboard/ai\\-studio(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/ai\\-studio(?:/)?$"
+    },
+    {
+      "page": "/dashboard/product-tracker",
+      "regex": "^/dashboard/product\\-tracker(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/product\\-tracker(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings",
+      "regex": "^/dashboard/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings/billing",
+      "regex": "^/dashboard/settings/billing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings/billing(?:/)?$"
+    },
+    {
+      "page": "/dashboard/settings/notifications",
+      "regex": "^/dashboard/settings/notifications(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/settings/notifications(?:/)?$"
+    },
+    {
+      "page": "/dashboard/shop-analyzer",
+      "regex": "^/dashboard/shop\\-analyzer(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/shop\\-analyzer(?:/)?$"
+    },
+    {
+      "page": "/dashboard/store-tracker",
+      "regex": "^/dashboard/store\\-tracker(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/store\\-tracker(?:/)?$"
+    },
+    {
+      "page": "/dashboard/suppliers",
+      "regex": "^/dashboard/suppliers(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/suppliers(?:/)?$"
+    },
+    {
+      "page": "/dashboard/winning-products",
+      "regex": "^/dashboard/winning\\-products(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/winning\\-products(?:/)?$"
+    },
+    {
+      "page": "/forgot-password",
+      "regex": "^/forgot\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/forgot\\-password(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/pricing",
+      "regex": "^/pricing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pricing(?:/)?$"
+    },
+    {
+      "page": "/register",
+      "regex": "^/register(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/register(?:/)?$"
+    },
+    {
+      "page": "/reset-password",
+      "regex": "^/reset\\-password(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/reset\\-password(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

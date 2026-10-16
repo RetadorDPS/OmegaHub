@@ -1,0 +1,614 @@
+// ============================================================================
+//  TrendHunter Pro — Esquema de base de datos (Prisma 7 · Rust-free client)
+// ----------------------------------------------------------------------------
+//  Decisiones de diseño:
+//  · El proveedor por defecto es SQLite para permitir ejecución local inmediata
+//    (cero infraestructura). `npm run db:provider postgres` conmuta el esquema a
+//    PostgreSQL + driver adapter `pg` para producción sin tocar el código de la
+//    aplicación (ver docs/DEPLOYMENT.md).
+//  · Se usan columnas `Json` en lugar de listas escalares (`String[]`) porque
+//    SQLite no soporta listas y así el mismo esquema funciona en ambos motores.
+//  · La `url` de conexión NO vive aquí (Prisma 7): se define en prisma.config.ts
+//    y en los driver adapters de src/lib/prisma.ts.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+//  Enumeraciones del dominio
+// ---------------------------------------------------------------------------
+
+/// Rol del usuario dentro de la plataforma.
+enum Role {
+  USER
+  ADMIN
+}
+
+/// Plan de suscripción contratado.
+enum PlanType {
+  FREE
+  PRO
+  BUSINESS
+}
+
+/// Nivel de saturación competitiva de un producto.
+enum SaturationLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+/// Plataforma publicitaria de origen de un anuncio.
+enum AdPlatform {
+  FACEBOOK
+  TIKTOK
+  INSTAGRAM
+}
+
+/// Dirección de la tendencia calculada.
+enum TrendDirection {
+  RISING
+  STABLE
+  FALLING
+}
+
+/// Estado del ciclo de vida de un producto en el catálogo.
+enum ProductStatus {
+  ACTIVE
+  PENDING
+  ARCHIVED
+}
+
+/// Estado de un trabajo de scraping (Shop Analyzer).
+enum ScanStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+/// Motor utilizado para ejecutar un scraping.
+enum ScanEngine {
+  PLAYWRIGHT
+  SIMULATED
+}
+
+/// Tipos de notificación mostrados en la campana del dashboard.
+enum NotificationType {
+  NEW_PRODUCT
+  TREND_ALERT
+  STORE_CHANGE
+  PRICE_CHANGE
+  SYSTEM
+  SUBSCRIPTION
+}
+
+/// Tipos de cambio detectados en una tienda monitorizada (timeline).
+enum StoreChangeType {
+  NEW_PRODUCT
+  PRICE_CHANGE
+  SOLD_OUT
+  THEME_CHANGE
+  TRAFFIC_SPIKE
+  REVENUE_MILESTONE
+}
+
+/// Herramientas del AI Studio.
+enum AiToolType {
+  AD_COPY
+  VIDEO_SCRIPT
+  BUYER_PERSONA
+  STORE_NAMES
+  PRODUCT_ANALYSIS
+}
+
+/// Proveedor de IA utilizado en una generación.
+enum AiProvider {
+  OPENAI
+  GEMINI
+  SIMULATED
+}
+
+/// Estado de la suscripción sincronizada desde Stripe.
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
+/// Plataforma de un proveedor mayorista.
+enum SupplierPlatform {
+  ALIEXPRESS
+  CJ_DROPSHIPPING
+  ALIBABA
+  AMAZON
+  SPOCKET
+  ZENDROP
+}
+
+/// Motivo por el que se registra consumo de cuota (límites de plan).
+enum UsageAction {
+  PRODUCT_VIEW
+  AI_GENERATION
+  STORE_SCAN
+  EXPORT
+}
+
+// ---------------------------------------------------------------------------
+//  MÓDULO 1 · Usuarios, autenticación y suscripciones
+// ---------------------------------------------------------------------------
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  image          String?
+  passwordHash   String?
+  role           Role      @default(USER)
+  planType       PlanType  @default(FREE)
+  locale         String    @default("es")
+  // Datos de Stripe
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  planRenewsAt         DateTime?
+  planCancelAtPeriodEnd Boolean  @default(false)
+  // Cuotas diarias (los límites por plan se validan en src/lib/planLimits.ts)
+  quotaDayKey    String?
+  quotaUsedToday Int       @default(0)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts        Account[]
+  sessions        Session[]
+  savedProducts   SavedProduct[]
+  trackedStores   TrackedStore[]
+  trackedProducts TrackedProduct[]
+  notifications   AlertNotification[]
+  aiGenerations   AiGeneration[]
+  scanJobs        StoreScan[]
+  usageEvents     UsageEvent[]
+  subscriptions   Subscription[]
+  resetTokens     PasswordResetToken[]
+
+  @@index([planType])
+}
+
+/// Cuenta OAuth vinculada (requerido por Auth.js).
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// Sesión persistida (estrategia de base de datos).
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Token de verificación de email (Auth.js).
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Token de restablecimiento de contraseña.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expires   DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Historial de suscripciones sincronizadas desde Stripe.
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  stripeCustomerId      String
+  stripeSubscriptionId String             @unique
+  stripePriceId        String?
+  planType             PlanType
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Registro idempotente de eventos recibidos por el webhook de Stripe.
+model StripeEvent {
+  id          String   @id @default(cuid())
+  eventId     String   @unique
+  type        String
+  payload     Json?
+  processedAt DateTime @default(now())
+  error       String?
+}
+
+/// Consumo de cuota por acción (base del middleware de límites de plan).
+model UsageEvent {
+  id        String      @id @default(cuid())
+  userId    String
+  action    UsageAction
+  quantity  Int         @default(1)
+  dayKey    String
+  metadata  Json?
+  createdAt DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, dayKey, action])
+}
+
+// ---------------------------------------------------------------------------
+//  MÓDULO 2 · Catálogo de productos y métricas de tendencia
+// ---------------------------------------------------------------------------
+
+model Product {
+  id                 String          @id @default(cuid())
+  title              String
+  slug               String          @unique
+  description        String
+  mainImage          String
+  images             Json            @default("[]")
+  category           String
+  nicheTag           String
+  tags               Json            @default("[]")
+  costPrice          Float
+  suggestedSellPrice Float
+  estimatedMargin    Float
+  aliExpressUrl      String?
+  amazonUrl          String?
+  cjUrl              String?
+  supplierName       String?
+  trendScore         Int             @default(0)
+  velocityScore      Float           @default(0)
+  saturationLevel    SaturationLevel @default(MEDIUM)
+  trendDirection     TrendDirection  @default(STABLE)
+  isGoldenOpportunity Boolean        @default(false)
+  // Métricas agregadas (última foto conocida, útil para listados y filtros)
+  googleSearchVolume Int             @default(0)
+  tiktokViews        Int             @default(0)
+  metaAdsCount       Int             @default(0)
+  storesUsing        Int             @default(0)
+  estimatedMonthlyRevenue Float      @default(0)
+  estimatedUnitsSold Int             @default(0)
+  status             ProductStatus   @default(ACTIVE)
+  source             String          @default("seed")
+  countryAvailability Json           @default("[]")
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  metrics          TrendMetric[]
+  ads              Ad[]
+  savedBy          SavedProduct[]
+  trackedBy        TrackedProduct[]
+  aiGenerations    AiGeneration[]
+  storeChanges     StoreChange[]
+  storeListings    StoreProduct[]
+
+  @@index([category])
+  @@index([nicheTag])
+  @@index([trendScore])
+  @@index([saturationLevel])
+}
+
+/// Serie temporal diaria (30 días) usada por las gráficas de Recharts.
+model TrendMetric {
+  id                 String   @id @default(cuid())
+  productId          String
+  date               DateTime
+  googleSearchVolume Int      @default(0)
+  tiktokViews        Int      @default(0)
+  metaAdsCount       Int      @default(0)
+  shopifyStoresUsing Int      @default(0)
+  calculatedScore    Int      @default(0)
+  breakdown          Json?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, date])
+  @@index([date])
+}
+
+/// Anuncio detectado en las bibliotecas publicitarias (Ads Spy).
+model Ad {
+  id             String     @id @default(cuid())
+  platform       AdPlatform
+  productId      String?
+  mediaUrl       String
+  thumbnailUrl   String?
+  videoUrl       String?
+  headline       String
+  body           String
+  callToAction   String?
+  likes          Int        @default(0)
+  comments       Int        @default(0)
+  shares         Int        @default(0)
+  views          Int        @default(0)
+  daysActive     Int        @default(1)
+  countryTargets Json       @default("[]")
+  nicheTag       String
+  advertiserName String
+  adLibraryUrl   String?
+  engagementRate Float      @default(0)
+  isActive       Boolean    @default(true)
+  firstSeenAt    DateTime   @default(now())
+  lastSeenAt     DateTime   @default(now())
+  createdAt      DateTime   @default(now())
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([platform])
+  @@index([nicheTag])
+  @@index([daysActive])
+}
+
+// ---------------------------------------------------------------------------
+//  MÓDULO 3 · Tiendas Shopify, análisis y seguimiento
+// ---------------------------------------------------------------------------
+
+model Store {
+  id                      String    @id @default(cuid())
+  shopifyUrl              String    @unique
+  name                    String
+  domain                  String
+  niche                   String
+  country                 String    @default("US")
+  shopifyDetected         Boolean   @default(true)
+  themeName               String?
+  estimatedMonthlyRevenue Float     @default(0)
+  estimatedTraffic        Int       @default(0)
+  monthlyVisits           Int       @default(0)
+  avgOrderValue           Float     @default(0)
+  conversionRate          Float     @default(0)
+  productsCount           Int       @default(0)
+  topProducts             Json      @default("[]")
+  categories              Json      @default("[]")
+  appsDetected            Json      @default("[]")
+  socialProfiles          Json      @default("{}")
+  growthRate              Float     @default(0)
+  lastScannedAt           DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  trackedBy     TrackedStore[]
+  changes       StoreChange[]
+  scans         StoreScan[]
+  storeProducts StoreProduct[]
+
+  @@index([niche])
+  @@index([country])
+}
+
+/// Producto publicado dentro de una tienda analizada.
+model StoreProduct {
+  id          String   @id @default(cuid())
+  storeId     String
+  productId   String?
+  title       String
+  image       String?
+  price       Float    @default(0)
+  comparePrice Float?
+  currency    String   @default("USD")
+  salesRank   Int      @default(0)
+  estimatedUnitsSold Int @default(0)
+  productUrl  String?
+  detectedAt  DateTime @default(now())
+
+  store   Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([productId])
+}
+
+/// Ejecución de un análisis de tienda (Shop Analyzer) y su resultado.
+model StoreScan {
+  id            String     @id @default(cuid())
+  storeId       String?
+  userId        String
+  url           String
+  normalizedUrl String
+  status        ScanStatus @default(QUEUED)
+  engine        ScanEngine @default(SIMULATED)
+  progress      Int        @default(0)
+  result        Json?
+  errorMessage  String?
+  durationMs    Int?
+  jobId         String?
+  createdAt     DateTime   @default(now())
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  store Store? @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+/// Evento del timeline de cambios de una tienda ("lanzó 3 productos nuevos hoy").
+model StoreChange {
+  id           String          @id @default(cuid())
+  storeId      String
+  productId    String?
+  type         StoreChangeType
+  title        String
+  description  String
+  productTitle String?
+  imageUrl     String?
+  priceBefore  Float?
+  priceAfter   Float?
+  impactScore  Int             @default(0)
+  detectedAt   DateTime        @default(now())
+
+  store   Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, detectedAt])
+}
+
+// ---------------------------------------------------------------------------
+//  MÓDULO 4 · Guardados, trackers y notificaciones
+// ---------------------------------------------------------------------------
+
+model SavedProduct {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  notes     String?
+  folder    String   @default("Favoritos")
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+}
+
+model TrackedStore {
+  id                  String   @id @default(cuid())
+  userId              String
+  storeId             String
+  notificationEnabled Boolean  @default(true)
+  notes               String?
+  createdAt           DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storeId])
+  @@index([userId])
+}
+
+model TrackedProduct {
+  id                  String   @id @default(cuid())
+  userId              String
+  productId           String
+  notificationEnabled Boolean  @default(true)
+  targetTrendScore    Int      @default(80)
+  notes               String?
+  createdAt           DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+}
+
+model AlertNotification {
+  id         String           @id @default(cuid())
+  userId     String
+  type       NotificationType
+  title      String
+  message    String
+  read       Boolean          @default(false)
+  entityType String?
+  entityId   String?
+  actionUrl  String?
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+//  MÓDULO 5 · Proveedores e IA
+// ---------------------------------------------------------------------------
+
+/// Proveedor mayorista evaluado por el Suppliers Finder.
+model Supplier {
+  id               String           @id @default(cuid())
+  name             String
+  platform         SupplierPlatform
+  url              String
+  rating           Float            @default(4)
+  reviewCount      Int              @default(0)
+  minOrderValue     Float            @default(0)
+  shippingTimeDays Int              @default(12)
+  shippingCost      Float            @default(0)
+  location         String           @default("CN")
+  categories       Json             @default("[]")
+  verified         Boolean          @default(false)
+  tradeAssurance   Boolean          @default(false)
+  priceIndex       Float            @default(1)
+  notes            String?
+  createdAt        DateTime         @default(now())
+
+  @@index([platform])
+  @@index([rating])
+}
+
+/// Registro de cada generación del AI Studio (auditoría + historial de usuario).
+model AiGeneration {
+  id         String      @id @default(cuid())
+  userId     String
+  productId  String?
+  tool       AiToolType
+  provider   AiProvider
+  model      String
+  input      Json
+  output     Json
+  promptUsed String?
+  tokensUsed Int         @default(0)
+  latencyMs  Int         @default(0)
+  isFavorite Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([userId, tool])
+  @@index([createdAt])
+}

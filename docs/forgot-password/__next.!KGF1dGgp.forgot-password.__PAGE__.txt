@@ -1,0 +1,31 @@
+3:"$Sreact.fragment"
+4:"/OmegaHub/_next/static/chunks/42onvq6nokjl2.js"
+5:"/OmegaHub/_next/static/chunks/1mry0oilanjne.js"
+6:I[39756,["$4","$5"],"default"]
+7:I[37457,["$4","$5"],"default"]
+c:"$Sreact.suspense"
+d:"/OmegaHub/_next/static/chunks/1vvgxvs0x8-e6.js"
+e:"/OmegaHub/_next/static/chunks/1ysah-qnlpk1x.js"
+f:"/OmegaHub/_next/static/chunks/1lsrruh2-_nj7.js"
+10:"ForgotPasswordForm"
+11:I[9022,["$4","$5","$d","$e","$f"],"$10"]
+12:I[97367,["$4","$5"],"OutletBoundary"]
+15:"ViewportBoundary"
+16:I[97367,["$4","$5"],"$15"]
+17:"MetadataBoundary"
+18:I[97367,["$4","$5"],"$17"]
+9:X
+9:C
+a:X
+b:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$3","c",{"children":[["$","$c",null,{"fallback":["$","div",null,{"className":"animate-pulse bg-muted/60 h-[360px] w-full rounded-2xl"}],"children":["$","$L11",null,{}]}],[["$","script","script-0",{"src":"/OmegaHub/_next/static/chunks/1ysah-qnlpk1x.js","async":true}],["$","script","script-1",{"src":"/OmegaHub/_next/static/chunks/1lsrruh2-_nj7.js","async":true}]],["$","$L12",null,{"children":["$","$c",null,{"name":"Next.MetadataOutlet","children":"$@13"}]}]]}],"p":"$@14","v":null,"s":"$a"}}]]
+2:[["children",{"s":"forgot-password","h":64,"d":{"r":["$","$3","c",{"children":[null,["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}]}]]}],"p":"$@8","v":"$9","s":"$a"},"c":"$Qb"}]]
+1:[["children",{"s":"(auth)","h":32,"c":"$Q2"}]]
+0:{"t":{"t":{"s":"","h":80,"c":"$Q1"},"h":{"r":["$","$3","h",{"children":[null,["$","$L16",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","2",{"name":"theme-color","content":"#0b1020"}]]}],["$","$L18",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$c",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Recuperar contraseña · TrendHunter Pro"}],["$","meta","1",{"name":"description","content":"Recupera el acceso a tu cuenta de TrendHunter Pro."}],["$","meta","2",{"name":"author","content":"TrendHunter Pro"}],["$","meta","3",{"name":"keywords","content":"dropshipping,productos ganadores,investigación de productos,shopify,ads spy,tendencias ecommerce,trend score"}],["$","meta","4",{"name":"robots","content":"index, follow"}],["$","meta","5",{"property":"og:title","content":"TrendHunter Pro · Inteligencia de productos y tendencias"}],["$","meta","6",{"property":"og:description","content":"Descubre productos ganadores con datos de TikTok, Meta y Google. Analiza tiendas Shopify y genera tus creatividades con IA."}],["$","meta","7",{"property":"og:site_name","content":"TrendHunter Pro"}],["$","meta","8",{"property":"og:locale","content":"es_ES"}],["$","meta","9",{"property":"og:type","content":"website"}],["$","meta","10",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","11",{"name":"twitter:title","content":"TrendHunter Pro"}],["$","meta","12",{"name":"twitter:description","content":"Inteligencia de mercado para dropshippers y e-commerce."}]]}]}],null]}],null]}],"p":"$@19","v":null,"s":"$a"}},"a":"$@1a","u":"$@1b","b":"Tsdgse6WHPFDyftwbdxkR"}
+13:null
+1b:true
+a:300
+a:C
+1a:0
+8:"$undefined"
+19:"$undefined"
+14:"$undefined"

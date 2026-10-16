@@ -1,0 +1,461 @@
+/**
+ * Especificación declarativa de las tablas de TrendHunter Pro.
+ *
+ * Fuente única para generar el DDL de SQLite y de PostgreSQL
+ * (`scripts/db-bootstrap.mjs`) y para verificar que la base de datos real está
+ * alineada con `prisma/schema.prisma` (`scripts/verify-db.mjs`).
+ *
+ * Tipos lógicos:
+ *   text | int | float | bool | datetime | json | enum:<NombreEnum>
+ *
+ * Notas de diseño (paridad SQLite ↔ PostgreSQL):
+ *   · Las listas escalares se modelan como `json` (SQLite no soporta arrays).
+ *   · Los enums se materializan como TEXT en SQLite y como tipo ENUM nativo en
+ *     PostgreSQL (que es lo que Prisma genera al migrar con el motor nativo).
+ */
+
+/** @typedef {"text"|"int"|"float"|"bool"|"datetime"|"json"|`enum:${string}`} LogicalType */
+
+const now = { sql: "now" };
+const emptyJsonArray = { sql: "emptyJsonArray" };
+
+/** Valores válidos de cada enum (deben coincidir con prisma/schema.prisma). */
+export const ENUMS = {
+  Role: ["USER", "ADMIN"],
+  PlanType: ["FREE", "PRO", "BUSINESS"],
+  SaturationLevel: ["LOW", "MEDIUM", "HIGH"],
+  AdPlatform: ["FACEBOOK", "TIKTOK", "INSTAGRAM"],
+  TrendDirection: ["RISING", "STABLE", "FALLING"],
+  ProductStatus: ["ACTIVE", "PENDING", "ARCHIVED"],
+  ScanStatus: ["QUEUED", "RUNNING", "COMPLETED", "FAILED"],
+  ScanEngine: ["PLAYWRIGHT", "SIMULATED"],
+  NotificationType: [
+    "NEW_PRODUCT",
+    "TREND_ALERT",
+    "STORE_CHANGE",
+    "PRICE_CHANGE",
+    "SYSTEM",
+    "SUBSCRIPTION",
+  ],
+  StoreChangeType: [
+    "NEW_PRODUCT",
+    "PRICE_CHANGE",
+    "SOLD_OUT",
+    "THEME_CHANGE",
+    "TRAFFIC_SPIKE",
+    "REVENUE_MILESTONE",
+  ],
+  AiToolType: ["AD_COPY", "VIDEO_SCRIPT", "BUYER_PERSONA", "STORE_NAMES", "PRODUCT_ANALYSIS"],
+  AiProvider: ["OPENAI", "GEMINI", "SIMULATED"],
+  SubscriptionStatus: ["ACTIVE", "TRIALING", "PAST_DUE", "CANCELED", "INCOMPLETE"],
+  SupplierPlatform: ["ALIEXPRESS", "CJ_DROPSHIPPING", "ALIBABA", "AMAZON", "SPOCKET", "ZENDROP"],
+  UsageAction: ["PRODUCT_VIEW", "AI_GENERATION", "STORE_SCAN", "EXPORT"],
+};
+
+/**
+ * Definición de tablas. El orden respeta las dependencias de claves foráneas.
+ * @type {Array<{name: string, columns: Array<{name: string, type: LogicalType, nullable?: boolean, pk?: boolean, unique?: boolean, default?: {sql?: string, value?: string|number|boolean}|null, updatedAt?: boolean, references?: {table: string, column?: string, onDelete?: "Cascade"|"SetNull"|"Restrict"}}>, uniques?: string[][], indexes?: string[][]}>}
+ */
+export const TABLES = [
+  // ---------------------------------------------------------------- usuarios
+  {
+    name: "User",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "name", type: "text", nullable: true },
+      { name: "email", type: "text", unique: true },
+      { name: "emailVerified", type: "datetime", nullable: true },
+      { name: "image", type: "text", nullable: true },
+      { name: "passwordHash", type: "text", nullable: true },
+      { name: "role", type: "enum:Role", default: { value: "USER" } },
+      { name: "planType", type: "enum:PlanType", default: { value: "FREE" } },
+      { name: "locale", type: "text", default: { value: "es" } },
+      { name: "stripeCustomerId", type: "text", unique: true, nullable: true },
+      { name: "stripeSubscriptionId", type: "text", nullable: true },
+      { name: "stripePriceId", type: "text", nullable: true },
+      { name: "planRenewsAt", type: "datetime", nullable: true },
+      { name: "planCancelAtPeriodEnd", type: "bool", default: { value: false } },
+      { name: "quotaDayKey", type: "text", nullable: true },
+      { name: "quotaUsedToday", type: "int", default: { value: 0 } },
+      { name: "lastLoginAt", type: "datetime", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+      { name: "updatedAt", type: "datetime", default: now, updatedAt: true },
+    ],
+    indexes: [["planType"]],
+  },
+  {
+    name: "Account",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "type", type: "text" },
+      { name: "provider", type: "text" },
+      { name: "providerAccountId", type: "text" },
+      { name: "refresh_token", type: "text", nullable: true },
+      { name: "access_token", type: "text", nullable: true },
+      { name: "expires_at", type: "int", nullable: true },
+      { name: "token_type", type: "text", nullable: true },
+      { name: "scope", type: "text", nullable: true },
+      { name: "id_token", type: "text", nullable: true },
+      { name: "session_state", type: "text", nullable: true },
+    ],
+    uniques: [["provider", "providerAccountId"]],
+    indexes: [["userId"]],
+  },
+  {
+    name: "Session",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "sessionToken", type: "text", unique: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "expires", type: "datetime" },
+    ],
+    indexes: [["userId"]],
+  },
+  {
+    name: "VerificationToken",
+    columns: [
+      { name: "identifier", type: "text" },
+      { name: "token", type: "text", unique: true },
+      { name: "expires", type: "datetime" },
+    ],
+    uniques: [["identifier", "token"]],
+  },
+  {
+    name: "PasswordResetToken",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "token", type: "text", unique: true },
+      { name: "expires", type: "datetime" },
+      { name: "usedAt", type: "datetime", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    indexes: [["userId"]],
+  },
+  {
+    name: "Subscription",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "stripeCustomerId", type: "text" },
+      { name: "stripeSubscriptionId", type: "text", unique: true },
+      { name: "stripePriceId", type: "text", nullable: true },
+      { name: "planType", type: "enum:PlanType" },
+      { name: "status", type: "enum:SubscriptionStatus", default: { value: "ACTIVE" } },
+      { name: "currentPeriodEnd", type: "datetime", nullable: true },
+      { name: "cancelAtPeriodEnd", type: "bool", default: { value: false } },
+      { name: "createdAt", type: "datetime", default: now },
+      { name: "updatedAt", type: "datetime", default: now, updatedAt: true },
+    ],
+    indexes: [["userId"]],
+  },
+  {
+    name: "StripeEvent",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "eventId", type: "text", unique: true },
+      { name: "type", type: "text" },
+      { name: "payload", type: "json", nullable: true },
+      { name: "processedAt", type: "datetime", default: now },
+      { name: "error", type: "text", nullable: true },
+    ],
+  },
+  {
+    name: "UsageEvent",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "action", type: "enum:UsageAction" },
+      { name: "quantity", type: "int", default: { value: 1 } },
+      { name: "dayKey", type: "text" },
+      { name: "metadata", type: "json", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    indexes: [["userId", "dayKey", "action"]],
+  },
+
+  // ---------------------------------------------------------------- catálogo
+  {
+    name: "Product",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "title", type: "text" },
+      { name: "slug", type: "text", unique: true },
+      { name: "description", type: "text" },
+      { name: "mainImage", type: "text" },
+      { name: "images", type: "json", default: emptyJsonArray },
+      { name: "category", type: "text" },
+      { name: "nicheTag", type: "text" },
+      { name: "tags", type: "json", default: emptyJsonArray },
+      { name: "costPrice", type: "float" },
+      { name: "suggestedSellPrice", type: "float" },
+      { name: "estimatedMargin", type: "float" },
+      { name: "aliExpressUrl", type: "text", nullable: true },
+      { name: "amazonUrl", type: "text", nullable: true },
+      { name: "cjUrl", type: "text", nullable: true },
+      { name: "supplierName", type: "text", nullable: true },
+      { name: "trendScore", type: "int", default: { value: 0 } },
+      { name: "velocityScore", type: "float", default: { value: 0 } },
+      { name: "saturationLevel", type: "enum:SaturationLevel", default: { value: "MEDIUM" } },
+      { name: "trendDirection", type: "enum:TrendDirection", default: { value: "STABLE" } },
+      { name: "isGoldenOpportunity", type: "bool", default: { value: false } },
+      { name: "googleSearchVolume", type: "int", default: { value: 0 } },
+      { name: "tiktokViews", type: "int", default: { value: 0 } },
+      { name: "metaAdsCount", type: "int", default: { value: 0 } },
+      { name: "storesUsing", type: "int", default: { value: 0 } },
+      { name: "estimatedMonthlyRevenue", type: "float", default: { value: 0 } },
+      { name: "estimatedUnitsSold", type: "int", default: { value: 0 } },
+      { name: "status", type: "enum:ProductStatus", default: { value: "ACTIVE" } },
+      { name: "source", type: "text", default: { value: "seed" } },
+      { name: "countryAvailability", type: "json", default: emptyJsonArray },
+      { name: "createdAt", type: "datetime", default: now },
+      { name: "updatedAt", type: "datetime", default: now, updatedAt: true },
+    ],
+    indexes: [["category"], ["nicheTag"], ["trendScore"], ["saturationLevel"]],
+  },
+  {
+    name: "TrendMetric",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "productId", type: "text", references: { table: "Product", onDelete: "Cascade" } },
+      { name: "date", type: "datetime" },
+      { name: "googleSearchVolume", type: "int", default: { value: 0 } },
+      { name: "tiktokViews", type: "int", default: { value: 0 } },
+      { name: "metaAdsCount", type: "int", default: { value: 0 } },
+      { name: "shopifyStoresUsing", type: "int", default: { value: 0 } },
+      { name: "calculatedScore", type: "int", default: { value: 0 } },
+      { name: "breakdown", type: "json", nullable: true },
+    ],
+    uniques: [["productId", "date"]],
+    indexes: [["date"]],
+  },
+  {
+    name: "Ad",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "platform", type: "enum:AdPlatform" },
+      { name: "productId", type: "text", nullable: true, references: { table: "Product", onDelete: "SetNull" } },
+      { name: "mediaUrl", type: "text" },
+      { name: "thumbnailUrl", type: "text", nullable: true },
+      { name: "videoUrl", type: "text", nullable: true },
+      { name: "headline", type: "text" },
+      { name: "body", type: "text" },
+      { name: "callToAction", type: "text", nullable: true },
+      { name: "likes", type: "int", default: { value: 0 } },
+      { name: "comments", type: "int", default: { value: 0 } },
+      { name: "shares", type: "int", default: { value: 0 } },
+      { name: "views", type: "int", default: { value: 0 } },
+      { name: "daysActive", type: "int", default: { value: 1 } },
+      { name: "countryTargets", type: "json", default: emptyJsonArray },
+      { name: "nicheTag", type: "text" },
+      { name: "advertiserName", type: "text" },
+      { name: "adLibraryUrl", type: "text", nullable: true },
+      { name: "engagementRate", type: "float", default: { value: 0 } },
+      { name: "isActive", type: "bool", default: { value: true } },
+      { name: "firstSeenAt", type: "datetime", default: now },
+      { name: "lastSeenAt", type: "datetime", default: now },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    indexes: [["platform"], ["nicheTag"], ["daysActive"]],
+  },
+
+  // ----------------------------------------------------------------- tiendas
+  {
+    name: "Store",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "shopifyUrl", type: "text", unique: true },
+      { name: "name", type: "text" },
+      { name: "domain", type: "text" },
+      { name: "niche", type: "text" },
+      { name: "country", type: "text", default: { value: "US" } },
+      { name: "shopifyDetected", type: "bool", default: { value: true } },
+      { name: "themeName", type: "text", nullable: true },
+      { name: "estimatedMonthlyRevenue", type: "float", default: { value: 0 } },
+      { name: "estimatedTraffic", type: "int", default: { value: 0 } },
+      { name: "monthlyVisits", type: "int", default: { value: 0 } },
+      { name: "avgOrderValue", type: "float", default: { value: 0 } },
+      { name: "conversionRate", type: "float", default: { value: 0 } },
+      { name: "productsCount", type: "int", default: { value: 0 } },
+      { name: "topProducts", type: "json", default: emptyJsonArray },
+      { name: "categories", type: "json", default: emptyJsonArray },
+      { name: "appsDetected", type: "json", default: emptyJsonArray },
+      { name: "socialProfiles", type: "json", default: emptyJsonArray },
+      { name: "growthRate", type: "float", default: { value: 0 } },
+      { name: "lastScannedAt", type: "datetime", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+      { name: "updatedAt", type: "datetime", default: now, updatedAt: true },
+    ],
+    indexes: [["niche"], ["country"]],
+  },
+  {
+    name: "StoreProduct",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "storeId", type: "text", references: { table: "Store", onDelete: "Cascade" } },
+      { name: "productId", type: "text", nullable: true, references: { table: "Product", onDelete: "SetNull" } },
+      { name: "title", type: "text" },
+      { name: "image", type: "text", nullable: true },
+      { name: "price", type: "float", default: { value: 0 } },
+      { name: "comparePrice", type: "float", nullable: true },
+      { name: "currency", type: "text", default: { value: "USD" } },
+      { name: "salesRank", type: "int", default: { value: 0 } },
+      { name: "estimatedUnitsSold", type: "int", default: { value: 0 } },
+      { name: "productUrl", type: "text", nullable: true },
+      { name: "detectedAt", type: "datetime", default: now },
+    ],
+    indexes: [["storeId"], ["productId"]],
+  },
+  {
+    name: "StoreScan",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "storeId", type: "text", nullable: true, references: { table: "Store", onDelete: "SetNull" } },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "url", type: "text" },
+      { name: "normalizedUrl", type: "text" },
+      { name: "status", type: "enum:ScanStatus", default: { value: "QUEUED" } },
+      { name: "engine", type: "enum:ScanEngine", default: { value: "SIMULATED" } },
+      { name: "progress", type: "int", default: { value: 0 } },
+      { name: "result", type: "json", nullable: true },
+      { name: "errorMessage", type: "text", nullable: true },
+      { name: "durationMs", type: "int", nullable: true },
+      { name: "jobId", type: "text", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+      { name: "startedAt", type: "datetime", nullable: true },
+      { name: "finishedAt", type: "datetime", nullable: true },
+    ],
+    indexes: [["userId", "status"]],
+  },
+  {
+    name: "StoreChange",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "storeId", type: "text", references: { table: "Store", onDelete: "Cascade" } },
+      { name: "productId", type: "text", nullable: true, references: { table: "Product", onDelete: "SetNull" } },
+      { name: "type", type: "enum:StoreChangeType" },
+      { name: "title", type: "text" },
+      { name: "description", type: "text" },
+      { name: "productTitle", type: "text", nullable: true },
+      { name: "imageUrl", type: "text", nullable: true },
+      { name: "priceBefore", type: "float", nullable: true },
+      { name: "priceAfter", type: "float", nullable: true },
+      { name: "impactScore", type: "int", default: { value: 0 } },
+      { name: "detectedAt", type: "datetime", default: now },
+    ],
+    indexes: [["storeId", "detectedAt"]],
+  },
+
+  // --------------------------------------------- guardados, trackers, alertas
+  {
+    name: "SavedProduct",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "productId", type: "text", references: { table: "Product", onDelete: "Cascade" } },
+      { name: "notes", type: "text", nullable: true },
+      { name: "folder", type: "text", default: { value: "Favoritos" } },
+      { name: "priority", type: "int", default: { value: 0 } },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    uniques: [["userId", "productId"]],
+    indexes: [["userId"]],
+  },
+  {
+    name: "TrackedStore",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "storeId", type: "text", references: { table: "Store", onDelete: "Cascade" } },
+      { name: "notificationEnabled", type: "bool", default: { value: true } },
+      { name: "notes", type: "text", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    uniques: [["userId", "storeId"]],
+    indexes: [["userId"]],
+  },
+  {
+    name: "TrackedProduct",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "productId", type: "text", references: { table: "Product", onDelete: "Cascade" } },
+      { name: "notificationEnabled", type: "bool", default: { value: true } },
+      { name: "targetTrendScore", type: "int", default: { value: 80 } },
+      { name: "notes", type: "text", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    uniques: [["userId", "productId"]],
+    indexes: [["userId"]],
+  },
+  {
+    name: "AlertNotification",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "type", type: "enum:NotificationType" },
+      { name: "title", type: "text" },
+      { name: "message", type: "text" },
+      { name: "read", type: "bool", default: { value: false } },
+      { name: "entityType", type: "text", nullable: true },
+      { name: "entityId", type: "text", nullable: true },
+      { name: "actionUrl", type: "text", nullable: true },
+      { name: "metadata", type: "json", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    indexes: [["userId", "read"], ["createdAt"]],
+  },
+
+  // ------------------------------------------------ proveedores e IA
+  {
+    name: "Supplier",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "name", type: "text" },
+      { name: "platform", type: "enum:SupplierPlatform" },
+      { name: "url", type: "text" },
+      { name: "rating", type: "float", default: { value: 4 } },
+      { name: "reviewCount", type: "int", default: { value: 0 } },
+      { name: "minOrderValue", type: "float", default: { value: 0 } },
+      { name: "shippingTimeDays", type: "int", default: { value: 12 } },
+      { name: "shippingCost", type: "float", default: { value: 0 } },
+      { name: "location", type: "text", default: { value: "CN" } },
+      { name: "categories", type: "json", default: emptyJsonArray },
+      { name: "verified", type: "bool", default: { value: false } },
+      { name: "tradeAssurance", type: "bool", default: { value: false } },
+      { name: "priceIndex", type: "float", default: { value: 1 } },
+      { name: "notes", type: "text", nullable: true },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    indexes: [["platform"], ["rating"]],
+  },
+  {
+    name: "AiGeneration",
+    columns: [
+      { name: "id", type: "text", pk: true },
+      { name: "userId", type: "text", references: { table: "User", onDelete: "Cascade" } },
+      { name: "productId", type: "text", nullable: true, references: { table: "Product", onDelete: "SetNull" } },
+      { name: "tool", type: "enum:AiToolType" },
+      { name: "provider", type: "enum:AiProvider" },
+      { name: "model", type: "text" },
+      { name: "input", type: "json" },
+      { name: "output", type: "json" },
+      { name: "promptUsed", type: "text", nullable: true },
+      { name: "tokensUsed", type: "int", default: { value: 0 } },
+      { name: "latencyMs", type: "int", default: { value: 0 } },
+      { name: "isFavorite", type: "bool", default: { value: false } },
+      { name: "createdAt", type: "datetime", default: now },
+    ],
+    indexes: [["userId", "tool"], ["createdAt"]],
+  },
+];
+
+/** Nombres de índice/constraint siguiendo las convenciones de Prisma. */
+export function indexName(table, columns, kind) {
+  const suffix = kind === "unique" ? "key" : "idx";
+  return `${table}_${columns.join("_")}_${suffix}`;
+}
+
+/** Tablas con `@@unique` compuesto que no son índices de una sola columna. */
+export const FK_ON_DELETE = { Cascade: "CASCADE", SetNull: "SET NULL", Restrict: "RESTRICT" };
