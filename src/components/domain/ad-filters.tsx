@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TARGET_COUNTRIES } from "@/lib/constants";
 import { cn, formatCompactNumber } from "@/lib/utils";
-import { PLATFORM_LABELS, type AdPlatform } from "@/types";
 
 interface AdFiltersBarProps {
   nichos: string[];

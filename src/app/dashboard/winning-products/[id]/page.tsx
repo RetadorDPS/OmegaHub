@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { COUNTRY_FLAGS, COUNTRY_NAMES } from "@/lib/constants";
-import { cn, formatCompactNumber, formatCurrency, formatCurrencyPrecise, formatPercent, formatRelativeTime } from "@/lib/utils";
+import { formatCompactNumber, formatCurrency, formatCurrencyPrecise, formatPercent, formatRelativeTime } from "@/lib/utils";
 import { PLATFORM_LABELS, TREND_DIRECTION_LABELS } from "@/types";
 
 interface PageProps {
@@ -222,11 +222,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   </CardContent>
                 </Card>
 
-                <ProfitCalculator
-                  costPrice={product.costPrice}
-                  sellPrice={product.suggestedSellPrice}
-                  productId={product.id}
-                />
+                <ProfitCalculator costPrice={product.costPrice} sellPrice={product.suggestedSellPrice} />
               </div>
             </TabsContent>
 

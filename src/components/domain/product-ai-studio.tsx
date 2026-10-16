@@ -7,7 +7,6 @@ import {
   Copy,
   Check,
   Lightbulb,
-  Loader2,
   MessagesSquare,
   Sparkles,
   Store,

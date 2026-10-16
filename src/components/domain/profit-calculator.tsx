@@ -12,8 +12,6 @@ import { cn, formatCurrencyPrecise, formatPercent } from "@/lib/utils";
 interface ProfitCalculatorProps {
   costPrice: number;
   sellPrice: number;
-  /** Producto asociado (se registra en el cálculo si se indica). */
-  productId?: string;
   className?: string;
 }
 
@@ -24,7 +22,7 @@ interface ProfitCalculatorProps {
  * publicitario por venta), el ROAS de equilibrio y la proyección mensual según
  * el volumen de ventas estimado y la tasa de conversión.
  */
-export function ProfitCalculator({ costPrice, sellPrice, productId, className }: ProfitCalculatorProps) {
+export function ProfitCalculator({ costPrice, sellPrice, className }: ProfitCalculatorProps) {
   const [coste, setCoste] = useState(costPrice);
   const [precio, setPrecio] = useState(sellPrice);
   const [cpa, setCpa] = useState<number[]>([Math.max(4, Math.round(sellPrice * 0.28))]);

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import {
   Brain,
   Check,
@@ -24,7 +23,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { AiToolType, ProductDTO } from "@/types";
@@ -94,18 +92,6 @@ const HERRAMIENTAS: Array<{
   },
 ];
 
-/** Extracto legible del resultado JSON de una generación. */
-function extraerTexto(datos: unknown): string {
-  if (Array.isArray(datos)) {
-    const primero = datos[0] as Record<string, unknown> | undefined;
-    if (!primero) return "Sin resultados";
-    return String(primero.headline ?? primero.name ?? primero.title ?? primero.hook ?? JSON.stringify(primero).slice(0, 120));
-  }
-  const objeto = datos as Record<string, unknown>;
-  const valor = objeto.headline ?? objeto.name ?? objeto.concept ?? objeto.resumen ?? objeto.title;
-  if (typeof valor === "string") return valor;
-  return JSON.stringify(datos).slice(0, 160);
-}
 
 /** Extrae la URL de la imagen generada (si el proveedor devolvió una). */
 function extraerImagen(datos: unknown): string | null {
@@ -344,6 +330,24 @@ export function AiStudio({ productos, historial, proveedor, uso }: AiStudioProps
                   </Select>
                 </div>
               </>
+            )}
+
+            {(herramienta === "VIDEO_SCRIPT" || herramienta === "AD_COPY") && (
+              <div className="space-y-2">
+                <Label>Estilo creativo</Label>
+                <Select value={estilo} onValueChange={setEstilo}>
+                  <SelectTrigger aria-label="Estilo creativo">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="moderno">Moderno y minimalista</SelectItem>
+                    <SelectItem value="casero">Casero y cercano (UGC)</SelectItem>
+                    <SelectItem value="cine">Cinemático y premium</SelectItem>
+                    <SelectItem value="dinamico">Dinámico con texto en pantalla</SelectItem>
+                    <SelectItem value="testimonial">Testimonial de clientes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             )}
 
             {herramienta === "VIDEO_SCRIPT" && (
