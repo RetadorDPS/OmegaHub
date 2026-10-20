@@ -7,6 +7,11 @@ import org.json.JSONObject
 enum class AgentActionType(val wire: String) {
     TAP("tap"), SWIPE("swipe"), TYPE("type"), SCROLL("scroll"), WAIT("wait"),
     OPEN_APP("open_app"), READ("read"), VERIFY("verify"),
+    // Navegación del sistema: sin ellas el agente no sabe salir de una pantalla
+    // equivocada (back) ni reiniciar un flujo (home).
+    BACK("back"), HOME("home"),
+    // Gestos finos que faltaban y que muchas apps exigen:
+    LONG_PRESS("long_press"), CLEAR_TEXT("clear_text"), PRESS_ENTER("press_enter"),
     REQUEST_CONFIRMATION("request_confirmation"), DONE("done"), UNKNOWN("unknown");
 
     companion object {

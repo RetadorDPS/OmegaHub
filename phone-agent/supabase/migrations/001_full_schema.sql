@@ -87,7 +87,7 @@ create table if not exists public.app_drivers (
   base_driver_key   text,                        -- driver del que hereda (clones)
   enabled           boolean not null default true,   -- activo en el sistema
   authorized        boolean not null default false,  -- autorizado por el usuario
-  allowed_actions   jsonb not null default '["open_app","tap","swipe","scroll","type","read","verify","wait"]'::jsonb,
+  allowed_actions   jsonb not null default '["open_app","tap","swipe","scroll","type","read","verify","wait","back","home","long_press","clear_text","press_enter"]'::jsonb,
   detection_rules   jsonb not null default '{}'::jsonb,
   ui_map            jsonb not null default '{}'::jsonb,
   metadata          jsonb not null default '{}'::jsonb,
@@ -361,9 +361,10 @@ begin
     p_user_id, 'claude', 'Claude', 'com.anthropic.claude',
     '["com.anthropic.claude"]'::jsonb,
     false, null, true, false,
-    '["open_app","tap","swipe","scroll","type","read","verify","wait"]'::jsonb,
+    '["open_app","tap","swipe","scroll","type","read","verify","wait","back","home","long_press","clear_text","press_enter"]'::jsonb,
     '{"strategy":"exact_package","known_packages":["com.anthropic.claude"]}'::jsonb,
     '{
+       "app_kind": "assistant",
        "input_hints": ["Message Claude", "Escribe un mensaje", "How can I help you?"],
        "send_button_descriptions": ["Send message", "Enviar mensaje", "Send"],
        "new_chat_texts": ["New chat", "Nuevo chat"],
@@ -384,9 +385,10 @@ begin
     p_user_id, 'claude_dual', 'Claude Dual', 'com.anthropic.claude',
     '["com.anthropic.claude", "%.dual", "%.clone", "%dual%claude%", "%claude%dual%", "com.lbe.parallel%", "com.parallel.space%", "com.excelliance.multiaccount%", "com.dualspace%"]'::jsonb,
     true, 'claude', true, false,
-    '["open_app","tap","swipe","scroll","type","read","verify","wait"]'::jsonb,
+    '["open_app","tap","swipe","scroll","type","read","verify","wait","back","home","long_press","clear_text","press_enter"]'::jsonb,
     '{"strategy":"dynamic","note":"La app clonada comparte package o vive en un perfil de usuario secundario (Dual Messenger / Parallel Space). Android la resuelve con DualAppDetector: perfiles de usuario + LauncherApps + patrones de package.","profile_strategies":["secondary_user_profile","work_profile","clone_package_pattern"]}'::jsonb,
     '{
+       "app_kind": "assistant",
        "input_hints": ["Message Claude", "Escribe un mensaje", "How can I help you?"],
        "send_button_descriptions": ["Send message", "Enviar mensaje", "Send"],
        "new_chat_texts": ["New chat", "Nuevo chat"],
@@ -407,9 +409,10 @@ begin
     p_user_id, 'chatgpt', 'ChatGPT', 'com.openai.chatgpt',
     '["com.openai.chatgpt"]'::jsonb,
     false, null, true, false,
-    '["open_app","tap","swipe","scroll","type","read","verify","wait"]'::jsonb,
+    '["open_app","tap","swipe","scroll","type","read","verify","wait","back","home","long_press","clear_text","press_enter"]'::jsonb,
     '{"strategy":"exact_package","known_packages":["com.openai.chatgpt"]}'::jsonb,
     '{
+       "app_kind": "assistant",
        "input_hints": ["Message ChatGPT", "Pregunta lo que sea", "Ask anything"],
        "send_button_descriptions": ["Send message", "Enviar mensaje", "Send prompt"],
        "new_chat_texts": ["New chat", "Nuevo chat"],
@@ -430,9 +433,10 @@ begin
     p_user_id, 'whatsapp', 'WhatsApp', 'com.whatsapp',
     '["com.whatsapp", "com.whatsapp.w4b"]'::jsonb,
     false, null, true, false,
-    '["open_app","tap","swipe","scroll","type","read","verify","wait"]'::jsonb,
+    '["open_app","tap","swipe","scroll","type","read","verify","wait","back","home","long_press","clear_text","press_enter"]'::jsonb,
     '{"strategy":"exact_package","known_packages":["com.whatsapp","com.whatsapp.w4b"]}'::jsonb,
     '{
+       "app_kind": "messaging",
        "input_hints": ["Message", "Mensaje", "Escribe un mensaje"],
        "send_button_descriptions": ["Send", "Enviar"],
        "search_texts": ["Search", "Buscar", "Search name or number"],

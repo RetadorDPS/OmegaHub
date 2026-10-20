@@ -13,7 +13,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const ALLOWED_ACTIONS = ["tap","swipe","type","scroll","wait","open_app","read","verify","request_confirmation","done"];
+const ALLOWED_ACTIONS = ["tap","swipe","type","scroll","wait","open_app","read","verify","back","home","long_press","clear_text","press_enter","request_confirmation","done"];
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 function json(body: unknown, status = 200): Response {
@@ -119,7 +119,7 @@ Deno.serve(async (req: Request) => {
       ? `\nBLOQUE PROYECTO:\nProyecto activo: ${project.name}. Fase: ${project.phase}. Último avance: ${project.summary || "sin resumen todavía"}. Pendientes: ${JSON.stringify(project.pending_items ?? [])}.`
       : "\nBLOQUE PROYECTO: no hay proyecto activo. Trabaja solo con el comando actual.";
     const system = `Eres Phone Agent. Controlas un teléfono Android por instrucciones de voz. Solo interactúas con apps autorizadas: ${authorized.map((d) => d.display_name).join(", ")}. Si ves una app no autorizada, NO la toques: devuelve action.type='verify' describiéndolo. Verifica cada acción antes de avanzar. Distingue entre lo que una app DICE y lo que puedes VERIFICAR en pantalla. Responde SIEMPRE con un único objeto JSON, sin texto fuera del JSON, con este formato exacto:
-{"screen_analysis":"qué ves","current_app":"driver_key de la app identificada o 'desconocida'","action":{"type":"tap|swipe|type|scroll|wait|open_app|read|verify|request_confirmation|done","params":{},"expected_result":"qué debería cambiar"},"confidence":0.0,"requires_confirmation":false,"task_progress":"paso X de Y"}
+{"screen_analysis":"qué ves","current_app":"driver_key de la app identificada o 'desconocida'","action":{"type":"tap|swipe|type|scroll|wait|open_app|read|verify|back|home|long_press|clear_text|press_enter|request_confirmation|done","params":{},"expected_result":"qué debería cambiar"},"confidence":0.0,"requires_confirmation":false,"task_progress":"paso X de Y"}
 
 BLOQUE APPS AUTORIZADAS (drivers instalados en el teléfono):
 - ${appsList}
@@ -129,7 +129,13 @@ Reglas de params por tipo de acción:
 - tap: {"x":540,"y":1200} en píxeles sobre una pantalla de referencia 1080px de ancho, o {"target_text":"Chats"} para tocar por texto visible.
 - type: {"text":"...","target_hint":"Message"} (target_hint = placeholder del campo si lo conoces por el ui_map)
 - swipe: {"direction":"up|down|left|right"} · scroll: {"direction":"down"}
+- long_press: {"target_text":"..."} o {"x":540,"y":1200} (menús contextuales, seleccionar texto)
+- clear_text: {"target_hint":"..."} (vacía el campo antes de reescribir)
+- press_enter: {} (acción del teclado: buscar/avanzar. OJO: en apps de mensajería ENVÍA el mensaje)
+- back: {} para volver a la pantalla anterior · home: {} para ir al inicio del teléfono
 - wait: {"ms":1500} · read/verify: {} · done: {"summary":"resultado final para contarle al usuario"}
+
+Regla de recuperación: si tras una acción la pantalla no es la esperada, usa back (no repitas el mismo tap). Si te pierdes del todo, usa home y vuelve a empezar con open_app.
 Planifica paso a paso: devuelve SOLO la siguiente acción. Máximo ${maxSteps} pasos en total.
 ${projectBlock}
 BLOQUE AUTONOMÍA: ${autonomyBlock}`;

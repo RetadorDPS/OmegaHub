@@ -7,11 +7,13 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlinx.coroutines.delay
 
 /** Nodo del árbol de UI ya convertido a dato plano (sin referencias vivas). */
 data class UiNodeInfo(
@@ -177,6 +179,102 @@ class AccessibilityController {
 
     fun goBack(): Boolean = service?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK) ?: false
     fun goHome(): Boolean = service?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME) ?: false
+
+    // ── Gestos finos ───────────────────────────────────────────────────────
+
+    /** Pulsación larga sobre un texto visible, o en coordenadas si no se da texto. */
+    fun longPressOnText(text: String, durationMs: Long = 650L): Boolean {
+        val svc = service ?: return false
+        val root = svc.rootInActiveWindow ?: return false
+        val node = findFirst(root) {
+            contains(it.text?.toString(), text) || contains(it.contentDescription?.toString(), text)
+        } ?: return false.also { Log.w(TAG, "long_press: no se encontró «$text»") }
+        if (node.isLongClickable && node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK)) return true
+        val rect = Rect().also { node.getBoundsInScreen(it) }
+        return longPressAt(rect.centerX(), rect.centerY(), durationMs)
+    }
+
+    fun longPressAt(x: Int, y: Int, durationMs: Long = 650L): Boolean {
+        val svc = service ?: return false
+        val path = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs)).build()
+        return svc.dispatchGesture(gesture, null, null)
+    }
+
+    /** Vacía el campo editable (con foco, o el que coincida con el hint). */
+    fun clearText(hint: String = ""): Boolean {
+        val svc = service ?: return false
+        val root = svc.rootInActiveWindow ?: return false
+        val editables = mutableListOf<AccessibilityNodeInfo>()
+        collect(root) { if (it.isEditable && it.isVisibleToUser) editables.add(it) }
+        val target = editables.firstOrNull { it.isFocused }
+            ?: editables.firstOrNull { n ->
+                hint.isNotBlank() && (contains(n.text?.toString(), hint) ||
+                    contains(n.contentDescription?.toString(), hint) || contains(n.hintText?.toString(), hint))
+            }
+            ?: editables.firstOrNull()
+            ?: return false.also { Log.w(TAG, "clear_text: no hay campo editable visible") }
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "")
+        }
+        return target.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+    }
+
+    /**
+     * Pulsa ENTER/IR del teclado sobre el campo con foco. Muchísimos flujos
+     * (buscar un contacto, enviar una búsqueda) solo avanzan con esta acción de
+     * IME, no con un botón visible: sin ella el agente se queda atascado.
+     */
+    fun pressEnter(): Boolean {
+        val svc = service ?: return false
+        val root = svc.rootInActiveWindow ?: return false
+        val focused = findFirst(root) { it.isFocused && it.isEditable }
+            ?: findFirst(root) { it.isEditable }
+            ?: return false.also { Log.w(TAG, "press_enter: no hay campo editable con foco") }
+        // ACTION_IME_ENTER es API 30 y nuestro minSdk es 29: se usa solo donde
+        // existe y se cae al siguiente movimiento en versiones anteriores.
+        if (Build.VERSION.SDK_INT >= 30) {
+            if (focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)) return true
+        }
+        return focused.performAction(AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY)
+    }
+
+    // ── Estabilización de pantalla ─────────────────────────────────────────
+    /**
+     * Espera a que la pantalla DEJE de cambiar antes de leerla o capturarla.
+     *
+     * Las esperas fijas son la causa número uno de pasos mal verificados: en un
+     * feed o una búsqueda que carga en dos tiempos, el agente leía la pantalla a
+     * medias y el LLM concluía que la acción había fallado. Aquí se sondea el
+     * árbol cada [pollMs] hasta que el número de nodos se repite, con un tope
+     * de [timeoutMs] para no bloquear nunca el bucle.
+     *
+     * @return true si la pantalla se estabilizó; false si se agotó el tiempo.
+     */
+    suspend fun awaitStable(timeoutMs: Long = 2200L, pollMs: Long = 280L, minPolls: Int = 2): Boolean {
+        if (service == null) return false
+        var lastCount = -1
+        var stablePolls = 0
+        var waited = 0L
+        while (waited < timeoutMs) {
+            val count = runCatching { getUiNodes().size }.getOrDefault(-1)
+            if (count == lastCount && count >= 0) {
+                stablePolls++
+                if (stablePolls >= minPolls) {
+                    Log.d(TAG, "Pantalla estable tras ${waited} ms ($count nodos)")
+                    return true
+                }
+            } else {
+                stablePolls = 0
+            }
+            lastCount = count
+            delay(pollMs)
+            waited += pollMs
+        }
+        Log.w(TAG, "La pantalla no se estabilizó en ${timeoutMs} ms; se lee igual")
+        return false
+    }
 
     // ── Recorrido del árbol ────────────────────────────────────────────────
     private fun contains(value: String?, needle: String): Boolean =

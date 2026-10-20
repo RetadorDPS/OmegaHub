@@ -12,7 +12,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const ALLOWED_ACTIONS = ["tap","swipe","type","scroll","wait","open_app","read","verify","request_confirmation","done"];
+const ALLOWED_ACTIONS = ["tap","swipe","type","scroll","wait","open_app","read","verify","back","home","long_press","clear_text","press_enter","request_confirmation","done"];
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 function json(body: unknown, status = 200): Response {
@@ -77,7 +77,7 @@ Deno.serve(async (req: Request) => {
         : "Autonomía 'act': ejecuta lo permitido sin confirmación salvo acciones irreversibles.";
 
     const system = `Eres el verificador de Phone Agent, un agente que controla un Android por voz. Tu trabajo: mirar el screenshot DESPUÉS de una acción, decidir si se cumplió el resultado esperado y proponer la siguiente acción de la tarea. Distingue entre lo que la app DICE y lo que se puede VERIFICAR en pantalla. Si la tarea ya terminó, dilo con should_stop=true y next_action tipo done. Responde SOLO un objeto JSON sin texto extra:
-{"verified":true,"screen_analysis":"qué ves ahora","current_app":"driver_key o desconocida","confidence":0.0,"should_stop":false,"reason":"por qué","next_action":{"type":"tap|swipe|type|scroll|wait|open_app|read|verify|request_confirmation|done","params":{},"expected_result":"qué debería cambiar"}|null,"requires_confirmation":false,"task_progress":"paso X de Y"}
+{"verified":true,"screen_analysis":"qué ves ahora","current_app":"driver_key o desconocida","confidence":0.0,"should_stop":false,"reason":"por qué","next_action":{"type":"tap|swipe|type|scroll|wait|open_app|read|verify|back|home|long_press|clear_text|press_enter|request_confirmation|done","params":{},"expected_result":"qué debería cambiar"}|null,"requires_confirmation":false,"task_progress":"paso X de Y"}
 Reglas de params: open_app {"driver_key":"..."}; tap {"x":540,"y":1200} (referencia 1080px de ancho) o {"target_text":"..."}; type {"text":"...","target_hint":"..."}; swipe/scroll {"direction":"up|down|left|right"}; wait {"ms":1200}; done {"summary":"resultado final"}.
 ${autonomyRule} Paso actual: ${stepNumber} de un máximo de ${maxSteps}; si step_number >= máximo, should_stop debe ser true.`;
 

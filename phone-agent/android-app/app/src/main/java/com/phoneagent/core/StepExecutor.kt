@@ -50,6 +50,30 @@ class StepExecutor(
                 AgentActionType.TYPE -> type(enriched)
                 AgentActionType.SWIPE -> gesture(enriched, scroll = false)
                 AgentActionType.SCROLL -> gesture(enriched, scroll = true)
+                AgentActionType.BACK -> {
+                    val ok = accessibility.goBack()
+                    ExecutionOutcome(ok, if (ok) "Atrás pulsado" else "No se pudo pulsar atrás",
+                        accessibility.currentPackage())
+                }
+                AgentActionType.HOME -> {
+                    val ok = accessibility.goHome()
+                    ExecutionOutcome(ok, if (ok) "Inicio pulsado" else "No se pudo pulsar inicio",
+                        accessibility.currentPackage())
+                }
+                AgentActionType.LONG_PRESS -> longPress(enriched)
+                AgentActionType.CLEAR_TEXT -> {
+                    val hint = enriched.paramString("target_hint")
+                    val ok = accessibility.clearText(hint)
+                    ExecutionOutcome(ok,
+                        if (ok) "Campo vaciado" else "No se encontró campo editable para vaciar",
+                        accessibility.currentPackage())
+                }
+                AgentActionType.PRESS_ENTER -> {
+                    val ok = accessibility.pressEnter()
+                    ExecutionOutcome(ok,
+                        if (ok) "ENTER pulsado" else "No hay campo con foco donde pulsar ENTER",
+                        accessibility.currentPackage())
+                }
                 AgentActionType.WAIT -> {
                     val ms = enriched.paramLong("ms", 1200L).coerceIn(200L, 10_000L)
                     delay(ms)
@@ -74,12 +98,24 @@ class StepExecutor(
             ExecutionOutcome(false, "Error ejecutando la acción: ${e.message}", accessibility.currentPackage())
         }
 
-        // Pausa de asentamiento: la UI necesita un respiro antes del screenshot.
-        delay(when (enriched.actionType) {
-            AgentActionType.OPEN_APP -> 400L
-            AgentActionType.TYPE -> 500L
-            else -> 800L
-        })
+        // Espera a que la pantalla DEJE de cambiar en vez de dormir un tiempo
+        // fijo: es lo que evita leer (y verificar) una UI a medio cargar.
+        // Solo tiene sentido tras acciones que cambian la interfaz.
+        val changesUi = enriched.actionType in listOf(
+            AgentActionType.OPEN_APP, AgentActionType.TAP, AgentActionType.TYPE,
+            AgentActionType.SWIPE, AgentActionType.SCROLL, AgentActionType.BACK,
+            AgentActionType.HOME, AgentActionType.LONG_PRESS, AgentActionType.CLEAR_TEXT,
+            AgentActionType.PRESS_ENTER,
+        )
+        if (changesUi) {
+            val stabilized = accessibility.awaitStable(
+                timeoutMs = if (enriched.actionType == AgentActionType.OPEN_APP) 3500L else 2200L,
+            )
+            // Si no estabilizó (pantalla animándose sin parar), un respiro mínimo.
+            if (!stabilized) delay(350L)
+        } else {
+            delay(250L)
+        }
         return outcome
     }
 
@@ -134,6 +170,26 @@ class StepExecutor(
         return ExecutionOutcome(ok,
             if (ok) "Texto escrito (${text.length} caracteres)" else "No se encontró campo editable para escribir",
             accessibility.currentPackage())
+    }
+
+    private fun longPress(step: AgentStep): ExecutionOutcome {
+        val targetText = step.paramString("target_text")
+        val duration = step.paramLong("ms", 650L).coerceIn(200L, 3000L)
+        if (targetText.isNotBlank()) {
+            val ok = accessibility.longPressOnText(targetText, duration)
+            return ExecutionOutcome(ok,
+                if (ok) "Pulsación larga sobre «$targetText»" else "No se encontró «$targetText» en la pantalla",
+                accessibility.currentPackage())
+        }
+        if (!step.hasParam("x") || !step.hasParam("y")) {
+            return ExecutionOutcome(false, "El paso long_press no trae ni coordenadas ni target_text",
+                accessibility.currentPackage())
+        }
+        val scale = accessibility.displayWidth() / REFERENCE_WIDTH
+        val x = (step.paramFloat("x") * scale).toInt()
+        val y = (step.paramFloat("y") * scale).toInt()
+        val ok = accessibility.longPressAt(x, y, duration)
+        return ExecutionOutcome(ok, "Pulsación larga en ($x, $y)", accessibility.currentPackage())
     }
 
     private fun gesture(step: AgentStep, scroll: Boolean): ExecutionOutcome {

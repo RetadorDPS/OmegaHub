@@ -40,8 +40,11 @@ class PermissionGate(private val registry: DriverRegistry) {
         Log.d(TAG, "Evaluando paso #${step.stepNumber} $type (autonomía=$autonomy, app=${currentDriver?.driverKey ?: "?"})")
 
         // Acciones que nunca tocan contenido de apps: siempre permitidas.
+        // back/home son navegación del sistema: permiten al agente SALIR de una
+        // pantalla equivocada, que es justo la recuperación que le faltaba.
         if (type in listOf(AgentActionType.DONE, AgentActionType.VERIFY,
-                AgentActionType.READ, AgentActionType.WAIT)) return GateDecision.Allow
+                AgentActionType.READ, AgentActionType.WAIT,
+                AgentActionType.BACK, AgentActionType.HOME)) return GateDecision.Allow
 
         // El LLM pide confirmación explícitamente: se respeta siempre.
         if (type == AgentActionType.REQUEST_CONFIRMATION) {
@@ -70,7 +73,9 @@ class PermissionGate(private val registry: DriverRegistry) {
 
         // 3) Autonomía 'read': solo lectura.
         if (autonomy == AutonomyLevel.READ && type in listOf(
-                AgentActionType.TYPE, AgentActionType.TAP, AgentActionType.SWIPE, AgentActionType.SCROLL)) {
+                AgentActionType.TYPE, AgentActionType.TAP, AgentActionType.SWIPE,
+                AgentActionType.SCROLL, AgentActionType.LONG_PRESS,
+                AgentActionType.CLEAR_TEXT, AgentActionType.PRESS_ENTER)) {
             return GateDecision.Deny("Nivel de autonomía 'read': solo puedo leer y resumir, no tocar ni escribir")
         }
 
@@ -87,10 +92,16 @@ class PermissionGate(private val registry: DriverRegistry) {
         return GateDecision.Allow
     }
 
-    /** Detecta si un paso es un "envío": tap sobre botón Send conocido del
-     *  ui_map del driver, o type con intent=send explícito en params. */
+    /**
+     * Detecta si un paso es un "envío" y por tanto sensible:
+     *  - tap sobre un botón de enviar conocido (ui_map del driver o lista base)
+     *  - type con intent=send explícito
+     *  - press_enter dentro de una app de mensajería: en WhatsApp y compañía
+     *    ENTER ENVÍA el mensaje, así que cuenta como envío aunque no haya botón.
+     */
     private fun isSendAction(step: AgentStep, driver: DriverConfig): Boolean {
         if (step.paramString("intent") == "send") return true
+        if (step.actionType == AgentActionType.PRESS_ENTER) return driver.isMessagingApp
         if (step.actionType != AgentActionType.TAP) return false
         val target = step.paramString("target_text")
         val byLabel = driver.uiStrings("send_button_descriptions") + SEND_TEXTS

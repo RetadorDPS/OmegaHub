@@ -95,6 +95,16 @@ abstract class BaseDriver : AppDriver {
             }
             AgentActionType.SWIPE -> "Deslizar ${step.paramString("direction")} en $app"
             AgentActionType.SCROLL -> "Hacer scroll en $app"
+            AgentActionType.BACK -> "Volver atrás desde $app"
+            AgentActionType.HOME -> "Ir al inicio del teléfono"
+            AgentActionType.LONG_PRESS -> {
+                val target = step.paramString("target_text")
+                if (target.isNotBlank()) "Mantener pulsado «$target» en $app"
+                else "Mantener pulsado en $app (${step.paramInt("x")}, ${step.paramInt("y")})"
+            }
+            AgentActionType.CLEAR_TEXT -> "Borrar el texto escrito en $app"
+            AgentActionType.PRESS_ENTER ->
+                if (config.isMessagingApp) "Pulsar ENTER (esto ENVÍA en $app)" else "Pulsar ENTER en $app"
             AgentActionType.WAIT -> "Esperar en $app"
             AgentActionType.READ -> "Leer la pantalla de $app"
             AgentActionType.VERIFY -> "Verificar la pantalla de $app"

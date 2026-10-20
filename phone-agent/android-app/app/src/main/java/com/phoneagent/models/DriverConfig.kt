@@ -32,6 +32,18 @@ data class DriverConfig(
     /** Clave del driver que sabe navegar esta app (los clones heredan). */
     val effectiveDriverKey: String get() = if (isDualVariant && !baseDriverKey.isNullOrBlank()) baseDriverKey else driverKey
 
+    /**
+     * ¿Es una app de mensajería? Se lee del ui_map (app_kind) para que una app
+     * nueva lo declare en la DB sin tocar código; si no viene, se deduce de los
+     * textos de envío. Se usa para tratar ENTER como envío (en WhatsApp envía).
+     */
+    val isMessagingApp: Boolean
+        get() {
+            val kind = uiMap.optString("app_kind")
+            if (kind.isNotBlank()) return kind == "messaging"
+            return driverKey in DEFAULT_MESSAGING_DRIVERS
+        }
+
     fun allows(action: AgentActionType): Boolean =
         allowedActions.isEmpty() || allowedActions.contains(action.wire) || action == AgentActionType.DONE
 
@@ -58,7 +70,11 @@ data class DriverConfig(
     companion object {
         val DEFAULT_ACTIONS = listOf(
             "open_app", "tap", "swipe", "scroll", "type", "read", "verify", "wait",
+            "back", "home", "long_press", "clear_text", "press_enter",
         )
+
+        /** Mensajería por defecto si el ui_map no declara app_kind. */
+        val DEFAULT_MESSAGING_DRIVERS = setOf("whatsapp")
 
         fun fromJson(json: JSONObject): DriverConfig {
             fun stringList(key: String): List<String> {
