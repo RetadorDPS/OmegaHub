@@ -1,0 +1,9 @@
+# Phone Agent — secretos y artefactos locales (no subir a git)
+local.properties
+.env
+*.keystore
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/

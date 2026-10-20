@@ -1,0 +1,64 @@
+# Phone Agent — configuración del proyecto Supabase (CLI).
+# Uso: supabase start (local) | supabase link --project-ref TU_REF && supabase db push
+project_id = "phone-agent"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+# Las Edge Functions de Phone Agent se invocan desde Android con la anon key
+# y validan user_id contra la DB con service_role. En producción estricta
+# cambia verify_jwt a true y envía el JWT del usuario en Authorization.
+[functions.plan-task]
+verify_jwt = false
+
+[functions.verify-and-next]
+verify_jwt = false
+
+[functions.complete-session]
+verify_jwt = false
+
+[functions.check-alerts]
+verify_jwt = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"

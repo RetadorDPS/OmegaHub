@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Phone Agent</string>
+    <string name="accessibility_label">Phone Agent — control por voz</string>
+    <string name="accessibility_description">Permite a Phone Agent ver la pantalla y tocar botones SOLO dentro de las apps que autorices (Claude, ChatGPT, WhatsApp).</string>
+</resources>

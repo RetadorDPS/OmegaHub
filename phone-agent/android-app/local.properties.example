@@ -1,0 +1,8 @@
+# Copia este archivo como "local.properties" (misma carpeta) y pon tus valores.
+# local.properties NO se sube a git. Android Studio puede regenerarlo con tu SDK:
+# si abres el proyecto, solo añade las dos líneas SUPABASE_* al final.
+sdk.dir=/Users/TU_USUARIO/Library/Android/sdk
+
+# ── COSAS QUE EL USUARIO DEBE CONECTAR (1 y 2) ─────────────────────────────
+SUPABASE_URL=https://TU-PROYECTO.supabase.co
+SUPABASE_ANON_KEY=eyJ...tu-anon-key
