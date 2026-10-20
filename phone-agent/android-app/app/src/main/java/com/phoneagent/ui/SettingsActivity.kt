@@ -1,18 +1,27 @@
 package com.phoneagent.ui
 
 import android.os.Bundle
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.phoneagent.PhoneAgentApp
 import com.phoneagent.core.SecurePrefs
 import com.phoneagent.databinding.ActivitySettingsBinding
 import com.phoneagent.models.AutonomyLevel
+import kotlinx.coroutines.launch
 
 /**
- * Ajustes del agente: User ID de Supabase, wake word, idioma de voz, nivel
- * de autonomía y (opcional) Anthropic API Key para el modo sin backend.
- * Todo se guarda CIFRADO con EncryptedSharedPreferences.
+ * Ajustes del agente.
+ *
+ * Lo primero es la CUENTA: sin iniciar sesión no hay JWT, y sin JWT la base de
+ * datos (RLS) no deja leer ni guardar nada del usuario — el agente parecería no
+ * tener ninguna app autorizada aunque la hubieras marcado. Por eso el login va
+ * arriba y el User ID se rellena solo al iniciar sesión.
+ *
+ * El resto (wake word, idioma, autonomía, API key opcional) se guarda CIFRADO
+ * con EncryptedSharedPreferences.
  */
 class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
@@ -38,19 +47,100 @@ class SettingsActivity : AppCompatActivity() {
         binding.spinnerAutonomy.adapter = ArrayAdapter(this,
             android.R.layout.simple_spinner_dropdown_item, autonomyOptions.map { it.second })
 
-        // Cargar valores actuales (la API key nunca se muestra entera de vuelta:
-        // si ya hay una guardada, el campo indica que existe).
+        loadCurrentValues()
+
+        binding.btnSignIn.setOnClickListener { authenticate(signUp = false) }
+        binding.btnSignUp.setOnClickListener { authenticate(signUp = true) }
+        binding.btnSignOut.setOnClickListener { signOut() }
+        binding.btnSaveSettings.setOnClickListener { save() }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshAuthState()
+    }
+
+    private fun loadCurrentValues() {
         binding.etUserId.setText(SecurePrefs.get(this, SecurePrefs.KEY_USER_ID).orEmpty())
+        binding.etEmail.setText(SecurePrefs.get(this, SecurePrefs.KEY_USER_EMAIL).orEmpty())
         binding.etWakeWord.setText(SecurePrefs.get(this, SecurePrefs.KEY_WAKE_WORD) ?: "oye agente")
         val savedLang = SecurePrefs.get(this, SecurePrefs.KEY_LANGUAGE) ?: "es-ES"
         binding.spinnerLanguage.setSelection(languages.indexOfFirst { it.first == savedLang }.coerceAtLeast(0))
         val savedAutonomy = AutonomyLevel.fromWire(SecurePrefs.get(this, SecurePrefs.KEY_AUTONOMY) ?: "draft")
         binding.spinnerAutonomy.setSelection(autonomyOptions.indexOfFirst { it.first == savedAutonomy }.coerceAtLeast(0))
         val hasKey = !SecurePrefs.get(this, SecurePrefs.KEY_ANTHROPIC_API_KEY).isNullOrBlank()
-        binding.etApiKey.hint = if (hasKey) "sk-ant-… (ya hay una guardada; déjalo vacío para conservarla)" else "sk-ant-… (se guarda cifrada)"
+        binding.etApiKey.hint = if (hasKey) "sk-ant-… (ya hay una guardada; déjalo vacío para conservarla)"
+                                else "sk-ant-… (se guarda cifrada)"
         binding.checkWakeWord.isChecked = SecurePrefs.getBool(this, SecurePrefs.KEY_WAKE_ENABLED)
+    }
 
-        binding.btnSaveSettings.setOnClickListener { save() }
+    /** Muestra si hay sesión y ajusta los botones en consecuencia. */
+    private fun refreshAuthState() {
+        lifecycleScope.launch {
+            val userId = SecurePrefs.get(this@SettingsActivity, SecurePrefs.KEY_USER_ID).orEmpty()
+            val email = SecurePrefs.get(this@SettingsActivity, SecurePrefs.KEY_USER_EMAIL).orEmpty()
+            val authed = runCatching { container.supabase.isAuthenticated() }.getOrDefault(false)
+            when {
+                authed && userId.isNotBlank() -> {
+                    binding.tvAuthState.text = "✅ Sesión activa: ${email.ifBlank { userId }}"
+                    binding.btnSignOut.visibility = View.VISIBLE
+                    binding.etPassword.isEnabled = false
+                }
+                userId.isNotBlank() -> {
+                    binding.tvAuthState.text = "⚠️ Hay User ID pero la sesión caducó: vuelve a iniciar sesión"
+                    binding.btnSignOut.visibility = View.GONE
+                    binding.etPassword.isEnabled = true
+                }
+                else -> {
+                    binding.tvAuthState.text = "Sin sesión iniciada"
+                    binding.btnSignOut.visibility = View.GONE
+                    binding.etPassword.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private fun authenticate(signUp: Boolean) {
+        val email = binding.etEmail.text.toString().trim()
+        val password = binding.etPassword.text.toString()
+        if (email.isBlank() || password.isBlank()) {
+            toast("Escribe tu email y tu contraseña")
+            return
+        }
+        setBusy(true)
+        lifecycleScope.launch {
+            try {
+                val result = if (signUp) container.supabase.signUp(email, password)
+                             else container.supabase.signIn(email, password)
+                if (result.needsEmailConfirmation) {
+                    toast("Cuenta creada. Confirma tu email desde el enlace que te hemos enviado y luego inicia sesión.")
+                } else {
+                    binding.etUserId.setText(result.userId)
+                    toast(if (signUp) "Cuenta creada y sesión iniciada" else "Sesión iniciada como ${result.email}")
+                }
+            } catch (e: Exception) {
+                toast(e.message ?: "No se pudo completar la operación")
+            } finally {
+                setBusy(false)
+                refreshAuthState()
+            }
+        }
+    }
+
+    private fun signOut() {
+        lifecycleScope.launch {
+            container.supabase.signOut()
+            binding.etUserId.setText("")
+            binding.etPassword.setText("")
+            toast("Sesión cerrada")
+            refreshAuthState()
+        }
+    }
+
+    private fun setBusy(busy: Boolean) {
+        binding.btnSignIn.isEnabled = !busy
+        binding.btnSignUp.isEnabled = !busy
+        binding.btnSaveSettings.isEnabled = !busy
     }
 
     private fun save() {

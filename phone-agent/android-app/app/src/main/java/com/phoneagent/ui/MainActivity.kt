@@ -196,19 +196,28 @@ class MainActivity : AppCompatActivity() {
         val overlay = container.intentLauncher.canDrawOverlays()
         val capture = ScreenCaptureManager.isReady()
         val supabaseOk = container.supabase.isConfigured()
-        val userOk = container.configManager.userId().isNotBlank()
-        binding.tvPermissions.text = buildString {
-            appendLine("Estado de permisos y conexión:")
-            appendLine("${mark(supabaseOk)} Supabase configurado (local.properties)")
-            appendLine("${mark(userOk)} User ID de Supabase (Ajustes)")
-            appendLine("${mark(mic)} Micrófono")
-            appendLine("${mark(accSettings && accConnected)} Servicio de accesibilidad activo")
-            appendLine("${mark(capture)} Captura de pantalla (MediaProjection)")
-            appendLine("${mark(overlay)} Burbuja flotante (overlay)")
-            append("Toca «Apps autorizadas» para autorizar Claude / ChatGPT / WhatsApp.")
-        }
-        if (!accSettings) {
-            binding.tvPermissions.setOnClickListener { container.intentLauncher.openAccessibilitySettings() }
+        lifecycleScope.launch {
+            // La sesión es lo primero: sin JWT, RLS oculta las apps autorizadas.
+            val authOk = runCatching { container.supabase.isAuthenticated() }.getOrDefault(false)
+            binding.tvPermissions.text = buildString {
+                appendLine("Estado de permisos y conexión:")
+                appendLine("${mark(supabaseOk)} Supabase configurado (local.properties)")
+                appendLine("${mark(authOk)} Sesión iniciada (Ajustes → Cuenta)")
+                appendLine("${mark(mic)} Micrófono")
+                appendLine("${mark(accSettings && accConnected)} Servicio de accesibilidad activo")
+                appendLine("${mark(capture)} Captura de pantalla (MediaProjection)")
+                appendLine("${mark(overlay)} Burbuja flotante (overlay)")
+                append(when {
+                    !authOk -> "Empieza por iniciar sesión en Ajustes: sin eso no se pueden guardar las apps autorizadas."
+                    else -> "Toca «Apps autorizadas» para autorizar Claude / ChatGPT / WhatsApp."
+                })
+            }
+            binding.tvPermissions.setOnClickListener {
+                when {
+                    !authOk -> startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                    !accSettings -> container.intentLauncher.openAccessibilitySettings()
+                }
+            }
         }
     }
 

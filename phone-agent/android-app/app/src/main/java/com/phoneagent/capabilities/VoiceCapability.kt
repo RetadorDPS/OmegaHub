@@ -100,16 +100,20 @@ class VoiceCapability(
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             }
             recognizer.setRecognitionListener(object : RecognitionListener {
+                // onResults y onError pueden dispararse los dos; reanudar una
+                // CancellableContinuation dos veces lanza IllegalStateException.
                 override fun onResults(results: Bundle?) {
                     val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull().orEmpty()
                     recognizer.destroy()
+                    if (!cont.isActive) return
                     if (text.isBlank()) cont.resumeWithException(VoiceException("No se entendió nada. Inténtalo de nuevo, más cerca del micrófono."))
                     else { Log.i(TAG, "Escuchado: $text"); cont.resume(text) }
                 }
 
                 override fun onError(error: Int) {
                     recognizer.destroy()
+                    if (!cont.isActive) return
                     cont.resumeWithException(VoiceException(when (error) {
                         SpeechRecognizer.ERROR_NO_MATCH -> "No se entendió la frase. Repítela, por favor."
                         SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No se detectó voz (timeout). Pulsa el micrófono y habla."

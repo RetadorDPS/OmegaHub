@@ -32,12 +32,29 @@ object ScreenCaptureManager {
     private const val TAG = "[PhoneAgent].[ScreenCapture]"
 
     @Volatile var lastFrame: Bitmap? = null
+        private set
     @Volatile var ready: Boolean = false
+        private set
+
+    /** Cerrojo común entre el hilo de captura (que recicla) y los lectores. */
+    private val frameLock = Any()
 
     fun isReady(): Boolean = ready && lastFrame != null
 
     /** Último frame capturado (copia defensiva) o null si aún no hay frames. */
-    fun latestBitmap(): Bitmap? = lastFrame?.let { Bitmap.createBitmap(it) }
+    fun latestBitmap(): Bitmap? = synchronized(frameLock) {
+        val current = lastFrame
+        // El frame pudo reciclarse entre el null-check y la copia: se comprueba.
+        if (current == null || current.isRecycled) null else Bitmap.createBitmap(current)
+    }
+
+    /** Publica un frame nuevo y recicla el anterior bajo el mismo cerrojo. */
+    internal fun publish(bitmap: Bitmap) = synchronized(frameLock) {
+        val previous = lastFrame
+        lastFrame = bitmap
+        ready = true
+        if (previous != null && previous !== bitmap && !previous.isRecycled) previous.recycle()
+    }
 
     suspend fun captureScreen(timeoutMs: Long = 2500): Bitmap? {
         // Espera activamente al primer frame si el servicio acaba de arrancar.
@@ -138,10 +155,7 @@ class ScreenCaptureService : Service() {
                     padded.copyPixelsFromBuffer(buffer)
                     val cropped = if (rowPadding == 0) padded
                         else Bitmap.createBitmap(padded, 0, 0, width, height)
-                    val previous = ScreenCaptureManager.lastFrame
-                    ScreenCaptureManager.lastFrame = cropped
-                    ScreenCaptureManager.ready = true
-                    if (previous != null && previous !== cropped) previous.recycle()
+                    ScreenCaptureManager.publish(cropped)
                 }
             } catch (e: Exception) { Log.e(TAG, "Error convirtiendo frame: ${e.message}") }
         }, handler)

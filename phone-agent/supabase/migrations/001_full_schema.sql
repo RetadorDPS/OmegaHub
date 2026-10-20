@@ -5,10 +5,27 @@
 --        o: supabase db push (con CLI y este archivo en supabase/migrations/)
 -- ============================================================================
 
-create extension if not exists "pgcrypto";
-create extension if not exists "pg_cron"; -- si falla en tu plan, bórrala: el
--- auto-borrado también se puede hacer con la función delete_old_screenshots()
--- invocada desde check-alerts. El DO block de abajo tolera su ausencia.
+-- Las extensiones van dentro de DO blocks: si el plan de Supabase no permite
+-- crearlas, se avisa y el script SIGUE. Un "create extension" suelto que falle
+-- abortaría la migración entera y no se crearía ni una tabla.
+do $$
+begin
+  create extension if not exists "pgcrypto" with schema extensions;
+exception when others then
+  raise notice 'pgcrypto no disponible (%). gen_random_uuid() seguirá funcionando si ya existe.', sqlerrm;
+end;
+$$;
+
+-- pg_cron solo existe si lo activaste en Dashboard > Database > Extensions.
+-- No es imprescindible: delete_old_screenshots() también se invoca desde la
+-- Edge Function check-alerts (ver su programación en el README §3.5).
+do $$
+begin
+  create extension if not exists "pg_cron" with schema extensions;
+exception when others then
+  raise notice 'pg_cron no disponible (%). Actívalo en el dashboard o confía en check-alerts.', sqlerrm;
+end;
+$$;
 
 -- ----------------------------------------------------------------------------
 -- Trigger genérico: auto-update de updated_at

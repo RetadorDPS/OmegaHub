@@ -93,7 +93,12 @@ class DriverManagerActivity : AppCompatActivity() {
     // ── Adapter ────────────────────────────────────────────────────────────
     private inner class DriverAdapter : RecyclerView.Adapter<DriverAdapter.Holder>() {
         private var items: List<DriverConfig> = emptyList()
-        fun submit(list: List<DriverConfig>) { items = list; notifyDataSetChanged() }
+
+        /** Copia defensiva: el adapter no debe compartir la lista que se edita. */
+        fun submit(list: List<DriverConfig>) {
+            items = list.toList()
+            notifyDataSetChanged()
+        }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
             val itemBinding = ItemDriverBinding.inflate(LayoutInflater.from(parent.context), parent, false)

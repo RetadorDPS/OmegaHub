@@ -85,15 +85,20 @@ Eso crea las 8 tablas (`users`, `app_drivers`, `projects`, `agent_sessions`, `se
 
 > ¿Prefieres CLI? `supabase link --project-ref TU_REF && supabase db push` con esta carpeta como raíz.
 
-### 3.3 Crear tu usuario y obtener tu UUID
-Las sesiones pertenecen a un usuario de Supabase Auth:
-1. **Authentication → Users → Add user → Create new user** (email + contraseña cualquiera).
-2. Copia el **UUID** del usuario. Lo pegarás en la app (Ajustes → User ID).
+### 3.3 Crear tu cuenta (necesaria para que el RLS funcione)
+Todas las sesiones, drivers autorizados y logs pertenecen a un usuario de Supabase Auth. **Sin iniciar sesión no hay JWT, y sin JWT las políticas RLS no dejan leer ni escribir nada tuyo**: el agente diría que no tienes ninguna app autorizada aunque la hubieras marcado.
 
-Si quieres datos por usuario (además del seed global), ejecuta en el SQL Editor:
+Dos formas, elige una:
+- **Desde la app (recomendado):** Ajustes → *1. Cuenta de Supabase* → **Crear cuenta** con tu email y contraseña, y luego **Iniciar sesión**. El User ID se rellena solo.
+- **Desde el dashboard:** **Authentication → Users → Add user → Create new user**. Después inicia sesión en la app con ese email y contraseña.
+
+> Si tu proyecto tiene activada la confirmación por email (Authentication → Providers → Email), confirma el enlace antes de iniciar sesión; la app te lo dirá.
+
+Opcional, para tener también filas de driver propias además del seed global:
 ```sql
 select public.seed_initial_data('TU-UUID-DE-USUARIO');
 ```
+No hace falta: al autorizar una app en Driver Manager, la app crea tu fila propia y deja el seed global intacto.
 
 ### 3.4 Desplegar las Edge Functions + la clave de Anthropic
 **La API key de Anthropic vive SOLO aquí, en el servidor. Nunca en la app** (salvo que uses el modo local de la §5.3).
@@ -128,7 +133,7 @@ En **Edge Functions → check-alerts → Schedule** crea un trigger cada 30-60 m
 2. Espera el *Gradle Sync*. Si te pide el SDK, acepta instalar Android 15 (API 35). Si no tienes `gradle-wrapper.jar` (este repo incluye `gradle-wrapper.properties`), Android Studio lo regenera solo al abrir el proyecto; en terminal sería `gradle wrapper --gradle-version 8.7` dentro de `android-app/`.
 3. Crea el archivo de credenciales (paso siguiente, §5).
 4. Conecta el teléfono por USB con **Depuración USB** activada (Ajustes del teléfono → Opciones de desarrollador) y pulsa **Run ▶**.
-5. La primera vez, la app te guiará por los permisos (§6).
+5. La primera vez: **Ajustes → Cuenta → Iniciar sesión** y luego los permisos (§6).
 
 ---
 
@@ -147,8 +152,10 @@ SUPABASE_ANON_KEY=eyJ...tu-anon-key
 - **Recomendado (backend):** `supabase secrets set ANTHROPIC_API_KEY='sk-ant-...'` (paso 3.4). La app jamás ve la clave.
 - **Alternativa MVP (sin desplegar funciones):** en la app, **Ajustes → Anthropic API Key**. Se guarda con `EncryptedSharedPreferences` y el `LLMRouter` llama a Claude directamente desde el teléfono cuando las Edge Functions fallan. Las sesiones en este modo son locales (sin filas en DB).
 
-### 5.4 User ID de Supabase → Ajustes de la app
-En **Ajustes → User ID de Supabase** pega el UUID del paso 3.3. Sin esto, las Edge Functions responden `USER_NOT_FOUND` con las instrucciones (y la app te lo dice por voz).
+### 5.4 Sesión de Supabase Auth → Ajustes de la app
+En **Ajustes → 1. Cuenta de Supabase** pon tu email y contraseña y pulsa **Iniciar sesión** (o **Crear cuenta** la primera vez). La app guarda el token cifrado en `EncryptedSharedPreferences` y lo usa en todas las llamadas, así `auth.uid()` existe en el servidor y el RLS te deja leer y guardar tus datos. El **User ID** se rellena automáticamente.
+
+> ¿Por qué no basta con pegar el UUID? Porque el UUID solo identifica; no autentica. Sin token, PostgREST te trata como anónimo y las 11 políticas `auth.uid() = user_id` devuelven cero filas. Por eso la app lo comprueba antes de cada operación y te avisa con un mensaje claro en vez de fallar en silencio.
 
 ### 5.5 Permisos del teléfono
 Guía completa en la §6. Resumen: micrófono, servicio de accesibilidad, captura de pantalla, burbuja flotante y las apps autorizadas marcadas en Driver Manager.
@@ -193,7 +200,7 @@ La pantalla principal muestra una lista ✅/❌ con el estado de cada uno. Hazlo
 
 1. Ten **Claude instalado dos veces**: la normal y la clonada (p. ej. Samsung Dual Messenger: Ajustes → Funciones avanzadas → Dual Messenger → activa Claude; aparecerá un segundo icono con distintivo naranja).
 2. Abre Phone Agent → **Apps autorizadas**: debes ver *Claude* y *Claude Dual* como filas separadas. La Dual debe salir como "instalada · perfil 1 (dual)" (o con el package clonado). Autoriza **solo Claude Dual** para esta prueba y guarda.
-3. En **Ajustes**: autonomía **draft** (escribir sí, enviar tras confirmar), idioma es-ES.
+3. En **Ajustes**: inicia sesión con tu cuenta, autonomía **draft** (escribir sí, enviar tras confirmar), idioma es-ES.
 4. Toca el micrófono y di:
    > «Abre Claude Dual, entra en un chat y pregúntale qué tiempo hace mañana en Madrid, pero no envíes sin mi confirmación»
 5. Qué deberías ver, paso a paso:
@@ -218,7 +225,9 @@ La pantalla principal muestra una lista ✅/❌ con el estado de cada uno. Hazlo
 |---|---|---|
 | La app dice "Supabase no está configurado" | Falta `local.properties` o se compiló antes de crearlo | Crea `android-app/local.properties` (§5.1) y vuelve a compilar (Build → Rebuild) |
 | `USER_NOT_FOUND` al hablar | El User ID de Ajustes no existe en Supabase Auth | Crea el usuario (§3.3) y pega su UUID exacto |
-| "No hay ninguna app autorizada" | Drivers sin autorizar o seed no ejecutado | Ejecuta el SQL 001 completo; en **Apps autorizadas** marca y **Guarda en Supabase** |
+| "No has iniciado sesión en Supabase" | Falta el login (o el token caducó) | Ajustes → Cuenta → **Iniciar sesión**. Sin sesión, el RLS oculta tus apps autorizadas |
+| "No hay ninguna app autorizada" pese a haberlas marcado | Sesión caducada, o no se llegó a guardar | Inicia sesión otra vez y vuelve a **Guardar en Supabase**; ejecuta el SQL 001 si aún no lo hiciste |
+| `new row violates row-level security` al guardar | Estás escribiendo sin sesión válida | Inicia sesión; el botón Guardar usa tu token |
 | Las Edge Functions devuelven 404 | No desplegadas o nombre distinto | Despliega con los nombres exactos: `plan-task`, `verify-and-next`, `complete-session`, `check-alerts` |
 | Error 500 "Falta el secreto ANTHROPIC_API_KEY" | Secreto no configurado | `supabase secrets set ANTHROPIC_API_KEY=...` y redespiega |
 | "El servicio de accesibilidad no está activo" | Permiso no concedido o revocado por el fabricante | §6.2. En Xiaomi/Samsung desactiva también el "ahorro de batería" para Phone Agent, que mata el servicio |

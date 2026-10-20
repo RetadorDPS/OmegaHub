@@ -67,6 +67,11 @@ class AgentEngine(
         if (!supabase.isConfigured() && llmRouter.directApiKey() == null) {
             return failBeforeStart("Supabase no está configurado. Pon SUPABASE_URL y SUPABASE_ANON_KEY en android-app/local.properties y vuelve a compilar, o pega tu Anthropic API Key en Ajustes.")
         }
+        // Sin sesión no hay JWT: RLS devolvería 0 drivers y el agente diría que
+        // no hay apps autorizadas aunque el usuario las hubiera marcado.
+        if (!supabase.isAuthenticated()) {
+            return failBeforeStart("No has iniciado sesión en Supabase. Ve a Ajustes e inicia sesión: sin eso la base de datos no deja leer tus apps autorizadas.")
+        }
         if (!accessibility.isConnected()) {
             return failBeforeStart("El servicio de accesibilidad no está activo. Ve a Ajustes del teléfono > Accesibilidad > Phone Agent y actívalo.")
         }
@@ -88,7 +93,11 @@ class AgentEngine(
             // ── Config + drivers autorizados (whitelist) ───────────────────
             val caps = try { configManager.capabilityConfig() } catch (e: Exception) { emptyMap() }
             if (caps.isNotEmpty() && !vision.isEnabled(caps)) {
-                Log.w(TAG, "Capacidad vision desactivada en capability_config")
+                // Sin visión no hay verificación posible: el loop entero depende
+                // de comparar screenshots. Frenar aquí, no seguir a ciegas.
+                return closeEarly(userId,
+                    "La capacidad de visión está desactivada en capability_config. " +
+                        "Actívala (capability_key='vision', enabled=true) para que el agente pueda verificar lo que hace.")
             }
             val autonomy = configManager.autonomy()
             val model = llmRouter.modelFromConfig(caps)
@@ -108,7 +117,7 @@ class AgentEngine(
             remoteSessionId = routed.sessionId
             isLocalSession = routed.isLocal
             val maxSteps = routed.maxSteps.coerceIn(1, 40)
-            sessions.start(AgentSession(id = routed.sessionId, userId = userId, projectId = projectId,
+            sessions.attach(AgentSession(id = routed.sessionId, userId = userId, projectId = projectId,
                 voiceCommand = voiceCommand, status = SessionStatus.RUNNING, autonomyLevel = autonomy))
             supabase.logEvent(userId, remoteSessionId.takeUnless { isLocalSession }, "info",
                 "session_started", voiceCommand, JSONObject().put("max_steps", maxSteps).put("local", isLocalSession))

@@ -5,8 +5,37 @@
         android:orientation="vertical">
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="Ajustes" android:textSize="22sp" android:textStyle="bold" />
+        <!-- ── Cuenta de Supabase (imprescindible: sin sesión, RLS bloquea todo) ── -->
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="16dp" android:text="User ID de Supabase (Authentication → Users)" />
+            android:layout_marginTop="20dp" android:textStyle="bold"
+            android:text="1. Cuenta de Supabase" />
+        <TextView android:id="@+id/tvAuthState" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="4dp"
+            android:textSize="13sp" android:text="Sin sesión iniciada" />
+        <EditText android:id="@+id/etEmail" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:hint="tu@email.com" android:inputType="textEmailAddress"
+            android:importantForAutofill="no" />
+        <EditText android:id="@+id/etPassword" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Contraseña"
+            android:inputType="textPassword" android:importantForAutofill="no" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button android:id="@+id/btnSignIn" android:layout_width="0dp"
+                android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="Iniciar sesión" />
+            <Button android:id="@+id/btnSignUp" android:layout_width="0dp"
+                android:layout_height="wrap_content" android:layout_weight="1"
+                android:layout_marginStart="8dp" android:text="Crear cuenta" />
+        </LinearLayout>
+        <Button android:id="@+id/btnSignOut" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Cerrar sesión"
+            android:visibility="gone" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textSize="12sp"
+            android:text="Iniciar sesión es obligatorio: genera el token con el que la base de datos reconoce tus datos (RLS). El User ID se rellena solo." />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="User ID (automático tras iniciar sesión)" />
         <EditText android:id="@+id/etUserId" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:hint="00000000-0000-0000-0000-000000000000"
             android:inputType="text" android:importantForAutofill="no" />

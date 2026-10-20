@@ -10,6 +10,9 @@ import org.json.JSONObject
  */
 data class DriverConfig(
     val id: String = "",
+    /** Dueño de la fila: null = seed global del sistema; uuid = fila del usuario.
+     *  Sin este dato no se puede saber si un PATCH pisaría el seed de todos. */
+    val ownerUserId: String? = null,
     val driverKey: String,
     val displayName: String,
     val packageName: String,
@@ -64,6 +67,7 @@ data class DriverConfig(
             }
             return DriverConfig(
                 id = json.optString("id", ""),
+                ownerUserId = json.optString("user_id").ifBlank { null },
                 driverKey = json.optString("driver_key", ""),
                 displayName = json.optString("display_name", json.optString("driver_key", "")),
                 packageName = json.optString("package_name", ""),

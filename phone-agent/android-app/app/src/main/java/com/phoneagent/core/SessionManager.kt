@@ -38,6 +38,16 @@ class SessionManager {
         Log.i(TAG, "Sesión iniciada: ${session.id.ifBlank { "(local)" }} · ${session.voiceCommand}")
     }
 
+    /**
+     * Reengancha la sesión cuando plan-task devuelve el id real. NO reinicia el
+     * reloj ni borra una cancelación pedida durante la planificación: si el
+     * usuario canceló mientras se planificaba, eso debe respetarse.
+     */
+    fun attach(session: AgentSession) {
+        _current.value = session
+        Log.i(TAG, "Sesión vinculada a ${session.id}")
+    }
+
     fun update(status: SessionStatus, currentApp: String? = null, resultSummary: String? = null, error: String? = null) {
         val cur = _current.value ?: return
         _current.value = cur.copy(

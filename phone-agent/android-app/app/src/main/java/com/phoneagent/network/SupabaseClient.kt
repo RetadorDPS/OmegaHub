@@ -8,11 +8,17 @@ import com.phoneagent.models.ActionPlan
 import com.phoneagent.models.DriverConfig
 import com.phoneagent.models.Project
 import com.phoneagent.models.VerificationResult
-import io.github.jan-tennert.supabase.auth.Auth
-import io.github.jan-tennert.supabase.createSupabaseClient
-import io.github.jan-tennert.supabase.functions.Functions
-import io.github.jan-tennert.supabase.postgrest.Postgrest
-import io.github.jan-tennert.supabase.storage.Storage
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.currentSessionOrNull
+import io.github.jan.supabase.auth.providers.Email
+import io.github.jan.supabase.auth.signInWith
+import io.github.jan.supabase.auth.signOut
+import io.github.jan.supabase.auth.signUpWith
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.storage.Storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -59,7 +65,7 @@ class SupabaseClient(private val context: Context) {
         !supabaseUrl.contains("TU-PROYECTO")
 
     /** Cliente del SDK oficial. Perezoso: solo se crea si está configurado. */
-    val sdkClient: io.github.jan-tennert.supabase.SupabaseClient by lazy {
+    val sdkClient: io.github.jan.supabase.SupabaseClient by lazy {
         check(isConfigured()) { "Supabase no configurado: revisa SUPABASE_URL y SUPABASE_ANON_KEY en local.properties" }
         createSupabaseClient(supabaseUrl = supabaseUrl, supabaseKey = anonKey) {
             install(Postgrest)
@@ -75,13 +81,83 @@ class SupabaseClient(private val context: Context) {
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    private fun authToken(): String =
-        SecurePrefs.get(context, SecurePrefs.KEY_USER_JWT)?.ifBlank { null } ?: anonKey
+    // ── Autenticación real (imprescindible: sin JWT, auth.uid() es NULL en el
+    //    servidor y RLS bloquea TODAS las filas del usuario) ─────────────────
 
-    private fun baseRequest(url: okhttp3.HttpUrl): Request.Builder = Request.Builder()
+    /** Resultado de login/registro. */
+    data class AuthResult(val userId: String, val email: String, val needsEmailConfirmation: Boolean)
+
+    /**
+     * Inicia sesión con email+password. Al terminar hay un JWT real, así que
+     * auth.uid() existe en el servidor y las policies RLS funcionan.
+     * Persiste user_id y token cifrados para reutilizarlos mientras duren.
+     */
+    suspend fun signIn(email: String, password: String): AuthResult {
+        if (!isConfigured()) throw SupabaseException("Supabase no configurado (local.properties)", "NOT_CONFIGURED")
+        if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
+        return try {
+            val session = sdkClient.auth.signInWith(Email) {
+                this.email = email
+                this.password = password
+            }
+            persistSession(session.user?.id, session.accessToken, session.user?.email ?: email)
+            AuthResult(session.user?.id.orEmpty(), session.user?.email ?: email, false)
+        } catch (e: Exception) {
+            throw SupabaseException("No se pudo iniciar sesión: ${e.message ?: e::class.java.simpleName}. " +
+                "Revisa email/contraseña y que el usuario exista en Supabase > Authentication.", "AUTH_FAILED")
+        }
+    }
+
+    /** Crea la cuenta. Si el proyecto exige confirmar el email, hay que hacerlo antes de usar la app. */
+    suspend fun signUp(email: String, password: String): AuthResult {
+        if (!isConfigured()) throw SupabaseException("Supabase no configurado (local.properties)", "NOT_CONFIGURED")
+        if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
+        return try {
+            val session = sdkClient.auth.signUpWith(Email) {
+                this.email = email
+                this.password = password
+            }
+            val id = session.user?.id.orEmpty()
+            persistSession(id.ifBlank { null }, session.accessToken, email)
+            AuthResult(id, email, session.accessToken.isNullOrBlank())
+        } catch (e: Exception) {
+            throw SupabaseException("No se pudo crear la cuenta: ${e.message ?: e::class.java.simpleName}", "SIGNUP_FAILED")
+        }
+    }
+
+    suspend fun signOut() {
+        runCatching { sdkClient.auth.signOut() }
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_JWT, null)
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_ID, null)
+    }
+
+    /** ¿Hay sesión utilizable (token del SDK o token persistido no caducado)? */
+    suspend fun isAuthenticated(): Boolean = resolveToken() != anonKey
+
+    private fun persistSession(userId: String?, token: String?, email: String) {
+        userId?.ifBlank { null }?.let { SecurePrefs.put(context, SecurePrefs.KEY_USER_ID, it) }
+        token?.ifBlank { null }?.let { SecurePrefs.put(context, SecurePrefs.KEY_USER_JWT, it) }
+        email.let { SecurePrefs.put(context, SecurePrefs.KEY_USER_EMAIL, it) }
+        Log.i(TAG, "Sesión de Supabase Auth iniciada para $email")
+    }
+
+    /**
+     * Token para las llamadas. Prioridad:
+     *   1. Sesión viva del SDK (la refresca él solo).
+     *   2. Token persistido cifrado (mismo proceso o reinicio rápido).
+     *   3. anon key (solo sirve para leer filas globales y llamar funciones).
+     */
+    private suspend fun resolveToken(): String {
+        runCatching { sdkClient.auth.currentSessionOrNull()?.accessToken?.ifBlank { null } }
+            .getOrNull()?.let { return it }
+        SecurePrefs.get(context, SecurePrefs.KEY_USER_JWT)?.ifBlank { null }?.let { return it }
+        return anonKey
+    }
+
+    private suspend fun baseRequest(url: okhttp3.HttpUrl): Request.Builder = Request.Builder()
         .url(url)
         .header("apikey", anonKey)
-        .header("Authorization", "Bearer ${authToken()}")
+        .header("Authorization", "Bearer ${resolveToken()}")
         .header("Content-Type", "application/json")
 
     private suspend fun execute(request: Request): JSONObject = withContext(Dispatchers.IO) {
@@ -184,6 +260,7 @@ class SupabaseClient(private val context: Context) {
 
     suspend fun fetchDrivers(userId: String): List<DriverConfig> {
         if (!isConfigured()) throw SupabaseException("Supabase no configurado (local.properties)", "NOT_CONFIGURED")
+        requireAuth()
         val url = restUrl("app_drivers").newBuilder()
             .addQueryParameter("select", "*")
             .addQueryParameter("enabled", "eq.true")
@@ -194,15 +271,17 @@ class SupabaseClient(private val context: Context) {
         // La fila del usuario (user_id = userId) manda sobre la global.
         val byKey = LinkedHashMap<String, DriverConfig>()
         for (i in 0 until arr.length()) {
-            val cfg = DriverConfig.fromJson(arr.getJSONObject(i))
+            val row = arr.getJSONObject(i)
+            val cfg = DriverConfig.fromJson(row)
+            val isUserRow = row.optString("user_id") == userId
             val prev = byKey[cfg.driverKey]
-            val isUserRow = arr.getJSONObject(i).optString("user_id") == userId
             if (prev == null || isUserRow) byKey[cfg.driverKey] = cfg
         }
         return byKey.values.toList()
     }
 
     suspend fun fetchCapabilityConfig(userId: String): Map<String, JSONObject> {
+        requireAuth()
         val url = restUrl("capability_config").newBuilder()
             .addQueryParameter("select", "*")
             .addQueryParameter("or", "(user_id.eq.$userId,user_id.is.null)")
@@ -219,6 +298,7 @@ class SupabaseClient(private val context: Context) {
     }
 
     suspend fun fetchActiveProject(userId: String, projectId: String?): Project? {
+        requireAuth()
         val builder = restUrl("projects").newBuilder()
             .addQueryParameter("select", "*")
             .addQueryParameter("user_id", "eq.$userId")
@@ -230,14 +310,26 @@ class SupabaseClient(private val context: Context) {
     }
 
     /**
-     * Guarda la autorización de un driver para este usuario. Si el driver ya
-     * tiene fila propia se actualiza (PATCH por id); si solo existe la global,
-     * se crea la fila del usuario (la global queda intacta para los demás).
+     * Guarda la autorización de un driver para ESTE usuario.
+     *
+     * Ojo con el detalle que rompe todo: la lista que llega viene de filas
+     * GLOBALES (user_id NULL, el seed del sistema) o de filas propias. Si se
+     * hiciera PATCH sobre el id de una fila global, se estaría reescribiendo el
+     * seed de todos los usuarios. Por eso solo se actualiza cuando la fila ya
+     * es del usuario; si no, se INSERTA una fila propia nueva.
      */
     suspend fun saveUserDriver(userId: String, config: DriverConfig): DriverConfig {
-        val body = config.toJson().apply { put("user_id", userId) }
-        return if (config.id.isNotBlank()) {
-            val url = restUrl("app_drivers").newBuilder().addQueryParameter("id", "eq.${config.id}").build()
+        requireAuth()
+        val body = config.toJson().apply {
+            remove("id")               // nunca se manda el id: lo decide la ruta
+            put("user_id", userId)
+        }
+        val isOwnRow = config.ownerUserId != null && config.ownerUserId == userId
+        return if (isOwnRow && config.id.isNotBlank()) {
+            val url = restUrl("app_drivers").newBuilder()
+                .addQueryParameter("id", "eq.${config.id}")
+                .addQueryParameter("user_id", "eq.$userId")   // doble cerrojo: solo filas propias
+                .build()
             val arr = executeArray(baseRequest(url)
                 .header("Prefer", "return=representation")
                 .patch(body.toString().toRequestBody("application/json".toMediaType())).build())
@@ -248,6 +340,14 @@ class SupabaseClient(private val context: Context) {
                 .post(body.toString().toRequestBody("application/json".toMediaType())).build())
             if (arr.length() > 0) DriverConfig.fromJson(arr.getJSONObject(0)) else config
         }
+    }
+
+    /** Sin sesión real, RLS devuelve 0 filas y el agente cree que no hay apps. */
+    private suspend fun requireAuth() {
+        if (!isAuthenticated()) throw SupabaseException(
+            "No has iniciado sesión en Supabase. Ve a Ajustes e inicia sesión con tu email y contraseña: " +
+                "sin sesión, la seguridad de la base (RLS) no deja leer ni guardar tus apps autorizadas.",
+            "NOT_AUTHENTICATED")
     }
 
     suspend fun updateProjectContext(projectId: String, summary: String, pendingItems: List<String>, context: JSONObject) {
