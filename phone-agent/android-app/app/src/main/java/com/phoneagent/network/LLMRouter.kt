@@ -59,7 +59,7 @@ class LLMRouter(private val context: Context, private val supabase: SupabaseClie
             Log.w(TAG, "plan-task falló (${e.message}); usando Claude directo con la key de Ajustes")
             val apps = authorizedDrivers.joinToString(", ") { "${it.displayName} (driver_key: ${it.driverKey}, acciones: ${it.allowedActions})" }
             val system = """Eres Phone Agent. Controlas un teléfono Android por voz. Solo interactúas con apps autorizadas: $apps. Si ves una app no autorizada, NO la toques. Verifica cada acción antes de avanzar. Responde SOLO un JSON:
-{"screen_analysis":"qué ves","current_app":"driver_key o desconocida","action":{"type":"tap|swipe|type|scroll|wait|open_app|read|verify|request_confirmation|done","params":{},"expected_result":"qué debería cambiar"},"confidence":0.0,"requires_confirmation":false,"task_progress":"paso 1 de N"}
+{"screen_analysis":"qué ves","current_app":"driver_key o desconocida","action":{"type":"tap|swipe|type|scroll|wait|open_app|read|verify|back|home|long_press|clear_text|press_enter|request_confirmation|done","params":{},"expected_result":"qué debería cambiar"},"confidence":0.0,"requires_confirmation":false,"task_progress":"paso 1 de N"}
 Params: open_app {"driver_key":"..."}; tap {"x":540,"y":1200} (referencia 1080px) o {"target_text":"..."}; type {"text":"...","target_hint":"..."}; swipe/scroll {"direction":"down"}; wait {"ms":1200}; done {"summary":"..."}."""
             val raw = askClaudeDirect(system, "Comando del usuario: \"$voiceCommand\"\nApp en primer plano: $currentApp\nÁrbol de UI:\n${uiTree.take(4000)}\nDevuelve la PRIMERA acción.", screenshotBase64, key, model)
             val plan = ActionPlan.fromJson(extractJson(raw), stepNumber = 1)
@@ -76,7 +76,7 @@ Params: open_app {"driver_key":"..."}; tap {"x":540,"y":1200} (referencia 1080px
         }
         val key = directApiKey() ?: throw SupabaseException("Sesión local sin Anthropic API Key para verificar", "NO_KEY")
         val system = """Eres el verificador de Phone Agent. Mira el screenshot tras ejecutar una acción y decide si se cumplió. Responde SOLO este JSON:
-{"verified":true,"screen_analysis":"...","current_app":"driver_key o desconocida","confidence":0.0,"should_stop":false,"reason":"...","next_action":{"type":"tap|swipe|type|scroll|wait|open_app|read|verify|request_confirmation|done","params":{},"expected_result":"..."}|null,"requires_confirmation":false,"message":"..."}"""
+{"verified":true,"screen_analysis":"...","current_app":"driver_key o desconocida","confidence":0.0,"should_stop":false,"reason":"...","next_action":{"type":"tap|swipe|type|scroll|wait|open_app|read|verify|back|home|long_press|clear_text|press_enter|request_confirmation|done","params":{},"expected_result":"..."}|null,"requires_confirmation":false,"message":"..."}"""
         val raw = askClaudeDirect(system, "Tarea: \"$taskGoal\"\nAcción ejecutada (paso $stepNumber): $actionExecutedJson\nÁrbol de UI:\n${uiTree.take(4000)}\n¿Se ejecutó correctamente? ¿Siguiente acción o corrección?", screenshotBase64, key, model)
         return VerificationResult.fromJson(extractJson(raw), nextStepNumber = stepNumber + 1)
     }

@@ -8,6 +8,8 @@ import com.phoneagent.capabilities.VisionCapability
 import com.phoneagent.capabilities.VoiceCapability
 import com.phoneagent.core.AgentEngine
 import com.phoneagent.core.ConfigManager
+import com.phoneagent.capabilities.StepVerifier
+import com.phoneagent.core.MacroEngine
 import com.phoneagent.core.PermissionGate
 import com.phoneagent.core.SessionManager
 import com.phoneagent.core.StepExecutor
@@ -17,6 +19,7 @@ import com.phoneagent.network.SupabaseClient
 import com.phoneagent.system.AccessibilityController
 import com.phoneagent.system.DualAppDetector
 import com.phoneagent.system.IntentLauncher
+import com.phoneagent.system.TaskScheduler
 
 /**
  * Application + contenedor de dependencias manual (sin frameworks de DI).
@@ -30,6 +33,10 @@ class PhoneAgentApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Rearmar aquí además de en BOOT_COMPLETED: varios fabricantes filtran
+        // el broadcast de arranque, y sin esto las tareas programadas se
+        // perderían en silencio tras un reinicio. Rearmar es idempotente.
+        TaskScheduler.rescheduleAll(this)
         Log.i("[PhoneAgent].[App]", "Phone Agent arrancado. Supabase configurado: ${container.supabase.isConfigured()}")
     }
 }
@@ -47,6 +54,8 @@ class AppContainer(context: Context) {
     val permissionGate: PermissionGate = PermissionGate(driverRegistry)
     val sessionManager: SessionManager = SessionManager()
     val stepExecutor: StepExecutor = StepExecutor(accessibility, intentLauncher, driverRegistry)
+    val macroEngine: MacroEngine = MacroEngine(driverRegistry, permissionGate, stepExecutor, accessibility)
+    val stepVerifier: StepVerifier = StepVerifier(accessibility, driverRegistry)
     val vision: VisionCapability = VisionCapability(accessibility)
     val voice: VoiceCapability = VoiceCapability(appContext)
     val memory: MemoryCapability = MemoryCapability(supabase)
@@ -64,5 +73,7 @@ class AppContainer(context: Context) {
         memory = memory,
         accessibility = accessibility,
         executor = stepExecutor,
+        macroEngine = macroEngine,
+        stepVerifier = stepVerifier,
     )
 }

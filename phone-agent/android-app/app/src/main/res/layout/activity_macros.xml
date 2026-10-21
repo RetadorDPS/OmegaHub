@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="16dp">
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="Macros grabadas" android:textSize="22sp" android:textStyle="bold" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" android:layout_marginBottom="12dp" android:textSize="14sp"
+        android:text="Cada tarea que el agente completa bien se guarda aquí. Vuelve a decirla y se repite tal cual: sin IA, sin coste y sin fallos." />
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvMacros"
+        android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+    <ProgressBar android:id="@+id/progress" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:layout_gravity="center" android:visibility="gone" />
+    <TextView android:id="@+id/tvEmpty" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:gravity="center" android:padding="24dp"
+        android:text="Aún no hay macros. Completa una tarea con el agente y aparecerá aquí." />
+</LinearLayout>

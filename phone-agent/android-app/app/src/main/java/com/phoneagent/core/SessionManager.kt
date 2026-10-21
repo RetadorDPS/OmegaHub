@@ -11,6 +11,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
+ * Qué decidió el usuario ante una acción sensible.
+ * ApprovedWithText es el caso interesante: permite CORREGIR el mensaje antes de
+ * que salga, que es la diferencia entre "me fío" y "no me atrevo a enviar".
+ */
+sealed class ConfirmationOutcome {
+    object Approved : ConfirmationOutcome()
+    data class ApprovedWithText(val text: String) : ConfirmationOutcome()
+    object Rejected : ConfirmationOutcome()
+}
+
+/**
  * Estado de la sesión activa: quién manda, confirmaciones pendientes,
  * cancelación y timeouts. Un solo sitio decide si el agente sigue vivo.
  */
@@ -24,7 +35,7 @@ class SessionManager {
     val current: StateFlow<AgentSession?> = _current.asStateFlow()
 
     @Volatile private var job: Job? = null
-    @Volatile private var confirmation: CompletableDeferred<Boolean>? = null
+    @Volatile private var confirmation: CompletableDeferred<ConfirmationOutcome>? = null
     @Volatile var startedAtMs: Long = 0L; private set
     @Volatile var cancellationRequested: Boolean = false; private set
 
@@ -62,25 +73,26 @@ class SessionManager {
         _current.value = _current.value?.copy(stepsExecuted = count)
     }
 
-    /** Suspende el loop hasta que el usuario confirma o rechaza (o timeout). */
-    suspend fun awaitConfirmation(timeoutMs: Long = CONFIRMATION_TIMEOUT_MS): Boolean {
-        val deferred = CompletableDeferred<Boolean>()
+    /** Suspende el loop hasta que el usuario decide (o se agota el tiempo). */
+    suspend fun awaitConfirmation(timeoutMs: Long = CONFIRMATION_TIMEOUT_MS): ConfirmationOutcome {
+        val deferred = CompletableDeferred<ConfirmationOutcome>()
         confirmation = deferred
         update(SessionStatus.WAITING_CONFIRMATION)
-        val result = withTimeoutOrNull(timeoutMs) { deferred.await() } ?: false
-        if (result) update(SessionStatus.RUNNING) else Log.w(TAG, "Confirmación no recibida (timeout o rechazo)")
+        val result = withTimeoutOrNull(timeoutMs) { deferred.await() } ?: ConfirmationOutcome.Rejected
+        if (result !is ConfirmationOutcome.Rejected) update(SessionStatus.RUNNING)
+        else Log.w(TAG, "Confirmación rechazada o agotada (timeout ${timeoutMs / 1000}s)")
         confirmation = null
         return result
     }
 
-    /** Lo llama la UI (botón Confirmar / rechazo implícito al cancelar). */
-    fun resolveConfirmation(approved: Boolean) {
-        confirmation?.takeIf { !it.isCompleted }?.complete(approved)
+    /** Lo llama la UI (diálogo de confirmación / rechazo implícito al cancelar). */
+    fun resolveConfirmation(outcome: ConfirmationOutcome) {
+        confirmation?.takeIf { !it.isCompleted }?.complete(outcome)
     }
 
     fun cancel() {
         cancellationRequested = true
-        resolveConfirmation(false)
+        resolveConfirmation(ConfirmationOutcome.Rejected)
         job?.cancel()
         update(SessionStatus.CANCELLED)
         Log.w(TAG, "Sesión cancelada por el usuario")

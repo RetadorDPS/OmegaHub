@@ -11,6 +11,13 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Tareas programadas: alarma a la hora pedida + rearmado tras reiniciar.
+         USE_EXACT_ALARM no se usa porque es solo para apps de alarma/reloj y
+         Play lo rechaza fuera de ese caso; SCHEDULE_EXACT_ALARM es el correcto
+         y, si el usuario no lo concede, TaskScheduler degrada a alarma
+         inexacta en vez de fallar. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Ver apps instaladas para detectar las 4 autorizadas y sus clones -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
@@ -36,6 +43,23 @@
 
         <activity android:name=".ui.DriverManagerActivity" android:exported="false" />
         <activity android:name=".ui.SettingsActivity" android:exported="false" />
+        <activity android:name=".ui.MacroActivity" android:exported="false" />
+
+        <!-- Tareas programadas. exported=false: solo nuestra propia alarma la
+             dispara. -->
+        <receiver android:name=".system.ScheduledTaskReceiver"
+            android:exported="false" />
+
+        <!-- exported=true es OBLIGATORIO: BOOT_COMPLETED lo emite el sistema y
+             un receptor no exportado no lo recibe. Solo filtra esas dos
+             acciones, nada más. -->
+        <receiver android:name=".system.BootCompletedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Servicio de accesibilidad: ojos y manos del agente -->
         <service

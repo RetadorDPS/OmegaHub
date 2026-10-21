@@ -42,6 +42,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    testOptions {
+        // PermissionGate y compañía llaman a android.util.Log. En un test de JVM
+        // el stub de Android lanza por defecto; esto hace que devuelva valores
+        // neutros y el test ejercite la lógica de verdad en vez del logging.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -72,7 +78,10 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    // Tests de JVM. org.json es necesario porque en Android viene del framework
+    // y en un test local el stub lanza "not mocked" en cuanto se usa.
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }

@@ -161,7 +161,7 @@ create table if not exists public.session_steps (
   session_id            uuid not null references public.agent_sessions (id) on delete cascade,
   user_id               uuid not null references public.users (id) on delete cascade,
   step_number           integer not null,
-  action_type           text not null, -- tap|swipe|type|scroll|wait|open_app|read|verify|request_confirmation|done
+  action_type           text not null, -- tap|swipe|type|scroll|wait|open_app|read|verify|back|home|long_press|clear_text|press_enter|request_confirmation|done
   action_params         jsonb not null default '{}'::jsonb,
   expected_result       text,
   screen_analysis       text,

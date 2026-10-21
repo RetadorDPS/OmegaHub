@@ -1,0 +1,170 @@
+name: Phone Agent CI
+
+# Verifica las tres partes del proyecto en cada push. Cada job es independiente:
+# que falle el SQL no debe impedir ver si el Android compila.
+on:
+  push:
+    paths:
+      - 'phone-agent/**'
+      - '.github/workflows/phone-agent-ci.yml'
+  pull_request:
+    paths:
+      - 'phone-agent/**'
+      - '.github/workflows/phone-agent-ci.yml'
+  workflow_dispatch:
+
+# Dos pushes seguidos en la misma rama: el primero ya no interesa.
+concurrency:
+  group: phone-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Android: tests de JVM + APK de debug ──────────────────────────────────
+  android:
+    name: Android · tests unitarios + assembleDebug
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: phone-agent/android-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # El wrapper de Gradle no se versiona (gradle-wrapper.jar es un binario),
+      # así que CI instala Gradle directamente. 8.7 es el mínimo que AGP 8.5.2
+      # acepta.
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      # local.properties no se versiona (lleva credenciales). El build cae en
+      # System.getenv y luego a cadena vacía, así que compila sin ellas; se
+      # ponen valores de relleno solo para que BuildConfig no lleve "".
+      - name: local.properties de relleno (sin secretos)
+        run: |
+          {
+            echo "SUPABASE_URL=https://ci.invalid"
+            echo "SUPABASE_ANON_KEY=ci-placeholder-key"
+          } > local.properties
+
+      - name: Tests unitarios (lógica de seguridad, macros, modelos)
+        run: gradle --no-daemon --stacktrace testDebugUnitTest
+
+      - name: Compilar APK de debug
+        run: gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Resultados de los tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: phone-agent/android-app/app/build/reports/tests/
+          if-no-files-found: ignore
+
+  # ── Edge Functions: Deno ──────────────────────────────────────────────────
+  edge-functions:
+    name: Edge Functions · deno check + lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: phone-agent/supabase
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # deno check resuelve los imports de esm.sh y verifica tipos. Es lo mismo
+      # que `supabase functions deploy` hace antes de subir.
+      - name: Verificar tipos
+        run: deno check --allow-all functions/*/*.ts
+
+      - name: Lint
+        run: deno lint functions/
+
+  # ── SQL: se aplica de verdad contra Postgres ──────────────────────────────
+  sql:
+    name: Supabase · aplicar migración + seed
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: phone_agent
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: phone_agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aplicar fixture de auth/storage + migración
+        working-directory: phone-agent/supabase
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f ci/000_auth_stub.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/001_full_schema.sql
+
+      # Si la migración se aplica pero el seed no, el agente arranca sin apps
+      # autorizadas y el fallo es muy confuso de diagnosticar. Se comprueba aquí.
+      - name: Ejecutar el seed global
+        working-directory: phone-agent/supabase
+        run: psql -v ON_ERROR_STOP=1 -c "select public.seed_initial_data();"
+
+      - name: Comprobar el vocabulario de acciones y el seed
+        working-directory: phone-agent/supabase
+        run: |
+          set -euo pipefail
+          # Las 4 apps del MVP deben estar sembradas.
+          drivers=$(psql -tA -c "select count(*) from app_drivers where user_id is null;")
+          test "$drivers" = "4" || { echo "esperados 4 drivers, hay $drivers"; exit 1; }
+
+          # allowed_actions lleva 13, no 15: 'done' y 'request_confirmation' son
+          # meta-acciones que PermissionGate resuelve ANTES de consultar la
+          # lista (PermissionGate.kt líneas 45-51, frente al allows() de la 70),
+          # así que declararlos aquí no tendría efecto. Si este número cambia,
+          # hay que cambiar a la vez DriverConfig.DEFAULT_ACTIONS.
+          incompletos=$(psql -tA -c "select count(*) from app_drivers
+            where jsonb_array_length(allowed_actions) <> 13;")
+          test "$incompletos" = "0" || { echo "$incompletos filas sin las 13 acciones"; exit 1; }
+
+          # app_kind decide si ENTER cuenta como envío: sin él, el guardián
+          # trataría un envío de WhatsApp como una tecla inocente.
+          kinds=$(psql -tA -c "select count(*) from app_drivers
+            where ui_map ? 'app_kind';")
+          test "$kinds" = "4" || { echo "esperados 4 app_kind, hay $kinds"; exit 1; }
+
+          # WhatsApp es mensajería; los asistentes no.
+          wa=$(psql -tA -c "select ui_map->>'app_kind' from app_drivers where driver_key='whatsapp';")
+          test "$wa" = "messaging" || { echo "whatsapp debería ser messaging, es '$wa'"; exit 1; }
+
+          # RLS activo en todas las tablas del producto.
+          sin_rls=$(psql -tA -c "select count(*) from pg_tables
+            where schemaname='public' and rowsecurity=false
+              and tablename in ('users','app_drivers','projects','agent_sessions',
+                                'session_steps','macros','capability_config','event_log');")
+          test "$sin_rls" = "0" || { echo "$sin_rls tablas sin RLS"; exit 1; }
+
+          # El bucket de screenshots y su borrado a 24 h.
+          bucket=$(psql -tA -c "select count(*) from storage.buckets where id='screenshots';")
+          test "$bucket" = "1" || { echo "falta el bucket screenshots"; exit 1; }
+          psql -v ON_ERROR_STOP=1 -c "select public.delete_old_screenshots();"
+
+          echo "Migración, seed y RLS verificados ✅"

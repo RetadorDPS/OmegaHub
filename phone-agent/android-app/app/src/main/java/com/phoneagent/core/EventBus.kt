@@ -15,7 +15,8 @@ sealed class AgentEvent {
     data class StateChanged(val state: AgentState, val detail: String = "") : AgentEvent()
     data class StepStarted(val stepNumber: Int, val description: String) : AgentEvent()
     data class StepVerified(val stepNumber: Int, val verified: Boolean, val reason: String) : AgentEvent()
-    data class ConfirmationRequired(val stepNumber: Int, val description: String) : AgentEvent()
+    /** currentText: lo que se iba a enviar, para poder corregirlo antes. */
+    data class ConfirmationRequired(val stepNumber: Int, val description: String, val currentText: String? = null) : AgentEvent()
     data class Spoke(val text: String) : AgentEvent()
     data class Finished(val summary: String, val success: Boolean) : AgentEvent()
     data class ErrorOccurred(val message: String) : AgentEvent()

@@ -1,12 +1,18 @@
 package com.phoneagent.core
 
 import android.util.Log
+import com.phoneagent.capabilities.CheapVerdict
 import com.phoneagent.capabilities.MemoryCapability
+import com.phoneagent.capabilities.StepVerifier
 import com.phoneagent.capabilities.VisionCapability
 import com.phoneagent.capabilities.VoiceCapability
 import com.phoneagent.drivers.DriverRegistry
 import com.phoneagent.models.AgentSession
+import com.phoneagent.models.AgentStep
+import com.phoneagent.models.DriverConfig
 import com.phoneagent.models.AgentActionType
+import com.phoneagent.models.AutonomyLevel
+import com.phoneagent.models.Macro
 import com.phoneagent.models.SessionResult
 import com.phoneagent.models.SessionStatus
 import com.phoneagent.network.LLMRouter
@@ -46,14 +52,19 @@ class AgentEngine(
     private val memory: MemoryCapability,
     private val accessibility: AccessibilityController,
     private val executor: StepExecutor,
+    private val macroEngine: MacroEngine,
+    private val stepVerifier: StepVerifier,
 ) {
     companion object {
         private const val TAG = "[PhoneAgent].[AgentEngine]"
         private const val MAX_TOTAL_MS = 6 * 60_000L
     }
 
-    /** Confirmación humana desde la UI (botón Confirmar de MainActivity). */
-    fun confirmPending(approved: Boolean) = sessions.resolveConfirmation(approved)
+    /** Cuenta en voz alta cada paso. Se puede apagar sin tocar nada más. */
+    @Volatile var narrate: Boolean = true
+
+    /** Decisión humana desde la UI (diálogo de confirmación de MainActivity). */
+    fun confirmPending(outcome: ConfirmationOutcome) = sessions.resolveConfirmation(outcome)
     fun cancel() = sessions.cancel()
 
     suspend fun run(voiceCommand: String, projectId: String? = null): SessionResult {
@@ -88,6 +99,7 @@ class AgentEngine(
         var finalSummary: String? = null
         var failureReason: String? = null
         val history = mutableListOf<String>()
+        var lastTypedText: String? = null
 
         try {
             // ── Config + drivers autorizados (whitelist) ───────────────────
@@ -102,9 +114,35 @@ class AgentEngine(
             val autonomy = configManager.autonomy()
             val model = llmRouter.modelFromConfig(caps)
             val drivers = registry.reload(userId, configManager)
+            // Macros antes que el LLM: si el usuario ya grabó este flujo, se
+            // reproduce tal cual (sin tokens, sin esperar al modelo).
+            try {
+                val userMacros = supabase.fetchMacros(userId)
+                macroEngine.setMacros(userMacros)
+            } catch (e: Exception) {
+                Log.w(TAG, "No se pudieron cargar las macros: ${e.message}")
+                macroEngine.setMacros(emptyList())
+            }
+            val matchedMacro = macroEngine.match(voiceCommand)
+            if (matchedMacro != null) {
+                val macroResult = runMacro(userId, matchedMacro, autonomy)
+                if (macroResult.success) {
+                    EventBus.emit(AgentEvent.StateChanged(AgentState.DONE, macroResult.message))
+                    EventBus.emit(AgentEvent.Finished(macroResult.message, true))
+                    voice.speak(macroResult.message)
+                    sessions.finish()
+                    return SessionResult("", SessionStatus.COMPLETED, macroResult.message, macroResult.stepsExecuted, macroResult.stepsExecuted)
+                }
+                // La macro falló: se avisa y se cae al agente con visión.
+                Log.w(TAG, "Macro fallida, continuando con el agente: ${macroResult.message}")
+                EventBus.emit(AgentEvent.StateChanged(AgentState.WORKING,
+                    "La macro falló en el paso ${macroResult.failedAt}; lo retomo con visión"))
+            }
             if (registry.authorized().isEmpty()) {
-                Log.w(TAG, "Drivers en DB: ${drivers.joinToString { it.driverKey }}")
-                return closeEarly(userId, "No hay ninguna app autorizada. Abre «Apps autorizadas», marca Claude, ChatGPT o WhatsApp y guarda en Supabase.")
+                Log.w(TAG, "Drivers en DB: ${drivers.joinToString { it.driverKey }} · " +
+                    "plugins cargados: ${registry.availableDriverKeys().sorted()}")
+                return closeEarly(userId, "No hay ninguna app autorizada. Abre «Apps autorizadas», marca Claude, ChatGPT o WhatsApp y guarda en Supabase. " +
+                    "(Apps con driver propio ahora mismo: ${registry.availableDriverKeys().sorted().joinToString()})")
             }
 
             // ── PLAN: screenshot inicial + comando → primer paso ───────────
@@ -122,6 +160,8 @@ class AgentEngine(
             supabase.logEvent(userId, remoteSessionId.takeUnless { isLocalSession }, "info",
                 "session_started", voiceCommand, JSONObject().put("max_steps", maxSteps).put("local", isLocalSession))
 
+            macroEngine.startRecording()
+            stepVerifier.resetCounters()
             var step = routed.plan.action
             history.add("plan: ${routed.plan.screenAnalysis}")
 
@@ -158,23 +198,38 @@ class AgentEngine(
                         Log.i(TAG, "Paso #$stepNumber necesita confirmación: $description")
                         sessions.update(SessionStatus.WAITING_CONFIRMATION)
                         EventBus.emit(AgentEvent.StateChanged(AgentState.WAITING_CONFIRMATION, description))
-                        EventBus.emit(AgentEvent.ConfirmationRequired(stepNumber, description))
-                        voice.speak("Necesito tu confirmación. $description. Di que sí en pantalla o toca Confirmar.")
-                        val approved = sessions.awaitConfirmation()
-                        sessions.update(SessionStatus.RUNNING)
-                        EventBus.emit(AgentEvent.StateChanged(AgentState.WORKING, "Paso $stepNumber de $maxSteps"))
-                        if (!approved) {
-                            finalStatus = SessionStatus.CANCELLED
-                            failureReason = "No confirmaste el paso: $description"
-                            break
+                        // Se ofrece el texto para que el usuario lo corrija ANTES
+                        // de que salga, no solo aprobar o rechazar.
+                        EventBus.emit(AgentEvent.ConfirmationRequired(stepNumber, description, lastTypedText))
+                        voice.speak("Necesito tu confirmación para $description. Puedes editar el texto en pantalla.")
+                        when (val outcome = sessions.awaitConfirmation()) {
+                            is ConfirmationOutcome.Rejected -> {
+                                sessions.update(SessionStatus.RUNNING)
+                                finalStatus = SessionStatus.CANCELLED
+                                failureReason = "No confirmaste el paso: $description"
+                                break
+                            }
+                            is ConfirmationOutcome.ApprovedWithText -> {
+                                // Reescribe el campo con el texto corregido y luego
+                                // continúa con el paso sensible (el envío).
+                                applyEditedText(outcome.text, currentDriver)
+                                sessions.update(SessionStatus.RUNNING)
+                            }
+                            ConfirmationOutcome.Approved -> sessions.update(SessionStatus.RUNNING)
                         }
+                        EventBus.emit(AgentEvent.StateChanged(AgentState.WORKING, "Paso $stepNumber de $maxSteps"))
                     }
                     GateDecision.Allow -> Unit
                 }
 
                 // 2) Ejecutar físicamente el paso.
-                EventBus.emit(AgentEvent.StepStarted(stepNumber,
-                    currentDriver?.let { registry.driverFor(it).describeStep(it, step) } ?: step.actionType.wire))
+                val stepDescription = currentDriver?.let { registry.driverFor(it).describeStep(it, step) }
+                    ?: step.actionType.wire
+                EventBus.emit(AgentEvent.StepStarted(stepNumber, stepDescription))
+                // Narración: el usuario oye qué está haciendo el agente en cada
+                // paso, en vez de mirar una burbuja que dice "Paso 3…".
+                if (narrate) voice.speak(stepDescription)
+                if (step.actionType == AgentActionType.TYPE) lastTypedText = step.paramString("text")
                 val outcome = executor.execute(step, currentDriver)
                 stepsExecuted++
                 sessions.setStepsExecuted(stepsExecuted)
@@ -189,29 +244,56 @@ class AgentEngine(
                     Log.w(TAG, "La ejecución falló; el LLM decidirá la corrección: ${outcome.detail}")
                 }
 
-                // 3) Screenshot posterior + subida al bucket (trazabilidad).
+                // 3) ¿Hace falta visión para verificar este paso?
+                //    El árbol de UI ya está en memoria y es gratis. Si la
+                //    evidencia es inequívoca, la imagen NO viaja al LLM: una
+                //    captura de 1080x2400 son ~3.500 tokens de imagen, más que
+                //    todo el prompt de texto. Se reserva la visión para cuando
+                //    de verdad hay ambigüedad.
+                val cheap = stepVerifier.cheapVerify(step, currentDriver)
+                val needsVision = cheap is CheapVerdict.Unknown
+                if (cheap is CheapVerdict.Verified) {
+                    Log.i(TAG, "Paso #$stepNumber verificado con el árbol de UI (sin imagen): ${cheap.reason}")
+                }
+
+                // Screenshot posterior + subida al bucket. Se captura SIEMPRE,
+                // aunque no se envíe al LLM: el bucket existe para trazabilidad
+                // y borrar la pista justo en los pasos baratos haría imposible
+                // auditar por qué una macro se grabó mal.
                 val afterJpeg = vision.captureJpegBytes()
                 var afterBase64 = ""
                 if (afterJpeg != null) {
-                    afterBase64 = android.util.Base64.encodeToString(
-                        afterJpeg, android.util.Base64.NO_WRAP)
                     if (!isLocalSession && remoteSessionId != null) {
                         supabase.uploadScreenshot(userId, remoteSessionId, stepNumber, afterJpeg)
                     }
-                } else {
+                    if (needsVision) {
+                        afterBase64 = android.util.Base64.encodeToString(afterJpeg, android.util.Base64.NO_WRAP)
+                    }
+                } else if (needsVision) {
                     afterBase64 = vision.captureBase64OrEmpty()
                 }
 
+                // Se le dice al LLM lo que ya se comprobó en local, para que no
+                // lo vuelva a deducir (y para que no contradiga la evidencia).
+                val treeForLlm = when (cheap) {
+                    is CheapVerdict.Verified ->
+                        "[Comprobado en local: ${cheap.reason}]\n" + vision.uiTreeText()
+                    is CheapVerdict.Refuted ->
+                        "[Falló en local: ${cheap.reason}]\n" + vision.uiTreeText()
+                    CheapVerdict.Unknown -> vision.uiTreeText()
+                }
+
                 // 4) Verificación con el LLM (1 reintento ante fallo de red).
+                stepVerifier.noteVerification()
                 val verification = try {
                     llmRouter.verify(routed.sessionId, stepNumber, afterBase64,
-                        step.toJson().toString(), voiceCommand, vision.uiTreeText(), model)
+                        step.toJson().toString(), voiceCommand, treeForLlm, model)
                 } catch (e: SupabaseException) {
                     Log.w(TAG, "verify-and-next falló (${e.message}); reintentando…")
                     delay(2000)
                     try {
                         llmRouter.verify(routed.sessionId, stepNumber, afterBase64,
-                            step.toJson().toString(), voiceCommand, vision.uiTreeText(), model)
+                            step.toJson().toString(), voiceCommand, treeForLlm, model)
                     } catch (e2: Exception) {
                         finalStatus = SessionStatus.FAILED
                         failureReason = "No se pudo verificar el paso $stepNumber: ${e2.message}"
@@ -222,6 +304,8 @@ class AgentEngine(
                 if (verification.verified) stepsVerified++
                 history.add("verificación #$stepNumber: ${verification.reason}")
                 EventBus.emit(AgentEvent.StepVerified(stepNumber, verification.verified, verification.reason))
+                // Solo los pasos verificados entran en la macro grabable.
+                macroEngine.recordStep(step, verification.verified)
 
                 if (verification.shouldStop) {
                     finalSummary = verification.message.ifBlank { verification.reason }
@@ -271,6 +355,23 @@ class AgentEngine(
             ?: failureReason
             ?: "Tarea terminada: $voiceCommand"
 
+        // Qué costó la sesión en imágenes: sirve para ver si la verificación
+        // por árbol de UI está haciendo su trabajo.
+        if (stepVerifier.verificationsTotal > 0) {
+            val pct = (stepVerifier.imagelessRatio() * 100).toInt()
+            Log.i(TAG, "Verificaciones: ${stepVerifier.verificationsTotal} · " +
+                "sin enviar imagen: ${stepVerifier.verificationsWithoutImage} ($pct%)")
+            supabase.logEvent(userId, remoteSessionId?.takeUnless { isLocalSession }, "info",
+                "vision_savings",
+                "$pct% de los pasos verificados sin imagen " +
+                    "(${stepVerifier.verificationsWithoutImage}/${stepVerifier.verificationsTotal})")
+        }
+
+        // Grabar el flujo como macro reutilizable (solo si terminó bien).
+        if (finalStatus == SessionStatus.COMPLETED) {
+            saveMacroFromSession(userId, voiceCommand, remoteSessionId)
+        }
+
         // En modo local complete-session no corrió: guardamos la memoria aquí.
         if (isLocalSession && finalStatus == SessionStatus.COMPLETED) {
             val project = memory.activeProject(userId, projectId)
@@ -289,6 +390,57 @@ class AgentEngine(
         sessions.finish()
         Log.i(TAG, "Sesión cerrada ($finalStatus): $summary")
         return SessionResult(remoteSessionId.orEmpty(), finalStatus, summary, stepsExecuted, stepsVerified)
+    }
+
+    /** Vacía el campo y escribe el texto corregido por el usuario. */
+    private suspend fun applyEditedText(edited: String, driver: DriverConfig?) {
+        Log.i(TAG, "Texto corregido por el usuario (${edited.length} caracteres)")
+        executor.execute(AgentStep(stepNumber = 0, actionType = AgentActionType.CLEAR_TEXT,
+            paramsJson = org.json.JSONObject().toString()), driver)
+        val written = executor.execute(
+            AgentStep(stepNumber = 0, actionType = AgentActionType.TYPE,
+                paramsJson = org.json.JSONObject().put("text", edited).toString()), driver)
+        if (!written.success) Log.w(TAG, "No se pudo reescribir el texto: ${written.detail}")
+    }
+
+    /** Reproduce una macro y reporta por voz y por eventos. */
+    private suspend fun runMacro(userId: String, macro: Macro, autonomy: AutonomyLevel): MacroRunResult {
+        sessions.update(SessionStatus.RUNNING)
+        EventBus.emit(AgentEvent.StateChanged(AgentState.WORKING, "Macro: ${macro.name}"))
+        return try {
+            macroEngine.run(macro, autonomy) { number, total, description, ok ->
+                EventBus.emit(AgentEvent.StepStarted(number, description))
+                if (narrate) voice.speak(description)
+                Log.d(TAG, "Macro paso $number/$total: $description (ok=$ok)")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error reproduciendo la macro", e)
+            supabase.logEvent(userId, null, "warn", "macro_failed", e.message.orEmpty())
+            MacroRunResult(false, 0, null, "La macro falló: ${e.message}")
+        }
+    }
+
+    /**
+     * Convierte la sesión terminada en una macro reutilizable. Es lo que hace
+     * que el agente mejore con el uso: cada flujo bien resuelto queda grabado y
+     * la próxima vez se reproduce sin LLM.
+     */
+    private suspend fun saveMacroFromSession(userId: String, voiceCommand: String, sessionId: String?) {
+        try {
+            val driverKey = sessions.current.value?.currentApp?.takeIf { it.isNotBlank() }
+            val macro = macroEngine.buildMacro(voiceCommand, driverKey) ?: return
+            // No duplicar: si ya existe una macro con ese disparador, se reemplaza.
+            val existing = macroEngine.all().firstOrNull { it.normalizedTrigger == macro.normalizedTrigger }
+            val toSave = if (existing != null) macro.copy(id = existing.id) else macro
+            val saved = supabase.saveMacro(userId, toSave)
+            macroEngine.setMacros(macroEngine.all().filter { it.id != saved.id } + saved)
+            supabase.logEvent(userId, sessionId, "info", "macro_saved",
+                "Macro «${saved.name}» con ${saved.steps.size} pasos")
+            Log.i(TAG, "Macro guardada: «${saved.name}» (${saved.steps.size} pasos)")
+        } catch (e: Exception) {
+            // No grabar la macro jamás debe romper una tarea que ya terminó bien.
+            Log.w(TAG, "No se pudo guardar la macro: ${e.message}")
+        }
     }
 
     /** Llama a complete-session (o al resumen local) y devuelve el resumen. */

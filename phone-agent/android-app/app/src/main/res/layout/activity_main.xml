@@ -23,6 +23,9 @@
         <Button android:id="@+id/btnDrivers" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="24dp"
             android:text="Apps autorizadas" />
+        <Button android:id="@+id/btnMacros" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:text="Macros grabadas" />
         <Button android:id="@+id/btnSettings" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="8dp"
             android:text="Ajustes" />

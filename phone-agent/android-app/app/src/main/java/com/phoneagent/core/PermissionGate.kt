@@ -1,7 +1,7 @@
 package com.phoneagent.core
 
 import android.util.Log
-import com.phoneagent.drivers.DriverRegistry
+import com.phoneagent.drivers.DriverLookup
 import com.phoneagent.models.AgentActionType
 import com.phoneagent.models.AgentStep
 import com.phoneagent.models.AutonomyLevel
@@ -22,7 +22,7 @@ sealed class GateDecision {
  *  3. ¿El nivel de autonomía la permite? (read/draft/act)
  *  4. ¿Es un envío o acción sensible que requiere confirmación humana?
  */
-class PermissionGate(private val registry: DriverRegistry) {
+class PermissionGate(private val registry: DriverLookup) {
     companion object {
         private const val TAG = "[PhoneAgent].[PermissionGate]"
         private val SEND_TEXTS = listOf(

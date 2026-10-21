@@ -9,7 +9,10 @@ import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.Toast
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -17,11 +20,13 @@ import androidx.lifecycle.lifecycleScope
 import com.phoneagent.PhoneAgentApp
 import com.phoneagent.core.AgentEvent
 import com.phoneagent.core.AgentState
+import com.phoneagent.core.ConfirmationOutcome
 import com.phoneagent.core.EventBus
 import com.phoneagent.core.SecurePrefs
 import com.phoneagent.databinding.ActivityMainBinding
 import com.phoneagent.system.AccessibilityController
 import com.phoneagent.system.ScreenCaptureManager
+import com.phoneagent.system.TaskScheduler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -38,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private val container by lazy { (application as PhoneAgentApp).container }
     private var taskJob: Job? = null
     private var pendingCommand: String? = null
+    private var lastConfirmation: AgentEvent.ConfirmationRequired? = null
 
     private val requestMicPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()) { granted ->
@@ -78,15 +84,15 @@ class MainActivity : AppCompatActivity() {
             container.agentEngine.cancel()
             toast("Cancelando la tarea…")
         }
-        binding.btnConfirm.setOnClickListener {
-            container.agentEngine.confirmPending(true)
-            binding.btnConfirm.visibility = View.GONE
-        }
+        binding.btnConfirm.setOnClickListener { showConfirmationDialog(lastConfirmation) }
         binding.btnDrivers.setOnClickListener {
             startActivity(Intent(this, DriverManagerActivity::class.java))
         }
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        binding.btnMacros.setOnClickListener {
+            startActivity(Intent(this, MacroActivity::class.java))
         }
         observeEvents()
     }
@@ -94,6 +100,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updatePermissionStatus()
+        handleScheduledTaskIntent()
         // Wake word en segundo plano solo si el usuario lo activó en Ajustes.
         if (SecurePrefs.getBool(this, SecurePrefs.KEY_WAKE_ENABLED) && taskJob?.isActive != true) {
             container.voice.wakeWord = container.configManager.wakeWord()
@@ -138,6 +145,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Arranca una tarea que venía de una notificación programada.
+     *
+     * Se gestiona en onResume (que siempre corre, también tras onCreate) y se
+     * quita el extra al consumirlo: así un giro de pantalla o un segundo
+     * onResume no vuelven a lanzar la misma tarea.
+     */
+    private fun handleScheduledTaskIntent() {
+        val incoming = intent ?: return
+        val command = incoming.getStringExtra(TaskScheduler.EXTRA_TASK_COMMAND) ?: return
+        incoming.removeExtra(TaskScheduler.EXTRA_TASK_COMMAND)
+        val name = incoming.getStringExtra(TaskScheduler.EXTRA_TASK_NAME).orEmpty()
+        incoming.removeExtra(TaskScheduler.EXTRA_TASK_NAME)
+        if (taskJob?.isActive == true) {
+            toast("Ya hay una tarea en marcha; la programada queda pendiente")
+            return
+        }
+        Log.i(TAG, "Tarea programada «$name»: $command")
+        toast("Tarea programada: ${name.ifBlank { command }}")
+        ensureCaptureThenExecute(command)
+    }
+
     /** Sin MediaProjection no hay ojos: se pide una vez y se recuerda el comando. */
     private fun ensureCaptureThenExecute(command: String) {
         if (ScreenCaptureManager.isReady()) { executeCommand(command); return }
@@ -164,7 +193,10 @@ class MainActivity : AppCompatActivity() {
                     is AgentEvent.StateChanged -> renderState(event.state, event.detail)
                     is AgentEvent.StepStarted -> binding.tvLastResult.text = "Paso ${event.stepNumber}: ${event.description}"
                     is AgentEvent.StepVerified -> if (!event.verified) toast("Paso ${event.stepNumber} no verificado: ${event.reason}")
-                    is AgentEvent.ConfirmationRequired -> binding.btnConfirm.visibility = View.VISIBLE
+                    is AgentEvent.ConfirmationRequired -> {
+                        lastConfirmation = event
+                        showConfirmationDialog(event)
+                    }
                     is AgentEvent.Finished -> {
                         binding.tvLastResult.text = event.summary
                         binding.btnConfirm.visibility = View.GONE
@@ -174,6 +206,64 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Tarjeta de aprobación EDITABLE: el usuario ve qué se va a hacer y puede
+     * corregir el texto antes de que salga. Aprobar sin tocar nada envía lo que
+     * el agente había preparado.
+     */
+    private fun showConfirmationDialog(event: AgentEvent.ConfirmationRequired?) {
+        if (event == null) return
+        val editable = event.currentText
+        if (editable.isNullOrBlank()) {
+            // Sin texto que corregir: confirmación simple.
+            MaterialAlertDialogBuilder(this)
+                .setTitle("¿Confirmas?")
+                .setMessage(event.description)
+                .setPositiveButton("Sí, adelante") { _, _ ->
+                    container.agentEngine.confirmPending(ConfirmationOutcome.Approved)
+                    binding.btnConfirm.visibility = View.GONE
+                }
+                .setNegativeButton("No") { _, _ ->
+                    container.agentEngine.confirmPending(ConfirmationOutcome.Rejected)
+                    binding.btnConfirm.visibility = View.GONE
+                }
+                .setCancelable(false)
+                .show()
+            return
+        }
+        val input = EditText(this).apply {
+            setText(editable)
+            setSelection(editable.length)
+            minLines = 2
+            maxLines = 6
+            hint = "Puedes corregir el texto antes de enviar"
+        }
+        // Ojo: no llamarlo 'container', que taparía la propiedad de la Activity.
+        val wrapper = FrameLayout(this).apply {
+            val pad = (20 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+            addView(input)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Revisa antes de enviar")
+            .setMessage(event.description)
+            .setView(wrapper)
+            .setPositiveButton("Enviar") { _, _ ->
+                val edited = input.text.toString()
+                val outcome = if (edited == editable) ConfirmationOutcome.Approved
+                              else ConfirmationOutcome.ApprovedWithText(edited)
+                container.agentEngine.confirmPending(outcome)
+                binding.btnConfirm.visibility = View.GONE
+                if (edited != editable) toast("Texto corregido")
+            }
+            .setNegativeButton("Cancelar") { _, _ ->
+                this@MainActivity.container.agentEngine.confirmPending(ConfirmationOutcome.Rejected)
+                binding.btnConfirm.visibility = View.GONE
+            }
+            .setCancelable(false)
+            .show()
     }
 
     private fun renderState(state: AgentState, detail: String) {

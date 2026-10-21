@@ -6,6 +6,7 @@ import com.phoneagent.BuildConfig
 import com.phoneagent.core.SecurePrefs
 import com.phoneagent.models.ActionPlan
 import com.phoneagent.models.DriverConfig
+import com.phoneagent.models.Macro
 import com.phoneagent.models.Project
 import com.phoneagent.models.VerificationResult
 import io.github.jan.supabase.auth.Auth
@@ -340,6 +341,50 @@ class SupabaseClient(private val context: Context) {
                 .post(body.toString().toRequestBody("application/json".toMediaType())).build())
             if (arr.length() > 0) DriverConfig.fromJson(arr.getJSONObject(0)) else config
         }
+    }
+
+    // ── Macros ───────────────────────────────────────────────────────────────
+
+    /** Macros activas y desactivadas del usuario (la UI las muestra todas). */
+    suspend fun fetchMacros(userId: String): List<Macro> {
+        requireAuth()
+        val url = restUrl("macros").newBuilder()
+            .addQueryParameter("select", "*")
+            .addQueryParameter("user_id", "eq.$userId")
+            .addQueryParameter("order", "updated_at.desc")
+            .build()
+        val arr = executeArray(baseRequest(url).get().build())
+        return (0 until arr.length()).mapNotNull {
+            runCatching { Macro.fromJson(arr.getJSONObject(it)) }.getOrNull()
+        }
+    }
+
+    /** Crea o actualiza. Si ya tiene id, PATCH; si no, INSERT. */
+    suspend fun saveMacro(userId: String, macro: Macro): Macro {
+        requireAuth()
+        val body = macro.toJson().apply { put("user_id", userId) }
+        val request = if (macro.id.isNotBlank()) {
+            val url = restUrl("macros").newBuilder()
+                .addQueryParameter("id", "eq.${macro.id}")
+                .addQueryParameter("user_id", "eq.$userId")   // solo macros propias
+                .build()
+            baseRequest(url).header("Prefer", "return=representation")
+                .patch(body.toString().toRequestBody("application/json".toMediaType()))
+        } else {
+            baseRequest(restUrl("macros")).header("Prefer", "return=representation")
+                .post(body.toString().toRequestBody("application/json".toMediaType()))
+        }
+        val arr = executeArray(request.build())
+        return if (arr.length() > 0) Macro.fromJson(arr.getJSONObject(0)) else macro
+    }
+
+    suspend fun deleteMacro(userId: String, macroId: String) {
+        requireAuth()
+        val url = restUrl("macros").newBuilder()
+            .addQueryParameter("id", "eq.$macroId")
+            .addQueryParameter("user_id", "eq.$userId")
+            .build()
+        executeArray(baseRequest(url).delete().build())
     }
 
     /** Sin sesión real, RLS devuelve 0 filas y el agente cree que no hay apps. */

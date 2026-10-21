@@ -262,12 +262,22 @@ values (
 ```
 Con esto, `GenericDriver` YA puede navegar Telegram por su árbol de UI.
 
-**2) (Opcional pero recomendado) Una clase Driver** en `app/src/main/java/com/phoneagent/drivers/TelegramDriver.kt` que extienda `BaseDriver`, implemente `parseScreen()`/`getNavigationHint()` con el conocimiento fino de Telegram, y **una línea** para registrarla en `DriverRegistry`:
-```kotlin
-private val driversByKey: Map<String, AppDriver> = listOf<AppDriver>(
-    ClaudeDriver(), ChatGPTDriver(), WhatsAppDriver(), TelegramDriver(), GenericDriver(),
-).associateBy { it.driverKey }
+**2) (Opcional pero recomendado) Una clase Driver** en `app/src/main/java/com/phoneagent/drivers/TelegramDriver.kt` que extienda `BaseDriver` e implemente `parseScreen()`/`getNavigationHint()` con el conocimiento fino de Telegram.
+
+Para registrarla **no se toca `DriverRegistry`**: se añade una línea al fichero de servicios.
 ```
+# app/src/main/resources/META-INF/services/com.phoneagent.drivers.AppDriver
+com.phoneagent.drivers.ClaudeDriver
+com.phoneagent.drivers.ChatGPTDriver
+com.phoneagent.drivers.WhatsAppDriver
+com.phoneagent.drivers.TelegramDriver   ← la línea nueva
+com.phoneagent.drivers.GenericDriver
+```
+`DriverRegistry` descubre los drivers con `ServiceLoader` al arrancar. Si el fichero falta o está vacío, cae en una lista integrada de respaldo y `GenericDriver` se añade siempre, así que un olvido aquí degrada a navegación genérica en vez de romper la app.
+
+> Si algún día activas `isMinifyEnabled = true`, las reglas de `proguard-rules.pro` ya conservan `com.phoneagent.drivers.**` y `META-INF/services`. Sin ellas R8 borraría los drivers y todo caería en `GenericDriver`.
+
+Tampoco hay que declarar Telegram como app de mensajería en código: se pone `"app_kind":"messaging"` en su `ui_map` y `PermissionGate` tratará ENTER como un envío (ver §6.5).
 
 Nada más. Ni el core, ni el Gate, ni el loop, ni las Edge Functions cambian: el system prompt de plan-task se construye desde `app_drivers` en cada llamada.
 
@@ -283,6 +293,7 @@ phone-agent/
 │   ├── config.toml
 │   ├── .env.example                   ← secretos de las Edge Functions
 │   ├── migrations/001_full_schema.sql ← 8 tablas + RLS + seed + bucket
+│   ├── ci/000_auth_stub.sql           ← fixture SOLO para CI (auth/storage mínimos)
 │   └── functions/
 │       ├── plan-task/index.ts         ← planifica con Claude (visión)
 │       ├── verify-and-next/index.ts   ← verifica cada paso y propone el siguiente
@@ -296,16 +307,19 @@ phone-agent/
         └── java/com/phoneagent/
             ├── PhoneAgentApp.kt       ← contenedor de dependencias
             ├── core/                  ← AgentEngine, StepExecutor, PermissionGate,
-            │                            SessionManager, EventBus, ConfigManager
-            ├── drivers/               ← AppDriver, DriverRegistry, GenericDriver,
-            │                            ClaudeDriver, ChatGPTDriver, WhatsAppDriver
-            ├── capabilities/          ← VisionCapability, VoiceCapability, MemoryCapability
+            │                            SessionManager, EventBus, ConfigManager, MacroEngine
+            ├── drivers/               ← AppDriver, DriverLookup, DriverRegistry,
+            │                            GenericDriver, ClaudeDriver, ChatGPTDriver, WhatsAppDriver
+            ├── capabilities/          ← VisionCapability, VoiceCapability, MemoryCapability,
+            │                            StepVerifier (verificación sin imagen)
             ├── system/                ← AccessibilityController, ScreenCapture,
-            │                            IntentLauncher, DualAppDetector
+            │                            IntentLauncher, DualAppDetector, TaskScheduler,
+            │                            ScheduledTaskReceiver
             ├── network/               ← SupabaseClient, LLMRouter, ImageOptimizer
-            ├── ui/                    ← MainActivity, DriverManagerActivity,
-            │                            SettingsActivity, FloatingOverlay
-            └── models/                ← AgentStep, DriverConfig, Project, Session
+            ├── ui/                    ← MainActivity, DriverManagerActivity, SettingsActivity,
+            │                            MacroActivity, FloatingOverlay
+            └── models/                ← AgentStep, DriverConfig, Project, Session, Macro
+        └── app/src/test/java/com/phoneagent/   ← tests de JVM (ver §12)
 ```
 
 ## 11. Seguridad y privacidad (decisiones tomadas)
@@ -316,3 +330,128 @@ phone-agent/
 - **Screenshots:** bucket privado, políticas por usuario y **auto-borrado a las 24 h** (`delete_old_screenshots()` + `check-alerts`).
 - **Sin hardcodeos:** URL/claves en `local.properties`, ajustes sensibles en `EncryptedSharedPreferences`, secretos en Supabase.
 - **Trazabilidad total:** cada sesión, paso, verificación y evento queda en PostgreSQL (`agent_sessions`, `session_steps`, `event_log`).
+
+---
+
+## 12. Macros: grabar una vez, repetir por voz
+
+Una **macro** es un flujo que el agente resolvió bien y que queda guardado como script. La próxima vez que digas la misma frase se reproduce tal cual, **sin llamar al LLM**.
+
+### Cómo se crea
+
+No hay que hacer nada: cuando una sesión termina en `COMPLETED`, `AgentEngine.saveMacroFromSession()` convierte los pasos **verificados** en una macro y la guarda en la tabla `macros`. El disparador es la frase que dijiste, normalizada (sin acentos, signos ni mayúsculas), así que *«¡Abre Claude!»* y *«abre claude»* activan la misma macro.
+
+Solo se graban pasos que la verificación dio por buenos, y se descartan `wait`/`read`/`verify`/`request_confirmation`, que no forman parte del flujo útil.
+
+### Cómo se reproduce
+
+`AgentEngine.run()` intenta la macro **antes** de planificar:
+
+```
+comando de voz → ¿coincide con una macro activa?
+                   ├─ SÍ → MacroEngine.run() → PermissionGate → StepExecutor  (0 tokens)
+                   │        └─ si un paso falla → se avisa y se cae al agente con visión
+                   └─ NO → plan-task (LLM + visión), y al terminar bien se graba la macro
+```
+
+**Una macro no tiene privilegios extra.** Cada paso pasa por `PermissionGate` exactamente igual que en el agente: whitelist, `allowed_actions`, nivel de autonomía y confirmación de envíos.
+
+### Gestionarlas
+
+Ajustes → **Macros grabadas**: verlas, activarlas/desactivarlas, borrarlas y **programarlas** (§13).
+
+### Por qué esto importa para publicar en Google Play
+
+La política de Accesibilidad de Play dice:
+
+> *"Any use of the Accessibility API that enables an app to autonomously initiate, plan, and execute actions or decisions is strictly prohibited"*
+
+…y a continuación:
+
+> *"This does not prohibit deterministic, rule-based automation, where behavior follows a static, human-defined script."*
+
+Las macros son literalmente ese segundo caso: un script estático que definió una persona. **Es la única modalidad del proyecto publicable en Play**; el agente con LLM en tiempo de ejecución tendría que distribuirse como APK propio.
+
+---
+
+## 13. Tareas programadas
+
+En **Macros grabadas → Programar** eliges hora (y si se repite a diario). A la hora exacta llega una notificación con dos botones: **Ejecutar ahora** y **Posponer 10 min**.
+
+### Por qué avisa en vez de ejecutarse sola
+
+No es una limitación que se pueda arreglar con más código:
+
+1. **Técnica.** El servicio de Accesibilidad no recibe eventos con la pantalla bloqueada y MediaProjection no captura con el dispositivo apagado. Una tarea a las 3:00 con el móvil en el bolsillo fallaría a mitad y dejaría la sesión colgada en `running`.
+2. **De política.** Que sea el usuario quien pulse «Ejecutar» es justo lo que la hace compatible con la restricción de Play sobre autonomía por Accesibilidad.
+
+El valor es que **la tarea no se olvida**: llega a la hora y arrancarla cuesta un toque (o decir la frase, si la wake word está activa).
+
+### Detalles de implementación
+
+- `AlarmManager.setExactAndAllowWhileIdle`, que dispara aunque el móvil esté en Doze.
+- En Android 12+ la alarma exacta requiere permiso del usuario; si no está concedido se degrada a `setAndAllowWhileIdle` (inexacta) **en vez de reventar**, y se registra el aviso.
+- Las alarmas no sobreviven a un reinicio: `BootCompletedReceiver` las rearma, y `PhoneAgentApp.onCreate()` las rearma otra vez al abrir la app, porque varios fabricantes filtran el broadcast de arranque.
+- Las tareas se guardan cifradas en `EncryptedSharedPreferences`, no en una tabla nueva: el esquema se queda en las 8 tablas del diseño.
+- Posponer mueve el disparo real y rearma (y desactiva la repetición diaria: si la posones, no quieres que además te salte mañana sin avisar).
+
+---
+
+## 14. Confirmación editable y narración
+
+**Confirmación editable.** Antes la aprobación era binaria (sí/no). Ahora, cuando el agente va a enviar algo, el diálogo muestra **el texto que iba a salir** y puedes corregirlo. Si lo cambias, `AgentEngine.applyEditedText()` vacía el campo, escribe tu versión y después ejecuta el envío. Aprobar sin tocar nada envía lo que el agente había preparado.
+
+**Narración por voz.** Cada paso se cuenta en voz alta (`AgentEngine.narrate`, activada por defecto) usando la descripción que da el driver —«Enviar mensaje a Ana en WhatsApp»— en vez de obligarte a mirar una burbuja que dice «Paso 3…».
+
+---
+
+## 15. Coste: verificar con el árbol de UI
+
+Cada paso hacía una llamada al LLM con screenshot. Una captura de 1080×2400 son ~3.500 tokens de imagen, más que todo el prompt de texto.
+
+`StepVerifier` lee el árbol de accesibilidad (ya está en memoria, es gratis) y aplica reglas **conservadoras**: literales entrecomillados del resultado esperado presentes en pantalla, texto escrito localizado, package correcto tras `open_app`. Solo decide cuando la evidencia es inequívoca; en cualquier otro caso devuelve `Unknown` y se usa la visión como antes.
+
+Lo que **nunca** decide por su cuenta: `verify`, `done` y `request_confirmation`, porque ahí el juicio es sobre el objetivo global.
+
+Dos matices honestos:
+
+- **El LLM se sigue llamando en cada paso**, porque de ahí sale la siguiente acción. Lo que se ahorra es la **imagen**, no la llamada. Los contadores se llaman `verificationsWithoutImage` a propósito.
+- **El screenshot se sigue capturando y subiendo al bucket** aunque no viaje al LLM: el bucket existe para trazabilidad, y borrar la pista justo en los pasos baratos haría imposible auditar por qué una macro se grabó mal.
+
+Al terminar cada sesión se registra en `event_log` (evento `vision_savings`) qué porcentaje de pasos se verificó sin imagen.
+
+---
+
+## 16. Tests y CI
+
+### Tests de JVM
+
+`app/src/test/java/com/phoneagent/` — se ejecutan con `./gradlew testDebugUnitTest` (en CI: `gradle testDebugUnitTest`).
+
+| Fichero | Qué cubre |
+|---|---|
+| `core/PermissionGateTest.kt` | Los 4 niveles del guardián: whitelist, `allowed_actions`, autonomía y envíos. Incluye `back`/`home` siempre permitidos, ENTER como envío solo en mensajería, y que `requires_confirmation` sobrevive al modo `act`. |
+| `models/MacroTest.kt` | Normalización de disparadores (acentos/signos/mayúsculas), ida y vuelta JSON, descarte de pasos con acciones inexistentes. |
+| `models/MacroTest.kt` (AgentActionTypeTest) | Las 15 acciones hacen ida y vuelta por `fromWire` y el enum no se desincroniza del prompt. |
+| `models/DriverConfigTest.kt` | `allows()`, `isMessagingApp` por `app_kind`, herencia de drivers en clones, y el invariante **13 verbos en `allowed_actions`** frente a 15 en el vocabulario. |
+
+Dos decisiones de configuración que los tests necesitan:
+
+- `testImplementation("org.json:json:20240303")` — en Android `org.json` viene del framework y en un test local el stub lanza *"not mocked"* en cuanto se usa.
+- `testOptions { unitTests.isReturnDefaultValues = true }` — `PermissionGate` llama a `android.util.Log`; sin esto el stub lanza y no se ejercita la lógica.
+
+Para poder testear el guardián se introdujo `DriverLookup`, una interfaz con lo único que `PermissionGate` necesita del registro. `DriverRegistry` la implementa tal cual, así que en producción no cambia nada, pero en test se sustituye por un doble de dos líneas sin mocks ni framework.
+
+### CI
+
+`.github/workflows/phone-agent-ci.yml` — tres jobs independientes, disparados por cambios en `phone-agent/**`:
+
+| Job | Qué hace |
+|---|---|
+| `android` | JDK 17 + Gradle 8.7 → `testDebugUnitTest` y `assembleDebug`. Sube los informes como artefacto. |
+| `edge-functions` | `deno check` (mismo chequeo de tipos que hace `supabase functions deploy`) + `deno lint`. |
+| `sql` | Postgres 15 de servicio, aplica `ci/000_auth_stub.sql` + la migración **de verdad**, ejecuta el seed y comprueba: 4 drivers, 13 acciones por fila, 4 `app_kind`, RLS en las 8 tablas, bucket `screenshots` y que `delete_old_screenshots()` corre. |
+
+`ci/000_auth_stub.sql` crea el mínimo de `auth.users`, `auth.uid()`, `storage.buckets` y los roles de Supabase que la migración da por supuestos. **Está fuera de `migrations/` a propósito** para que `supabase db reset` no lo vea; en un proyecto real no se ejecuta nunca.
+
+> El job `android` instala Gradle directamente porque `gradle-wrapper.jar` no se versiona (es un binario).
