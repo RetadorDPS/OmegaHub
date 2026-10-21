@@ -70,26 +70,31 @@ async function sesion(cuenta) {
   return { contexto, pagina, ok: pagina.url().includes("/dashboard") };
 }
 
-/** Petición JSON usando la sesión del navegador. */
+/**
+ * Petición JSON usando la sesión del navegador.
+ *
+ * Se usa la API de peticiones de Playwright (comparte las cookies del
+ * contexto) en lugar de `fetch` dentro de la página: así el método es siempre
+ * válido y el cuerpo solo viaja cuando el método lo admite.
+ */
 async function pedir(pagina, ruta, opciones = {}) {
-  return pagina.evaluate(
-    async ([url, metodo, cuerpo]) => {
-      const respuesta = await fetch(url, {
-        method: metodo,
-        headers: cuerpo ? { "content-type": "application/json" } : undefined,
-        body: cuerpo ? JSON.stringify(cuerpo) : undefined,
-      });
-      const texto = await respuesta.text();
-      let datos = {};
-      try {
-        datos = texto ? JSON.parse(texto) : {};
-      } catch {
-        datos = { crudo: texto.slice(0, 200) };
-      }
-      return { estado: respuesta.status, datos };
-    },
-    [ruta, opciones.metodo ?? "GET", opciones.cuerpo ?? null],
-  );
+  const metodo = (opciones.metodo ?? "GET").toUpperCase();
+  const respuesta = await pagina.request.fetch(`${BASE}${ruta}`, {
+    method: metodo,
+    data:
+      metodo === "GET" || metodo === "HEAD"
+        ? undefined
+        : (opciones.cuerpo ?? undefined),
+    failOnStatusCode: false,
+  });
+  const texto = await respuesta.text();
+  let datos = {};
+  try {
+    datos = texto ? JSON.parse(texto) : {};
+  } catch {
+    datos = { crudo: texto.slice(0, 200) };
+  }
+  return { estado: respuesta.status(), datos };
 }
 
 try {
