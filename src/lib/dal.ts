@@ -54,8 +54,13 @@ export function toProductDTO(producto: ProductRow): ProductDTO {
     saturationLevel: producto.saturationLevel,
     trendDirection: producto.trendDirection,
     isGoldenOpportunity: producto.isGoldenOpportunity,
+    confianza: producto.confianza,
+    nivelConfianza: producto.nivelConfianza,
+    fuentesMedidas: producto.fuentesMedidas,
+    ultimaMedicion: producto.ultimaMedicion?.toISOString() ?? null,
     googleSearchVolume: producto.googleSearchVolume,
     tiktokViews: producto.tiktokViews,
+    youtubeViews: producto.youtubeViews ?? 0,
     metaAdsCount: producto.metaAdsCount,
     storesUsing: producto.storesUsing,
     estimatedMonthlyRevenue: producto.estimatedMonthlyRevenue,
@@ -178,17 +183,25 @@ export function toTrendMetricDTO(metrica: {
   date: Date;
   googleSearchVolume: number;
   tiktokViews: number;
+  youtubeViews?: number;
   metaAdsCount: number;
   shopifyStoresUsing: number;
   calculatedScore: number;
+  fuente?: string;
+  fechaMedicion?: Date;
+  tipoDato?: "MEDIDO" | "IMPORTADO" | "ESTIMADO" | "MIXTO";
 }): TrendMetricDTO {
   return {
     date: metrica.date.toISOString(),
     googleSearchVolume: metrica.googleSearchVolume,
     tiktokViews: metrica.tiktokViews,
+    youtubeViews: metrica.youtubeViews ?? 0,
     metaAdsCount: metrica.metaAdsCount,
     shopifyStoresUsing: metrica.shopifyStoresUsing,
     calculatedScore: metrica.calculatedScore,
+    fuente: metrica.fuente ?? "motor-interno",
+    fechaMedicion: (metrica.fechaMedicion ?? metrica.date).toISOString(),
+    tipoDato: metrica.tipoDato ?? "ESTIMADO",
   };
 }
 
@@ -222,7 +235,8 @@ function ordenProductos(sort: ProductFilters["sort"]) {
  */
 export async function listProducts(filtros: ProductFilters = {}): Promise<PaginatedResult<ProductDTO>> {
   const page = Math.max(1, filtros.page ?? 1);
-  const pageSize = Math.min(48, Math.max(4, filtros.pageSize ?? 12));
+  // Límites de seguridad: ni 0 (rompe la paginación) ni páginas enormes.
+  const pageSize = Math.min(100, Math.max(1, filtros.pageSize ?? 12));
 
   const where = {
     status: "ACTIVE" as const,
@@ -249,6 +263,7 @@ export async function listProducts(filtros: ProductFilters = {}): Promise<Pagina
         }
       : {}),
     ...(filtros.goldenOnly ? { isGoldenOpportunity: true } : {}),
+    ...(filtros.verificadosOnly ? { nivelConfianza: "VERIFICADO" as const } : {}),
   };
 
   const [items, total] = await Promise.all([
@@ -521,6 +536,25 @@ export async function getDashboardStats() {
     prisma.user.count(),
   ]);
 
+  const [verificados, conMedicion] = await Promise.all([
+    prisma.product.count({ where: { status: "ACTIVE", nivelConfianza: "VERIFICADO" } }),
+    prisma.product.count({ where: { status: "ACTIVE", fuentesMedidas: { gt: 0 } } }),
+  ]);
+
+  // Variación real mes a mes (nada de porcentajes escritos a mano).
+  const hace30 = new Date(Date.now() - 30 * 86_400_000);
+  const hace60 = new Date(Date.now() - 60 * 86_400_000);
+  const [productosUltimoMes, productosMesAnterior, anunciosUltimoMes, anunciosMesAnterior] = await Promise.all([
+    prisma.product.count({ where: { status: "ACTIVE", createdAt: { gte: hace30 } } }),
+    prisma.product.count({ where: { status: "ACTIVE", createdAt: { gte: hace60, lt: hace30 } } }),
+    prisma.ad.count({ where: { createdAt: { gte: hace30 } } }),
+    prisma.ad.count({ where: { createdAt: { gte: hace60, lt: hace30 } } }),
+  ]);
+
+  /** Variación porcentual; `null` si no hay base con la que comparar. */
+  const variacion = (actual: number, anterior: number): number | null =>
+    anterior > 0 ? Math.round(((actual - anterior) / anterior) * 1000) / 10 : null;
+
   const [scoreMedio, facturacionTotal, saturacion] = await Promise.all([
     prisma.product.aggregate({ _avg: { trendScore: true, estimatedMargin: true } }),
     prisma.product.aggregate({ _sum: { estimatedMonthlyRevenue: true } }),
@@ -540,6 +574,10 @@ export async function getDashboardStats() {
     tiendas,
     proveedores,
     usuarios,
+    verificados,
+    conMedicion,
+    variacionProductos: variacion(productosUltimoMes, productosMesAnterior),
+    variacionAnuncios: variacion(anunciosUltimoMes, anunciosMesAnterior),
     scoreMedio: Math.round(scoreMedio._avg.trendScore ?? 0),
     margenMedio: Math.round((scoreMedio._avg.estimatedMargin ?? 0) * 10) / 10,
     facturacionTotal: facturacionTotal._sum.estimatedMonthlyRevenue ?? 0,
@@ -575,6 +613,27 @@ export async function getGlobalTrendSeries(dias = 30) {
     tiktok: Math.round(fila._avg.tiktokViews ?? 0),
     meta: Math.round(fila._avg.metaAdsCount ?? 0),
   }));
+}
+
+/**
+ * Estado real de la serie de tendencias: última medición y fuentes presentes.
+ * Lo consume la API pública para no presentar una media sin procedencia.
+ */
+export async function getTrendDataStatus() {
+  const [ultima, fuentes] = await Promise.all([
+    prisma.trendMetric.findFirst({
+      orderBy: { fechaMedicion: "desc" },
+      select: { fechaMedicion: true, fuente: true, tipoDato: true },
+    }),
+    prisma.trendMetric.groupBy({ by: ["fuente"], _count: { _all: true }, orderBy: { fuente: "asc" } }),
+  ]);
+
+  return {
+    ultimaMedicion: ultima?.fechaMedicion.toISOString() ?? null,
+    ultimaFuente: ultima?.fuente ?? null,
+    ultimoTipo: ultima?.tipoDato ?? null,
+    fuentes: fuentes.map((fila) => ({ fuente: fila.fuente, observaciones: fila._count._all })),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -673,4 +732,135 @@ export async function listTrackedProductAlerts(userId: string, limite = 20): Pro
     take: limite,
   });
   return alertas.map(toNotificationDTO);
+}
+
+// ---------------------------------------------------------------------------
+//  Ingesta real (catálogo público de Shopify + Google Trends RSS)
+// ---------------------------------------------------------------------------
+
+export interface TiendaEnVivoDTO {
+  id: string;
+  nombre: string;
+  dominio: string;
+  nicho: string;
+  pais: string;
+  productos: number;
+  disponibles: number;
+  emparejados: number;
+  ultimaLectura: string | null;
+  url: string;
+}
+
+/** Tiendas leídas del catálogo público real (las de la demo no cuentan). */
+export async function listTiendasEnVivo(limite = 20): Promise<TiendaEnVivoDTO[]> {
+  const tiendas = await prisma.store.findMany({
+    where: { origen: "ingesta" },
+    orderBy: { lastScannedAt: "desc" },
+    take: limite,
+    include: { storeProducts: { select: { available: true, productId: true } } },
+  });
+
+  return tiendas.map((tienda) => ({
+    id: tienda.id,
+    nombre: tienda.name,
+    dominio: tienda.domain,
+    nicho: tienda.niche,
+    pais: tienda.country,
+    productos: tienda.storeProducts.length,
+    disponibles: tienda.storeProducts.filter((producto) => producto.available).length,
+    emparejados: tienda.storeProducts.filter((producto) => producto.productId).length,
+    ultimaLectura: tienda.lastScannedAt ? tienda.lastScannedAt.toISOString() : null,
+    url: `https://${tienda.domain}`,
+  }));
+}
+
+/** Cambios detectados en las tiendas leídas en vivo (timeline de la ingesta). */
+export async function listCambiosIngesta(limite = 12): Promise<StoreChangeDTO[]> {
+  const cambios = await prisma.storeChange.findMany({
+    where: { store: { origen: "ingesta" } },
+    orderBy: { detectedAt: "desc" },
+    take: limite,
+    include: { store: { select: { name: true } } },
+  });
+  return cambios.map((cambio) => toStoreChangeDTO(cambio as Parameters<typeof toStoreChangeDTO>[0]));
+}
+
+export interface TendenciaDiaDTO {
+  id: string;
+  termino: string;
+  volumen: string;
+  posicion: number;
+  url: string;
+  capturada: string;
+  /** Productos del catálogo cuyo título casa con el término. */
+  productos: Array<{ id: string; titulo: string }>;
+}
+
+/** Términos que Google Trends publicó como tendencia en un día y país. */
+export async function listTendenciasDelDia(geo = "ES", limite = 25): Promise<TendenciaDiaDTO[]> {
+  const ultimo = await prisma.trendingTerm.findFirst({
+    where: { geo },
+    orderBy: { capturedAt: "desc" },
+    select: { day: true },
+  });
+  if (!ultimo) return [];
+
+  const [terminos, productos] = await Promise.all([
+    prisma.trendingTerm.findMany({
+      where: { geo, day: ultimo.day },
+      orderBy: { rank: "asc" },
+      take: limite,
+    }),
+    prisma.product.findMany({ where: { status: "ACTIVE" }, select: { id: true, title: true } }),
+  ]);
+
+  const normalizar = (texto: string) =>
+    texto
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  return terminos.map((termino) => {
+    const palabras = normalizar(termino.term)
+      .split(/[^a-z0-9áéíóúñ]+/)
+      .filter((palabra) => palabra.length >= 4);
+    const casan = productos.filter((producto) => {
+      const titulo = normalizar(producto.title);
+      return palabras.length > 0 && palabras.every((palabra) => titulo.includes(palabra.slice(0, 6)));
+    });
+    return {
+      id: termino.id,
+      termino: termino.term,
+      volumen: termino.volume,
+      posicion: termino.rank,
+      url: termino.url,
+      capturada: termino.capturedAt.toISOString(),
+      productos: casan.slice(0, 3).map((producto) => ({ id: producto.id, titulo: producto.title })),
+    };
+  });
+}
+
+/** Estado global de la ingesta: qué hay medido de verdad y cuándo. */
+export async function getEstadoIngesta() {
+  const [tiendas, productosEnTienda, terminos, ultimaMetrica, emparejados, verificados] = await Promise.all([
+    prisma.store.count({ where: { origen: "ingesta" } }),
+    prisma.storeProduct.count({ where: { store: { origen: "ingesta" } } }),
+    prisma.trendingTerm.count(),
+    prisma.trendMetric.findFirst({
+      where: { tipoDato: { in: ["MEDIDO", "MIXTO"] } },
+      orderBy: { fechaMedicion: "desc" },
+      select: { fechaMedicion: true },
+    }),
+    prisma.storeProduct.count({ where: { productId: { not: null }, store: { origen: "ingesta" } } }),
+    prisma.product.count({ where: { nivelConfianza: "VERIFICADO" } }),
+  ]);
+
+  return {
+    tiendas,
+    productosEnTienda,
+    terminos,
+    emparejados,
+    verificados,
+    ultimaMedicion: ultimaMetrica?.fechaMedicion.toISOString() ?? null,
+  };
 }

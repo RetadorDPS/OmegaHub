@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -48,6 +48,8 @@ const EJEMPLOS = ["nordicnest.com", "petlabstore.com", "glowritual.es"];
 interface ShopAnalyzerProps {
   /** Tiendas ya monitorizadas por el usuario (para el botón de seguimiento). */
   seguidas: Array<{ storeId: string; storeName: string }>;
+  /** URL prefijada desde la extensión (deep link ?url=). */
+  urlInicial?: string;
 }
 
 /**
@@ -57,8 +59,20 @@ interface ShopAnalyzerProps {
  * disponible; motor determinista si no) y el resultado se guarda en base de
  * datos, por lo que se puede rastrear la tienda después.
  */
-export function ShopAnalyzerClient({ seguidas }: ShopAnalyzerProps) {
-  const [url, setUrl] = useState("");
+export function ShopAnalyzerClient({
+  seguidas,
+  urlInicial,
+}: ShopAnalyzerProps) {
+  // Deep link: si llegamos con una URL (extensión), analizar al instante.
+  useEffect(() => {
+    if (urlInicial) {
+      void analizar(urlInicial);
+    }
+    // Solo al montar: si el usuario cambia la URL después, decide él.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [url, setUrl] = useState(urlInicial ?? "");
   const [analizando, setAnalizando] = useState(false);
   const [pasoActual, setPasoActual] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -293,7 +307,7 @@ export function ShopAnalyzerClient({ seguidas }: ShopAnalyzerProps) {
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="min-w-[680px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-12">#</TableHead>

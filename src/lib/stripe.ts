@@ -35,6 +35,7 @@ export function getPriceId(plan: PlanType): string | null {
     FREE: undefined,
     PRO: process.env.STRIPE_PRICE_PRO,
     BUSINESS: process.env.STRIPE_PRICE_BUSINESS,
+    AGENCY: process.env.STRIPE_PRICE_AGENCY,
   };
   return variables[plan] ?? null;
 }
@@ -43,6 +44,7 @@ export function getPriceId(plan: PlanType): string | null {
 export function getPlanFromPriceId(priceId: string | null | undefined): PlanType {
   if (!priceId) return "FREE";
   if (priceId === process.env.STRIPE_PRICE_BUSINESS) return "BUSINESS";
+  if (priceId === process.env.STRIPE_PRICE_AGENCY) return "AGENCY";
   if (priceId === process.env.STRIPE_PRICE_PRO) return "PRO";
   return "PRO";
 }

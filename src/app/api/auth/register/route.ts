@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { sendVerificationEmail, sendWelcomeEmail } from "@/lib/mail";
+import { claveDeIp, permitido, segundosParaReinicio } from "@/lib/limite";
 
 /** Validación del alta de usuario. */
 const esquema = z.object({
@@ -18,6 +19,15 @@ const esquema = z.object({
 
 /** Registro con email y contraseña. */
 export async function POST(request: Request) {
+  // 5 altas por hora y IP: frena los registros masivos sin molestar a nadie.
+  const clave = claveDeIp(request, "registro");
+  if (!permitido(clave, 5, 3_600_000)) {
+    return NextResponse.json(
+      { error: `Demasiados intentos desde esta conexión. Prueba en ${Math.ceil(segundosParaReinicio(clave) / 60)} min.` },
+      { status: 429 },
+    );
+  }
+
   const cuerpo = await request.json().catch(() => null);
   const validacion = esquema.safeParse(cuerpo);
 

@@ -53,6 +53,9 @@ const COLORES: Record<NotificationType, string> = {
   PRICE_CHANGE: "text-amber-300 border-amber-500/30 bg-amber-500/10",
   SYSTEM: "text-slate-300 border-slate-500/30 bg-slate-500/10",
   SUBSCRIPTION: "text-sky-300 border-sky-500/30 bg-sky-500/10",
+  SCORE_THRESHOLD: "text-emerald-300 border-emerald-500/30 bg-emerald-500/10",
+  SATURATION_ALERT: "text-rose-300 border-rose-500/30 bg-rose-500/10",
+  TREND_REVERSAL: "text-amber-300 border-amber-500/30 bg-amber-500/10",
 };
 
 /**
@@ -210,7 +213,7 @@ export function NotificationPreferences({ tiendas, productos, notificaciones }: 
                 <div
                   key={aviso.id}
                   className={cn(
-                    "flex flex-wrap items-start justify-between gap-3 rounded-xl border p-3 transition-colors",
+                    "flex flex-col gap-2 rounded-xl border p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-3",
                     aviso.read ? "border-border/60 bg-surface/30" : "border-indigo-500/30 bg-indigo-500/5",
                   )}
                 >
@@ -225,7 +228,7 @@ export function NotificationPreferences({ tiendas, productos, notificaciones }: 
                     <p className="mt-1.5 text-sm font-medium text-slate-100">{aviso.title}</p>
                     <p className="text-xs text-muted-foreground">{aviso.message}</p>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
                     {!aviso.read && (
                       <Button variant="ghost" size="sm" onClick={() => marcarUna(aviso.id)} className="gap-1.5">
                         <CheckCheck className="size-3.5" />

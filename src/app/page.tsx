@@ -26,9 +26,9 @@ import { DASHBOARD_NAV, DEMO_EMAIL, DEMO_PASSWORD, PLANS } from "@/lib/constants
 import { formatCompactNumber, formatCurrency, formatCurrencyPrecise } from "@/lib/utils";
 
 export const metadata = {
-  title: "TrendHunter Pro · Encuentra productos ganadores con datos reales",
+  title: "TrendHunter Pro · Encuentra productos ganadores con datos verificables",
   description:
-    "Investiga productos, espía anuncios activos, analiza tiendas Shopify y genera creatividades con IA. Todo en una plataforma con datos reales de Google Trends, TikTok, Meta Ads y Shopify.",
+    "Investiga productos, espía anuncios activos, analiza tiendas Shopify y genera creatividades con IA. Cada cifra lleva su fuente y su fecha: sabes qué está medido y qué es una estimación.",
 };
 
 /** Icono de cada módulo (los nombres vienen de la navegación del panel). */
@@ -107,7 +107,7 @@ export default async function LandingPage() {
         <div className="relative mx-auto max-w-6xl px-4 py-20 text-center">
           <Badge variant="gradient" className="mb-5 gap-1.5">
             <Sparkles className="size-3" />
-            Datos reales de Google Trends · TikTok · Meta Ads · Shopify
+            Cada dato con fuente y fecha · Google Trends · TikTok · Meta Ads · Shopify
           </Badge>
 
           <h1 className="mx-auto max-w-4xl text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
@@ -170,7 +170,9 @@ export default async function LandingPage() {
             <h2 className="text-3xl font-bold tracking-tight">Oportunidades del catálogo</h2>
             <p className="mt-2 max-w-2xl text-muted-foreground">
               Score medio actual de {stats.scoreMedio}/100 y un margen bruto medio del {stats.margenMedio} %. Estos son
-              los productos con mejor combinación de demanda, velocidad y baja competencia.
+              los productos con mejor combinación de demanda, velocidad y baja competencia. Cada ficha indica si sus
+              datos están <strong className="text-foreground">verificados</strong> por fuentes externas o siguen siendo
+              una <strong className="text-foreground">estimación</strong> del motor interno.
             </p>
           </div>
           <Button asChild variant="outline" className="gap-2">

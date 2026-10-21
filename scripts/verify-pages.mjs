@@ -12,7 +12,7 @@ import { chromium } from "playwright-core";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EJECUTABLE = process.env.CHROMIUM_PATH ?? path.join(process.cwd(), ".chromium", "chromium");
-const LIBRERIAS = path.join(process.cwd(), ".chromium", "libs", "lib");
+const LIBRERIAS = [path.join(process.cwd(), ".chromium", "libs"), path.join(process.cwd(), ".chromium", "libs", "lib")].join(":");
 
 const CUENTAS = {
   usuario: { email: process.env.DEMO_EMAIL ?? "demo@trendhunter.pro", password: process.env.DEMO_PASSWORD ?? "demo1234" },
@@ -24,6 +24,7 @@ const RUTAS_PANEL = [
   "/dashboard",
   "/dashboard/winning-products",
   "/dashboard/ads-spy",
+  "/dashboard/fuentes",
   "/dashboard/shop-analyzer",
   "/dashboard/store-tracker",
   "/dashboard/product-tracker",

@@ -16,7 +16,7 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
 /** URL de conexión efectiva (con fallback local a SQLite). */
 function getDatabaseUrl(): string {
-  return process.env.DATABASE_URL ?? "file:./prisma/trendhunter.db";
+  return process.env.DATABASE_URL || "file:./prisma/trendhunter.db";
 }
 
 /** ¿La configuración actual apunta a PostgreSQL? */

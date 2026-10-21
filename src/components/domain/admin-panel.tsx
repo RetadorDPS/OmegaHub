@@ -340,7 +340,7 @@ export function AdminPanel({ usuarios, productos, analisis, imagenes }: AdminPan
 
         <Card>
           <CardContent className="overflow-x-auto p-0">
-            <Table>
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Usuario</TableHead>
@@ -436,7 +436,7 @@ export function AdminPanel({ usuarios, productos, analisis, imagenes }: AdminPan
             </CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Producto</TableHead>
@@ -543,7 +543,7 @@ export function AdminPanel({ usuarios, productos, analisis, imagenes }: AdminPan
                 Todavía no se ha ejecutado ningún análisis de tienda.
               </p>
             ) : (
-              <Table>
+              <Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tienda</TableHead>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { claveDeIp, permitido } from "@/lib/limite";
 
 const esquema = z.object({
   token: z.string().min(10),
@@ -10,6 +11,11 @@ const esquema = z.object({
 
 /** Restablece la contraseña usando un token válido de un solo uso. */
 export async function POST(request: Request) {
+  // 10 intentos por hora y IP: el token es largo, pero no se deja probar en bucle.
+  if (!permitido(claveDeIp(request, "nueva-clave"), 10, 3_600_000)) {
+    return NextResponse.json({ error: "Demasiados intentos. Espera unos minutos." }, { status: 429 });
+  }
+
   const validacion = esquema.safeParse(await request.json().catch(() => null));
   if (!validacion.success) {
     return NextResponse.json({ error: "La contraseña debe tener 8 caracteres, una letra y un número" }, { status: 400 });

@@ -11,6 +11,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(process.cwd(), "src"),
+      // Los tests no son server components: server-only
+      // se convierte en un módulo vacío.
+      "server-only": path.resolve(process.cwd(), "src/test-stubs/server-only.ts"),
     },
   },
 });

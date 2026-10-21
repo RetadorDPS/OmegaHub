@@ -14,7 +14,9 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex h-10 items-center gap-1 rounded-lg border border-border/70 bg-surface/60 p-1 text-muted-foreground",
+      // `min-h` + `flex-wrap`: cuando las pestañas no caben (móvil) crecen en
+      // varias filas en lugar de desbordarse sobre el contenido siguiente.
+      "inline-flex min-h-10 flex-wrap items-center gap-1 rounded-lg border border-border/70 bg-surface/60 p-1 text-muted-foreground",
       className,
     )}
     {...props}

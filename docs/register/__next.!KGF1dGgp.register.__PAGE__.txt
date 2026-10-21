@@ -1,11 +1,11 @@
 3:"$Sreact.fragment"
-4:"/OmegaHub/_next/static/chunks/42onvq6nokjl2.js"
+4:"/OmegaHub/_next/static/chunks/267w5w7e1414_.js"
 5:"/OmegaHub/_next/static/chunks/1mry0oilanjne.js"
 6:I[39756,["$4","$5"],"default"]
 7:I[37457,["$4","$5"],"default"]
 c:"$Sreact.suspense"
 d:"/OmegaHub/_next/static/chunks/1vvgxvs0x8-e6.js"
-e:"/OmegaHub/_next/static/chunks/3jz-6253dkr3u.js"
+e:"/OmegaHub/_next/static/chunks/2j699t23js6jd.js"
 f:"/OmegaHub/_next/static/chunks/1lsrruh2-_nj7.js"
 10:I[18967,["$4","$5","$d","$e","$f"],"RegisterForm"]
 11:I[97367,["$4","$5"],"OutletBoundary"]
@@ -13,18 +13,19 @@ f:"/OmegaHub/_next/static/chunks/1lsrruh2-_nj7.js"
 15:I[97367,["$4","$5"],"$14"]
 16:"MetadataBoundary"
 17:I[97367,["$4","$5"],"$16"]
+18:I[27201,["$4","$5"],"IconMark"]
 9:X
 9:C
 a:X
-b:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$3","c",{"children":[["$","$c",null,{"fallback":["$","div",null,{"className":"animate-pulse bg-muted/60 h-[520px] w-full rounded-2xl"}],"children":["$","$L10",null,{}]}],[["$","script","script-0",{"src":"/OmegaHub/_next/static/chunks/3jz-6253dkr3u.js","async":true}],["$","script","script-1",{"src":"/OmegaHub/_next/static/chunks/1lsrruh2-_nj7.js","async":true}]],["$","$L11",null,{"children":["$","$c",null,{"name":"Next.MetadataOutlet","children":"$@12"}]}]]}],"p":"$@13","v":null,"s":"$a"}}]]
+b:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$3","c",{"children":[["$","$c",null,{"fallback":["$","div",null,{"className":"animate-pulse bg-muted/60 h-[520px] w-full rounded-2xl"}],"children":["$","$L10",null,{}]}],[["$","script","script-0",{"src":"/OmegaHub/_next/static/chunks/2j699t23js6jd.js","async":true}],["$","script","script-1",{"src":"/OmegaHub/_next/static/chunks/1lsrruh2-_nj7.js","async":true}]],["$","$L11",null,{"children":["$","$c",null,{"name":"Next.MetadataOutlet","children":"$@12"}]}]]}],"p":"$@13","v":null,"s":"$a"}}]]
 2:[["children",{"s":"register","h":64,"d":{"r":["$","$3","c",{"children":[null,["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}]}]]}],"p":"$@8","v":"$9","s":"$a"},"c":"$Qb"}]]
 1:[["children",{"s":"(auth)","h":32,"c":"$Q2"}]]
-0:{"t":{"t":{"s":"","h":80,"c":"$Q1"},"h":{"r":["$","$3","h",{"children":[null,["$","$L15",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}],["$","meta","2",{"name":"theme-color","content":"#0b1020"}]]}],["$","$L17",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$c",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Crear cuenta · TrendHunter Pro"}],["$","meta","1",{"name":"description","content":"Crea tu cuenta gratis en TrendHunter Pro y empieza a encontrar productos ganadores hoy mismo."}],["$","meta","2",{"name":"author","content":"TrendHunter Pro"}],["$","meta","3",{"name":"keywords","content":"dropshipping,productos ganadores,investigación de productos,shopify,ads spy,tendencias ecommerce,trend score"}],["$","meta","4",{"name":"robots","content":"index, follow"}],["$","meta","5",{"property":"og:title","content":"TrendHunter Pro · Inteligencia de productos y tendencias"}],["$","meta","6",{"property":"og:description","content":"Descubre productos ganadores con datos de TikTok, Meta y Google. Analiza tiendas Shopify y genera tus creatividades con IA."}],["$","meta","7",{"property":"og:site_name","content":"TrendHunter Pro"}],["$","meta","8",{"property":"og:locale","content":"es_ES"}],["$","meta","9",{"property":"og:type","content":"website"}],["$","meta","10",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","11",{"name":"twitter:title","content":"TrendHunter Pro"}],["$","meta","12",{"name":"twitter:description","content":"Inteligencia de mercado para dropshippers y e-commerce."}]]}]}],null]}],null]}],"p":"$@18","v":null,"s":"$a"}},"a":"$@19","u":"$@1a","b":"z38FR2nEgzJqP7fk8zxoZ"}
+0:{"t":{"t":{"s":"","h":80,"c":"$Q1"},"h":{"r":["$","$3","h",{"children":[null,["$","$L15",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, viewport-fit=cover"}],["$","meta","2",{"name":"theme-color","content":"#0b1020","media":"(prefers-color-scheme: dark)"}],["$","meta","3",{"name":"theme-color","content":"#0b1020","media":"(prefers-color-scheme: light)"}]]}],["$","$L17",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$c",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Crear cuenta · TrendHunter Pro"}],["$","meta","1",{"name":"description","content":"Crea tu cuenta gratis en TrendHunter Pro y empieza a encontrar productos ganadores hoy mismo."}],["$","meta","2",{"name":"application-name","content":"TrendHunter Pro"}],["$","meta","3",{"name":"author","content":"TrendHunter Pro"}],["$","link","4",{"rel":"manifest","href":"/OmegaHub/manifest.webmanifest"}],["$","meta","5",{"name":"keywords","content":"dropshipping,productos ganadores,investigación de productos,shopify,ads spy,tendencias ecommerce,trend score"}],["$","meta","6",{"name":"robots","content":"index, follow"}],["$","meta","7",{"name":"format-detection","content":"telephone=no"}],["$","meta","8",{"name":"mobile-web-app-capable","content":"yes"}],["$","meta","9",{"name":"apple-mobile-web-app-title","content":"TrendHunter"}],["$","meta","10",{"name":"apple-mobile-web-app-status-bar-style","content":"black-translucent"}],["$","meta","11",{"property":"og:title","content":"TrendHunter Pro · Inteligencia de productos y tendencias"}],["$","meta","12",{"property":"og:description","content":"Descubre productos ganadores con datos de TikTok, Meta y Google. Analiza tiendas Shopify y genera tus creatividades con IA."}],["$","meta","13",{"property":"og:site_name","content":"TrendHunter Pro"}],["$","meta","14",{"property":"og:locale","content":"es_ES"}],["$","meta","15",{"property":"og:type","content":"website"}],["$","meta","16",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","17",{"name":"twitter:title","content":"TrendHunter Pro"}],["$","meta","18",{"name":"twitter:description","content":"Inteligencia de mercado para dropshippers y e-commerce."}],["$","link","19",{"rel":"shortcut icon","href":"/icons/favicon-64.png"}],["$","link","20",{"rel":"icon","href":"/icons/favicon-64.png","sizes":"64x64","type":"image/png"}],["$","link","21",{"rel":"icon","href":"/icons/icon-192.png","sizes":"192x192","type":"image/png"}],["$","link","22",{"rel":"apple-touch-icon","href":"/icons/apple-touch-icon-180.png","sizes":"180x180","type":"image/png"}],["$","$L18","23",{}]]}]}],null]}],null]}],"p":"$@19","v":null,"s":"$a"}},"a":"$@1a","u":"$@1b","b":"9Xhf1nEKOV3_FHaNwIQyX"}
 12:null
-1a:true
+1b:true
 a:300
 a:C
-19:0
+1a:0
 8:"$undefined"
-18:"$undefined"
+19:"$undefined"
 13:"$undefined"

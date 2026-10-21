@@ -1,0 +1,20 @@
+name: Alertas de seguimiento
+
+# Evalúa los productos y tiendas seguidos y
+# entrega avisos (email, Telegram, webhook).
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  alertas:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluar alertas
+        run: |
+          curl -sS -X POST "${{ secrets.APP_URL }}/api/cron/alertas" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"enviarCanales": true}' \
+            --max-time 120

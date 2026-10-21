@@ -1,10 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import {
+  Activity,
   ArrowRight,
   Boxes,
   Flame,
   Megaphone,
+  ShieldCheck,
   Sparkles,
   Store,
   Target,
@@ -74,6 +76,12 @@ export default async function DashboardPage() {
                 Ver anuncios
               </Link>
             </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link href="/dashboard/fuentes">
+                <Activity />
+                Actualizar datos
+              </Link>
+            </Button>
             <Button asChild size="sm">
               <Link href="/dashboard/winning-products?goldenOnly=true">
                 <Sparkles />
@@ -85,21 +93,22 @@ export default async function DashboardPage() {
       />
 
       {/* KPIs principales */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Productos analizados"
           value={stats.productos}
           icon={Boxes}
           hint={`${stats.porCategoria.length} categorías activas`}
-          delta={12.4}
+          delta={stats.variacionProductos ?? undefined}
         />
         <StatCard
-          label="Oportunidades doradas"
+          // Si ninguna está verificada, el nombre lo dice: no se vende una
+          // estimación como una oportunidad confirmada.
+          label={stats.dorados > 0 && stats.verificados === 0 ? "Oportunidades estimadas" : "Oportunidades doradas"}
           value={stats.dorados}
           icon={Trophy}
           accent="emerald"
-          hint="Score > 80 con saturación baja"
-          delta={25}
+          hint={`${stats.verificados} con datos verificados · resto, estimación`}
         />
         <StatCard
           label="Anuncios monitorizados"
@@ -107,7 +116,7 @@ export default async function DashboardPage() {
           icon={Megaphone}
           accent="violet"
           hint={`El más longevo: ${anuncios.masLargo?.daysActive ?? 0} días activo`}
-          delta={8.1}
+          delta={stats.variacionAnuncios ?? undefined}
         />
         <StatCard
           label="Facturación del nicho"
@@ -116,7 +125,13 @@ export default async function DashboardPage() {
           accent="amber"
           compact
           hint="Estimación mensual agregada"
-          delta={18.7}
+        />
+        <StatCard
+          label="Datos verificados"
+          value={stats.verificados}
+          icon={ShieldCheck}
+          accent="emerald"
+          hint={`${stats.productos > 0 ? Math.round((stats.verificados / stats.productos) * 100) : 0} % del catálogo · 2+ fuentes medidas`}
         />
       </div>
 

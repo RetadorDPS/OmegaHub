@@ -1,0 +1,348 @@
+{
+  "products": [
+    {
+      "id": 8100000001,
+      "title": "Máscara LED de terapia facial 7 colores",
+      "handle": "mascara-led-terapia-facial",
+      "body_html": "<p>Máscara LED de terapia facial 7 colores</p>",
+      "published_at": "2026-01-15T10:00:00-05:00",
+      "created_at": "2026-01-14T09:12:00-05:00",
+      "updated_at": "2026-01-15T10:00:00-05:00",
+      "vendor": "Nordika Beauty",
+      "product_type": "Belleza",
+      "tags": [
+        "belleza",
+        "nordika beauty"
+      ],
+      "variants": [
+        {
+          "id": 8100000002,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "price": "31.90",
+          "compare_at_price": "59.90",
+          "sku": "SKU-8100000001",
+          "available": true,
+          "grams": 420
+        }
+      ],
+      "images": [
+        {
+          "id": 8100000003,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0000/products/mascara-led-terapia-facial.jpg",
+          "position": 1
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": [
+            "Default Title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8100000002,
+      "title": "Pistola de masaje muscular percusivo 6 niveles",
+      "handle": "pistola-masaje-percusivo",
+      "body_html": "<p>Pistola de masaje muscular percusivo 6 niveles</p>",
+      "published_at": "2026-02-03T09:00:00-05:00",
+      "created_at": "2026-02-02T11:30:00-05:00",
+      "updated_at": "2026-02-03T09:00:00-05:00",
+      "vendor": "Nordika Care",
+      "product_type": "Bienestar",
+      "tags": [
+        "bienestar",
+        "nordika care"
+      ],
+      "variants": [
+        {
+          "id": 8100000003,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "price": "69.00",
+          "compare_at_price": null,
+          "sku": "SKU-8100000002",
+          "available": false,
+          "grams": 420
+        }
+      ],
+      "images": [
+        {
+          "id": 8100000004,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0000/products/pistola-masaje-percusivo.jpg",
+          "position": 1
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": [
+            "Default Title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8100000003,
+      "title": "Proyector de galaxia y estrellas con altavoz Bluetooth",
+      "handle": "proyector-galaxia-bluetooth",
+      "body_html": "<p>Proyector de galaxia y estrellas con altavoz Bluetooth</p>",
+      "published_at": "2026-02-21T08:00:00-05:00",
+      "created_at": "2026-02-20T16:45:00-05:00",
+      "updated_at": "2026-02-21T08:00:00-05:00",
+      "vendor": "Nordika Home",
+      "product_type": "Hogar",
+      "tags": [
+        "hogar",
+        "nordika home"
+      ],
+      "variants": [
+        {
+          "id": 8100000004,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "price": "34.50",
+          "compare_at_price": "49.00",
+          "sku": "SKU-8100000003",
+          "available": true,
+          "grams": 420
+        }
+      ],
+      "images": [
+        {
+          "id": 8100000005,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0000/products/proyector-galaxia-bluetooth.jpg",
+          "position": 1
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": [
+            "Default Title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8100000004,
+      "title": "Rodillo facial de crioterapia y gua sha eléctrico",
+      "handle": "rodillo-facial-crioterapia",
+      "body_html": "<p>Rodillo facial de crioterapia y gua sha eléctrico</p>",
+      "published_at": "2026-03-06T12:00:00-05:00",
+      "created_at": "2026-03-05T12:00:00-05:00",
+      "updated_at": "2026-03-06T12:00:00-05:00",
+      "vendor": "Nordika Beauty",
+      "product_type": "Belleza",
+      "tags": [
+        "belleza",
+        "nordika beauty"
+      ],
+      "variants": [
+        {
+          "id": 8100000005,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "price": "27.90",
+          "compare_at_price": null,
+          "sku": "SKU-8100000004",
+          "available": true,
+          "grams": 420
+        }
+      ],
+      "images": [
+        {
+          "id": 8100000006,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0000/products/rodillo-facial-crioterapia.jpg",
+          "position": 1
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": [
+            "Default Title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8100000005,
+      "title": "Taza de cerámica artesanal 350 ml",
+      "handle": "taza-ceramica-artesanal",
+      "body_html": "<p>Taza de cerámica artesanal 350 ml</p>",
+      "published_at": "2026-03-12T10:00:00-05:00",
+      "created_at": "2026-03-11T10:15:00-05:00",
+      "updated_at": "2026-03-12T10:00:00-05:00",
+      "vendor": "Nordika Home",
+      "product_type": "Cocina",
+      "tags": [
+        "cocina",
+        "nordika home"
+      ],
+      "variants": [
+        {
+          "id": 8100000006,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "price": "18.00",
+          "compare_at_price": null,
+          "sku": "SKU-8100000005",
+          "available": true,
+          "grams": 420
+        }
+      ],
+      "images": [
+        {
+          "id": 8100000007,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0000/products/taza-ceramica-artesanal.jpg",
+          "position": 1
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": [
+            "Default Title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8100000007,
+      "title": "Organizador de escritorio de bambú",
+      "handle": "organizador-escritorio-bambu",
+      "body_html": "<p>Organizador de escritorio de bambú</p>",
+      "published_at": "2026-04-02T08:00:00-05:00",
+      "created_at": "2026-04-01T08:20:00-05:00",
+      "updated_at": "2026-04-02T08:00:00-05:00",
+      "vendor": "Nordika Home",
+      "product_type": "Hogar",
+      "tags": [
+        "hogar",
+        "nordika home"
+      ],
+      "variants": [
+        {
+          "id": 8100000008,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "price": "29.00",
+          "compare_at_price": "35.00",
+          "sku": "SKU-8100000007",
+          "available": true,
+          "grams": 420
+        }
+      ],
+      "images": [
+        {
+          "id": 8100000009,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0000/products/organizador-escritorio-bambu.jpg",
+          "position": 1
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": [
+            "Default Title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8100000008,
+      "title": "Botella térmica de acero 750 ml",
+      "handle": "botella-termica-acero",
+      "body_html": "<p>Botella térmica de acero 750 ml</p>",
+      "published_at": "2026-04-10T09:00:00-05:00",
+      "created_at": "2026-04-09T14:05:00-05:00",
+      "updated_at": "2026-04-10T09:00:00-05:00",
+      "vendor": "Nordika Sport",
+      "product_type": "Deportes",
+      "tags": [
+        "deportes",
+        "nordika sport"
+      ],
+      "variants": [
+        {
+          "id": 8100000009,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "price": "24.90",
+          "compare_at_price": null,
+          "sku": "SKU-8100000008",
+          "available": true,
+          "grams": 420
+        }
+      ],
+      "images": [
+        {
+          "id": 8100000010,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0000/products/botella-termica-acero.jpg",
+          "position": 1
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": [
+            "Default Title"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8100000009,
+      "title": "Lámpara de sal del Himalaya 3 kg",
+      "handle": "lampara-sal-himalaya",
+      "body_html": "<p>Lámpara de sal del Himalaya 3 kg</p>",
+      "published_at": "2026-05-03T10:00:00-05:00",
+      "created_at": "2026-05-02T10:00:00-05:00",
+      "updated_at": "2026-05-03T10:00:00-05:00",
+      "vendor": "Nordika Home",
+      "product_type": "Hogar",
+      "tags": [
+        "hogar",
+        "nordika home"
+      ],
+      "variants": [
+        {
+          "id": 8100000010,
+          "title": "Default Title",
+          "option1": "Default Title",
+          "price": "22.50",
+          "compare_at_price": null,
+          "sku": "SKU-8100000009",
+          "available": true,
+          "grams": 420
+        }
+      ],
+      "images": [
+        {
+          "id": 8100000011,
+          "src": "https://cdn.shopify.com/s/files/1/0000/0000/products/lampara-sal-himalaya.jpg",
+          "position": 1
+        }
+      ],
+      "options": [
+        {
+          "name": "Title",
+          "position": 1,
+          "values": [
+            "Default Title"
+          ]
+        }
+      ]
+    }
+  ]
+}

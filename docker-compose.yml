@@ -8,15 +8,24 @@
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      # El cliente de Prisma se genera al compilar para el motor elegido.
+      args:
+        DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
     container_name: trendhunter-app
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      DATABASE_PROVIDER: postgresql
-      DATABASE_URL: postgresql://trendhunter:trendhunter@postgres:5432/trendhunter?schema=public
+      DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
+      # Con Supabase (recomendado) estas dos variables vienen del .env:
+      #   DATABASE_URL = pooler (6543)   ·   DIRECT_URL = conexión directa (5432)
+      # Si no se definen, se usa el PostgreSQL de este mismo compose.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://trendhunter:trendhunter@postgres:5432/trendhunter?schema=public}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://trendhunter:trendhunter@postgres:5432/trendhunter?schema=public}
+      AUTO_SEED: ${AUTO_SEED:-true}
       REDIS_URL: redis://redis:6379
       AUTH_SECRET: ${AUTH_SECRET:-cambia-esto-en-produccion-32-bytes-minimo}
       NEXTAUTH_SECRET: ${AUTH_SECRET:-cambia-esto-en-produccion-32-bytes-minimo}
@@ -35,18 +44,19 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      # Persiste la base SQLite si se usa el modo local en lugar de PostgreSQL.
-      - datos-sqlite:/app/prisma
 
   worker:
-    build: .
+    build:
+      context: .
+      args:
+        DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
     container_name: trendhunter-worker
     restart: unless-stopped
     command: ["npx", "tsx", "scripts/worker.ts"]
     environment:
-      DATABASE_PROVIDER: postgresql
-      DATABASE_URL: postgresql://trendhunter:trendhunter@postgres:5432/trendhunter?schema=public
+      DATABASE_PROVIDER: ${DATABASE_PROVIDER:-postgresql}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://trendhunter:trendhunter@postgres:5432/trendhunter?schema=public}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://trendhunter:trendhunter@postgres:5432/trendhunter?schema=public}
       REDIS_URL: redis://redis:6379
       AUTH_SECRET: ${AUTH_SECRET:-cambia-esto-en-produccion-32-bytes-minimo}
     depends_on:
@@ -91,4 +101,3 @@ services:
 volumes:
   datos-postgres:
   datos-redis:
-  datos-sqlite:

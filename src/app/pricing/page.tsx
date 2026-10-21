@@ -9,7 +9,7 @@ import type { PlanType } from "@/types";
 export const metadata = {
   title: "Precios",
   description:
-    "Planes de TrendHunter Pro: Free, Pro (49 $/mes) y Business (149 $/mes) con IA, análisis de tiendas y alertas en tiempo real.",
+    "Planes de TrendHunter Pro: Free (0 $), Pro (19 $/mes), Business (49 $/mes) y Agency (149 $/mes) con IA, análisis de tiendas, API pública y alertas en tiempo real.",
 };
 
 /** Página pública de precios con checkout de Stripe. */

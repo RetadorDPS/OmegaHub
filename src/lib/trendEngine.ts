@@ -74,6 +74,7 @@ export interface TrendMetricsInput {
   tiktokViews: number;
   metaAdsCount: number;
   shopifyStoresUsing: number;
+  youtubeViews?: number;
 }
 
 /** Desglose del score por fuente (alimenta las gráficas del detalle). */
@@ -165,9 +166,15 @@ export function calculateTrendScore(metrics: TrendMetricsInput): number {
 
 /** Igual que `calculateTrendScore` pero devolviendo el desglose por fuente. */
 export function calculateTrendScoreDetailed(metrics: TrendMetricsInput): TrendScoreResult {
+  // Familia vídeo: la señal fuerte manda (TikTok o YouTube).
+  const video = normalizeSignal(
+    Math.max(metrics.tiktokViews, metrics.youtubeViews ?? 0),
+    REFERENCE_MAXIMA.tiktokViews,
+  );
+
   const normalized: TrendMetricsInput = {
     googleSearchVolume: normalizeSignal(metrics.googleSearchVolume, REFERENCE_MAXIMA.googleSearchVolume),
-    tiktokViews: normalizeSignal(metrics.tiktokViews, REFERENCE_MAXIMA.tiktokViews),
+    tiktokViews: video,
     metaAdsCount: normalizeSignal(metrics.metaAdsCount, REFERENCE_MAXIMA.metaAdsCount),
     shopifyStoresUsing: normalizeSignal(metrics.shopifyStoresUsing, REFERENCE_MAXIMA.shopifyStoresUsing),
   };
@@ -299,7 +306,7 @@ export function calculateVelocityScore(scores: number[]): number {
 export function calculateSignalIndex(metrics: TrendMetricsInput): number {
   return (
     (metrics.googleSearchVolume / REFERENCE_MAXIMA.googleSearchVolume) * TREND_WEIGHTS.googleSearchVolume +
-    (metrics.tiktokViews / REFERENCE_MAXIMA.tiktokViews) * TREND_WEIGHTS.tiktokViews +
+    (Math.max(metrics.tiktokViews, metrics.youtubeViews ?? 0) / REFERENCE_MAXIMA.tiktokViews) * TREND_WEIGHTS.tiktokViews +
     (metrics.metaAdsCount / REFERENCE_MAXIMA.metaAdsCount) * TREND_WEIGHTS.metaAdsCount +
     (metrics.shopifyStoresUsing / REFERENCE_MAXIMA.shopifyStoresUsing) * TREND_WEIGHTS.shopifyStoresUsing
   );

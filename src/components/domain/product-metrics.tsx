@@ -1,10 +1,11 @@
 "use client";
 
-import { Activity, Globe, Megaphone, Store } from "lucide-react";
+import { Activity, Globe, Megaphone, Play, Store } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendScoreBar } from "@/components/domain/trend-score-ring";
 import { TrendSparkline } from "@/components/domain/trend-sparkline";
+import { ProcedenciaBadge } from "@/components/domain/procedencia-badge";
 import { cn, formatCompactNumber, formatPercent } from "@/lib/utils";
 import { calculateSaturationIndex, TREND_WEIGHTS } from "@/lib/trendEngine";
 import type { ProductDTO, TrendMetricDTO } from "@/types";
@@ -21,7 +22,7 @@ interface ProductMetricsPanelProps {
  * con su aportación al TrendScore final.
  */
 export function ProductMetricsPanel({ product, metrics }: ProductMetricsPanelProps) {
-  const serie = (clave: keyof Pick<TrendMetricDTO, "googleSearchVolume" | "tiktokViews" | "metaAdsCount" | "shopifyStoresUsing">) =>
+  const serie = (clave: keyof Pick<TrendMetricDTO, "googleSearchVolume" | "tiktokViews" | "youtubeViews" | "metaAdsCount" | "shopifyStoresUsing">) =>
     metrics.map((metrica) => metrica[clave]);
 
   const indiceSaturacion = calculateSaturationIndex(product.storesUsing, product.googleSearchVolume, product.metaAdsCount);
@@ -55,6 +56,23 @@ export function ProductMetricsPanel({ product, metrics }: ProductMetricsPanelPro
         { etiqueta: "Visualizaciones (30 d)", valor: formatCompactNumber(product.tiktokViews) },
         { etiqueta: "Tendencia 30 días", valor: `${variacion(serie("tiktokViews"))} %` },
         { etiqueta: "Potencial UGC", valor: product.velocityScore >= 60 ? "Muy alto" : "Medio" },
+      ],
+    },
+    {
+      id: "youtube",
+      nombre: "YouTube",
+      icono: Play,
+      valor: product.youtubeViews,
+      formato: formatCompactNumber(product.youtubeViews) + " visualizaciones",
+      serie: serie("youtubeViews"),
+      // YouTube no suma por separado: entra en la familia vídeo junto a
+      // TikTok (se toma el máximo de ambos), así que no se muestra un peso.
+      peso: null,
+      color: "#ef4444",
+      detalle: [
+        { etiqueta: "Vistas (30 d)", valor: formatCompactNumber(product.youtubeViews) },
+        { etiqueta: "Familia vídeo", valor: "máx(TikTok, YouTube)" },
+        { etiqueta: "Potencial UGC", valor: product.youtubeViews > 1_000_000 ? "Muy alto" : "Media" },
       ],
     },
     {
@@ -95,14 +113,23 @@ export function ProductMetricsPanel({ product, metrics }: ProductMetricsPanelPro
         {fuentes.map((fuente) => (
           <Card key={fuente.id}>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5">
                 <CardTitle className="flex items-center gap-2 text-sm">
-                  <fuente.icono className="size-4" style={{ color: fuente.color }} />
+                  <fuente.icono className="size-4 shrink-0" style={{ color: fuente.color }} />
                   {fuente.nombre}
                 </CardTitle>
-                <Badge variant="outline" className="text-[10px]">
-                  peso {Math.round(fuente.peso * 100)} %
-                </Badge>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {metrics[0] && (
+                    <ProcedenciaBadge
+                      tipo={metrics[0].tipoDato}
+                      fuente={metrics[0].fuente}
+                      compacto
+                    />
+                  )}
+                  <Badge variant="outline" className="whitespace-nowrap text-[10px]">
+                    {fuente.peso === null ? "familia vídeo" : `peso ${Math.round(fuente.peso * 100)} %`}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -162,10 +189,19 @@ export function ProductMetricsPanel({ product, metrics }: ProductMetricsPanelPro
               <span className="text-muted-foreground">Facturación del nicho</span>
               <span className="font-semibold tabular-nums">{formatCompactNumber(product.estimatedMonthlyRevenue)} $</span>
             </div>
-            <p className={cn("rounded-lg p-2.5 text-xs", product.isGoldenOpportunity ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-500/10 text-muted-foreground")}>
-              {product.isGoldenOpportunity
-                ? "Este producto cumple los criterios de oportunidad dorada: demanda alta (score > 80) y competencia baja (saturación LOW)."
-                : "Este producto no cumple aún los criterios de oportunidad dorada. Revisa la saturación y la velocidad antes de invertir."}
+            <p
+              className={cn(
+                "rounded-lg p-2.5 text-xs",
+                product.isGoldenOpportunity && product.nivelConfianza === "VERIFICADO"
+                  ? "bg-emerald-500/10 text-emerald-300"
+                  : "bg-amber-500/10 text-amber-200",
+              )}
+            >
+              {!product.isGoldenOpportunity
+                ? "Este producto no cumple aún los criterios de oportunidad dorada. Revisa la saturación y la velocidad antes de invertir."
+                : product.nivelConfianza === "VERIFICADO"
+                  ? "Oportunidad dorada verificada: demanda alta (score > 80), competencia baja y al menos dos fuentes medidas en los últimos 7 días."
+                  : "Oportunidad estimada: cumple los criterios del motor interno, pero todavía no hay dos fuentes externas que la confirmen. Trátala como una hipótesis a validar."}
             </p>
           </div>
         </CardContent>

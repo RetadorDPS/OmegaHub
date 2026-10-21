@@ -9,3 +9,10 @@ screenshots
 .env.local
 .prisma-cache
 coverage
+# Sitio estático publicado en GitHub Pages y capturas: no son parte de la imagen
+docs
+screenshots
+screenshots-nuevas
+screenshots-estatico
+.pages
+*.whl

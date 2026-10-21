@@ -250,6 +250,20 @@ export function ProductFiltersPanel({
           />
         </div>
 
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3">
+          <div className="space-y-0.5">
+            <Label htmlFor="filtro-verificados" className="cursor-pointer text-xs normal-case text-foreground">
+              Solo datos verificados
+            </Label>
+            <p className="text-[11px] text-muted-foreground">2+ fuentes medidas en los últimos 7 días</p>
+          </div>
+          <Switch
+            id="filtro-verificados"
+            checked={Boolean(filtros.verificadosOnly)}
+            onCheckedChange={(valor) => aplicar({ verificadosOnly: valor })}
+          />
+        </div>
+
         <div className="flex items-center gap-2 rounded-lg bg-indigo-500/5 p-3 text-[11px] text-muted-foreground">
           <Filter className="size-3.5 shrink-0 text-indigo-400" />
           Los filtros se guardan en la URL: puedes compartir el enlace con tu equipo.

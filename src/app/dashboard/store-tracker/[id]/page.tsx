@@ -8,6 +8,8 @@ import { PageHeading } from "@/components/domain/page-heading";
 import { StatCard } from "@/components/domain/stat-card";
 import { StoreTimeline } from "@/components/domain/store-timeline";
 import { TrackStoreButton } from "@/components/domain/track-store-button";
+import { BotonInformePdf } from "@/components/domain/boton-informe-pdf";
+import { PrecioHistoricoChart } from "@/components/charts/precio-historico-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +33,31 @@ export default async function StoreDetailPage({ params }: PageProps) {
   if (!detalle) notFound();
   const { store, changes } = detalle;
 
+  // Historial de precios REAL de los análisis previos:
+  // hasta 3 productos con más instantáneas, por ronda.
+  const historial = await prisma.priceHistory.findMany({
+    where: { storeId: id },
+    orderBy: { capturedAt: "asc" },
+  });
+  const conteos = new Map<string, number>();
+  for (const fila of historial) conteos.set(fila.title, (conteos.get(fila.title) ?? 0) + 1);
+  const titulos = [...conteos.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([titulo]) => titulo);
+  // Se agrupa por DÍA (no por instante): varios análisis del mismo día son un
+  // solo punto en la gráfica y se conserva el último precio detectado.
+  const porRonda = new Map<string, Record<string, number>>();
+  for (const fila of historial) {
+    if (!titulos.includes(fila.title)) continue;
+    const clave = fila.capturedAt.toISOString().slice(0, 10);
+    if (!porRonda.has(clave)) porRonda.set(clave, {});
+    porRonda.get(clave)![fila.title] = fila.price;
+  }
+  const seriePrecios = [...porRonda.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([fecha, precios]) => ({ fecha, ...precios }));
+
   return (
     <>
       <div className="mb-4">
@@ -47,7 +74,12 @@ export default async function StoreDetailPage({ params }: PageProps) {
         description={`${store.domain} · nicho ${store.niche} · ${
           store.lastScannedAt ? `último análisis ${formatRelativeTime(store.lastScannedAt)}` : "sin análisis reciente"
         }`}
-        actions={<TrackStoreButton storeId={store.id} companyName={store.name} tracked={Boolean(seguimiento)} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <TrackStoreButton storeId={store.id} companyName={store.name} tracked={Boolean(seguimiento)} />
+            <BotonInformePdf origen="tienda" id={store.id} />
+          </div>
+        }
       />
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -105,7 +137,11 @@ export default async function StoreDetailPage({ params }: PageProps) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <StoreTimeline eventos={changes} />
+            <div className="mb-6">
+          <PrecioHistoricoChart data={seriePrecios} />
+        </div>
+
+        <StoreTimeline eventos={changes} />
           </CardContent>
         </Card>
 
@@ -175,7 +211,7 @@ export default async function StoreDetailPage({ params }: PageProps) {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>

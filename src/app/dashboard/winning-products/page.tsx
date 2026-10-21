@@ -6,6 +6,7 @@ import { PageHeading } from "@/components/domain/page-heading";
 import { ProductCard } from "@/components/domain/product-card";
 import { ProductFiltersPanel } from "@/components/domain/product-filters";
 import { ProductSortSelect } from "@/components/domain/product-sort";
+import { RadarTendencias } from "@/components/domain/radar-tendencias";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ function leerFiltros(params: Record<string, string | string[] | undefined>): Pro
     minPrice: numero("minPrice"),
     maxPrice: numero("maxPrice"),
     goldenOnly: valor("goldenOnly") === "true",
+    verificadosOnly: valor("verificadosOnly") === "true",
     sort: (valor("sort") as ProductSortOption) ?? "best-score",
     page: numero("page") ?? 1,
     pageSize: 12,
@@ -72,6 +74,7 @@ export default async function WinningProductsPage({ searchParams }: PageProps) {
     filtros.minPrice !== undefined,
     filtros.maxPrice !== undefined,
     filtros.goldenOnly,
+    filtros.verificadosOnly,
     Boolean(filtros.search),
   ].filter(Boolean).length;
 
@@ -83,7 +86,7 @@ export default async function WinningProductsPage({ searchParams }: PageProps) {
     <>
       <PageHeading
         title="Winning Products"
-        description="Productos validados por cuatro fuentes de datos: Google Trends, TikTok, Meta Ad Library y el radar de tiendas Shopify. El TrendScore resume demanda, velocidad y competencia."
+        description="Productos con su procedencia a la vista: Google Trends, TikTok, Meta Ad Library y el radar de tiendas Shopify. El TrendScore resume demanda, velocidad y competencia; el sello indica si está verificado o estimado."
         actions={
           <>
             <Button asChild variant={filtros.goldenOnly ? "default" : "outline"} size="sm">
@@ -101,6 +104,11 @@ export default async function WinningProductsPage({ searchParams }: PageProps) {
           </>
         }
       />
+
+      {/* Radar de tendencias: ocupa el ancho completo antes de los filtros. */}
+      <div className="mb-6">
+        <RadarTendencias />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         {/* Panel de filtros */}

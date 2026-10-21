@@ -16,13 +16,24 @@ export async function POST(request: Request) {
   const sesion = await auth();
   if (!sesion?.user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  const { productId, targetTrendScore } = (await request.json()) as {
+  const { productId, targetTrendScore, clienteId } = (await request.json()) as {
     productId?: string;
     targetTrendScore?: number;
+    clienteId?: string;
   };
   if (!productId) return NextResponse.json({ error: "Falta el producto" }, { status: 400 });
 
   const usuario = await prisma.user.findUnique({ where: { id: sesion.user.id }, select: { planType: true } });
+  // Asignación opcional a un cliente del modo agencia.
+  let clienteValidado: string | undefined;
+  if (clienteId) {
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: clienteId, ownerId: sesion.user.id },
+      select: { id: true },
+    });
+    if (!cliente) return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+    clienteValidado = cliente.id;
+  }
   const limite = PLAN_LIMITS[usuario?.planType ?? "FREE"].trackedItems;
   const total = await prisma.trackedProduct.count({ where: { userId: sesion.user.id } });
   if (limite !== null && total >= limite) {
@@ -34,8 +45,16 @@ export async function POST(request: Request) {
 
   const seguimiento = await prisma.trackedProduct.upsert({
     where: { userId_productId: { userId: sesion.user.id, productId } },
-    update: { notificationEnabled: true },
-    create: { userId: sesion.user.id, productId, targetTrendScore: targetTrendScore ?? 80 },
+    update: {
+      notificationEnabled: true,
+      ...(clienteValidado ? { clienteId: clienteValidado } : {}),
+    },
+    create: {
+      userId: sesion.user.id,
+      productId,
+      targetTrendScore: targetTrendScore ?? 80,
+      ...(clienteValidado ? { clienteId: clienteValidado } : {}),
+    },
   });
   return NextResponse.json({ ok: true, id: seguimiento.id });
 }

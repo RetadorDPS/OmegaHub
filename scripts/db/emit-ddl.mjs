@@ -47,12 +47,13 @@ export function tableDdl(table, provider) {
     else if (!column.nullable) line += " NOT NULL";
     const def = defaultClause(column, provider);
     if (def) line += ` ${def}`;
-    if (column.references) {
+    // PostgreSQL exige que la tabla referenciada exista: las claves ajenas se
+    // añaden después de crear todas las tablas (ver `foreignKeyDdl`).
+    if (column.references && provider !== "postgresql") {
       const target = column.references.table;
       const targetColumn = column.references.column ?? "id";
       const onDelete = column.references.onDelete ? ` ON DELETE ${column.references.onDelete.toUpperCase().replace("SETNULL", "SET NULL")}` : "";
-      const onUpdate = provider === "postgresql" ? " ON UPDATE CASCADE" : "";
-      line += ` REFERENCES "${target}"("${targetColumn}")${onDelete}${onUpdate}`;
+      line += ` REFERENCES "${target}"("${targetColumn}")${onDelete}`;
     }
     return line;
   });
@@ -79,12 +80,56 @@ export function tableDdl(table, provider) {
   return statements;
 }
 
-/** Tipos ENUM nativos de PostgreSQL (antes de crear tablas). */
+/**
+ * Tipos ENUM nativos de PostgreSQL (antes de crear tablas).
+ *
+ * Además de crear el tipo si no existe, se añaden los valores que falten con
+ * `ADD VALUE IF NOT EXISTS`: así una base ya creada recibe los tipos nuevos
+ * (por ejemplo SCORE_THRESHOLD al activar las alertas de score) sin borrarla.
+ * `ALTER TYPE ... ADD VALUE` no puede ejecutarse dentro de una función, por
+ * eso va como sentencia suelta y no en un bloque `DO`.
+ */
 export function enumDdl(enums) {
-  return Object.entries(enums).map(
-    ([name, values]) =>
+  const sentencias = [];
+  for (const [name, values] of Object.entries(enums)) {
+    sentencias.push(
       `DO $$ BEGIN\n  CREATE TYPE "${name}" AS ENUM (${values.map((v) => `'${v}'`).join(", ")});\nEXCEPTION WHEN duplicate_object THEN NULL;\nEND $$;`,
-  );
+    );
+    for (const valor of values) {
+      sentencias.push(`ALTER TYPE "${name}" ADD VALUE IF NOT EXISTS '${valor}';`);
+    }
+  }
+  return sentencias;
+}
+
+/** Nombre del constraint de clave ajena (convención de Prisma). */
+function nombreFk(table, column) {
+  return `${table.name}_${column.name}_fkey`;
+}
+
+/**
+ * Claves ajenas para PostgreSQL, en bloques tolerantes a duplicados.
+ *
+ * Se emiten aparte del `CREATE TABLE` porque el orden de la especificación no
+ * garantiza que la tabla referenciada exista todavía (por ejemplo, los
+ * seguimientos apuntan a `Cliente`, definido más abajo).
+ */
+export function foreignKeyDdl(tables, provider) {
+  if (provider !== "postgresql") return [];
+  const statements = [];
+  for (const table of tables) {
+    for (const column of table.columns.filter((c) => c.references)) {
+      const target = column.references.table;
+      const targetColumn = column.references.column ?? "id";
+      const onDelete = column.references.onDelete
+        ? ` ON DELETE ${column.references.onDelete.toUpperCase().replace("SETNULL", "SET NULL")}`
+        : "";
+      statements.push(
+        `DO $$ BEGIN\n  ALTER TABLE "${table.name}" ADD CONSTRAINT "${nombreFk(table, column)}" \n    FOREIGN KEY ("${column.name}") REFERENCES "${target}"("${targetColumn}")${onDelete} ON UPDATE CASCADE;\nEXCEPTION WHEN duplicate_object THEN NULL;\nEND $$;`,
+      );
+    }
+  }
+  return statements;
 }
 
 /** DDL completo de la base de datos para el proveedor indicado. */
@@ -92,5 +137,6 @@ export function fullDdl(tables, enums, provider) {
   const statements = [];
   if (provider === "postgresql") statements.push(...enumDdl(enums));
   for (const table of tables) statements.push(...tableDdl(table, provider));
+  statements.push(...foreignKeyDdl(tables, provider));
   return statements;
 }

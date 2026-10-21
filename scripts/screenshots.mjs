@@ -17,7 +17,7 @@ import { chromium } from "playwright-core";
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const EJECUTABLE = process.env.CHROMIUM_PATH ?? path.join(process.cwd(), ".chromium", "chromium");
-const LIBRERIAS = path.join(process.cwd(), ".chromium", "libs", "lib");
+const LIBRERIAS = [path.join(process.cwd(), ".chromium", "libs"), path.join(process.cwd(), ".chromium", "libs", "lib")].join(":");
 const SALIDA = path.join(process.cwd(), "screenshots");
 
 const USUARIO = { email: "demo@trendhunter.pro", password: "demo1234" };
@@ -30,6 +30,12 @@ const PUBLICAS = [
   { ruta: "/register", nombre: "03-registro", ancho: 1440, alto: 1000 },
   { ruta: "/forgot-password", nombre: "04-recuperar-password", ancho: 1440, alto: 800 },
   { ruta: "/pricing", nombre: "05-precios", ancho: 1600, alto: 1250 },
+  {
+    ruta: "/equipos/aceptar?token=demo-invitacion-equipo-trendhunter-2026",
+    nombre: "35-invitacion-equipo",
+    ancho: 1440,
+    alto: 900,
+  },
 ];
 
 /** Secciones del panel con la cuenta de demostración. */
@@ -37,6 +43,7 @@ const PANEL = [
   { ruta: "/dashboard", nombre: "06-dashboard", ancho: 1600, alto: 1300 },
   { ruta: "/dashboard/winning-products", nombre: "07-winning-products", ancho: 1600, alto: 1300 },
   { ruta: "/dashboard/ads-spy", nombre: "08-ads-spy", ancho: 1600, alto: 1250 },
+  { ruta: "/dashboard/fuentes", nombre: "08b-fuentes-en-vivo", ancho: 1600, alto: 1400 },
   { ruta: "/dashboard/shop-analyzer", nombre: "09-shop-analyzer", ancho: 1600, alto: 1100 },
   { ruta: "/dashboard/store-tracker", nombre: "10-store-tracker", ancho: 1600, alto: 1250 },
   { ruta: "/dashboard/product-tracker", nombre: "11-product-tracker", ancho: 1600, alto: 1150 },
@@ -54,6 +61,8 @@ const ADMINISTRACION = [
   { ruta: "/dashboard/admin", nombre: "19-admin-catalogo", ancho: 1700, alto: 1250, pestana: "Catálogo" },
   { ruta: "/dashboard/admin", nombre: "20-admin-scrapings", ancho: 1700, alto: 1250, pestana: "Scrapings" },
   { ruta: "/dashboard/admin", nombre: "21-admin-alta", ancho: 1700, alto: 1400, pestana: "Añadir producto" },
+  { ruta: "/dashboard/equipos", nombre: "33-equipos", ancho: 1700, alto: 1250 },
+  { ruta: "/dashboard/settings/notifications", nombre: "34-webhooks", ancho: 1700, alto: 1400 },
 ];
 
 /** Vistas móviles. */

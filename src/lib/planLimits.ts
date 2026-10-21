@@ -148,7 +148,7 @@ export function getPlanLimit(plan: PlanType, limite: keyof typeof PLAN_LIMITS.FR
 
 /** Comprueba si el plan actual es superior o igual al requerido. */
 export function planAtLeast(actual: PlanType, requerido: PlanType): boolean {
-  const orden: PlanType[] = ["FREE", "PRO", "BUSINESS"];
+  const orden: PlanType[] = ["FREE", "PRO", "BUSINESS", "AGENCY"];
   return orden.indexOf(actual) >= orden.indexOf(requerido);
 }
 

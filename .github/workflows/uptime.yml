@@ -1,0 +1,36 @@
+name: Monitor de uptime
+
+# Comprueba la salud de la app cada 10 minutos.
+# Si falla, avisa por Telegram (si está configurado).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  uptime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar /api/health
+        id: salud
+        run: |
+          CODIGO=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 20 "${{ secrets.APP_URL || 'https://trendhunter-production.up.railway.app' }}/api/health" || true)
+          echo "codigo=$CODIGO" >> "$GITHUB_OUTPUT"
+          echo "Respuesta: $CODIGO"
+          cat /tmp/health.json || true
+          if [ "$CODIGO" != "200" ]; then
+            echo "falla=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "falla=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Avisar por Telegram si está caída
+        if: steps.salud.outputs.falla == '1'
+        run: |
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            curl -s "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d text="🚨 TrendHunter Pro: /api/health respondió ${{ steps.salud.outputs.codigo }} (no 200). Revisa el despliegue."
+          else
+            echo "Sin TELEGRAM_BOT_TOKEN configurado; registro de fallo en Actions."
+          fi

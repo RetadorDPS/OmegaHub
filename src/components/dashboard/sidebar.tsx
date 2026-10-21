@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
+  Activity,
   LayoutDashboard,
+  KeyRound,
   LineChart,
   Megaphone,
   Radar,
@@ -14,6 +16,7 @@ import {
   Store,
   Trophy,
   Truck,
+  Users,
   Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,13 +26,16 @@ import type { PlanType } from "@/types";
 
 /** Mapa de iconos usado por la navegación (evita importar todo el paquete). */
 const ICONOS: Record<string, typeof Trophy> = {
+  Activity,
   LayoutDashboard,
+  KeyRound,
   Trophy,
   Megaphone,
   Store,
   Radar,
   LineChart,
   Truck,
+  Users,
   Sparkles,
   Settings,
   ShieldCheck,
@@ -48,7 +54,18 @@ interface SidebarProps {
 /** Barra lateral con la navegación principal del dashboard. */
 export function Sidebar({ role, plan, onNavigate, className }: SidebarProps) {
   const pathname = usePathname();
-  const items = DASHBOARD_NAV.filter((item) => !item.adminOnly || role === "ADMIN");
+  // Orden de planes (local, sin importar planLimits del cliente:
+  // arrastra Prisma/pg al bundle).
+  const ORDEN_PLANES = ["FREE", "PRO", "BUSINESS", "AGENCY"] as const;
+  const nivelPlan = ORDEN_PLANES.indexOf(plan as (typeof ORDEN_PLANES)[number]);
+
+  const items = DASHBOARD_NAV.filter((item) => {
+    if (item.adminOnly && role !== "ADMIN") return false;
+    if (item.minPlan) {
+      return ORDEN_PLANES.indexOf(item.minPlan) <= nivelPlan;
+    }
+    return true;
+  });
 
   return (
     <aside
@@ -112,6 +129,11 @@ export function Sidebar({ role, plan, onNavigate, className }: SidebarProps) {
                   {item.badge === "hot" && (
                     <Badge variant="danger" className="ml-auto px-1.5 py-0 text-[10px]">
                       HOT
+                    </Badge>
+                  )}
+                  {item.badge === "live" && (
+                    <Badge variant="success" className="ml-auto px-1.5 py-0 text-[10px]">
+                      LIVE
                     </Badge>
                   )}
                   {item.badge === "ai" && (

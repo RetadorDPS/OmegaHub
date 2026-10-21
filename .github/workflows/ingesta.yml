@@ -1,0 +1,27 @@
+name: Ingesta de datos reales
+
+# Lee los catálogos públicos de las tiendas Shopify que hayas añadido y las
+# tendencias del día de Google Trends. Sin claves de API: solo se necesita el
+# CRON_SECRET de tu propio servidor.
+#
+#   · Cada 6 horas (00:00, 06:00, 12:00 y 18:00 UTC).
+#   · También se puede lanzar a mano desde la pestaña «Actions».
+#
+# Antes de activarlo, añade en el repositorio (Settings → Secrets and
+# variables → Actions) las variables APP_URL y CRON_SECRET.
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Leer tiendas y tendencias
+        run: |
+          curl -sS -X POST "${{ secrets.APP_URL }}/api/ingesta" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"geo": "ES", "tendencias": true, "maxTiendas": 8}' \
+            --max-time 600

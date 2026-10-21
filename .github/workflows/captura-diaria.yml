@@ -1,0 +1,21 @@
+name: Captura diaria de tendencias
+
+# Lee señales REALES de los proveedores gratuitos
+# (YouTube, RSS de Google Tendencias) y recalcula
+# los scores. Se lanza a las 06:00 UTC.
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  captura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a la captura
+        run: |
+          curl -sS -X POST "${{ secrets.APP_URL }}/api/cron/tendencias" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"maxProductos": 20}' \
+            --max-time 300

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TrendHunter Pro</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup__cabecera">
+        <span class="popup__logo" aria-hidden>⚡</span>
+        <div>
+          <strong>TrendHunter Pro</strong>
+          <p class="popup__sub">Analiza tiendas Shopify</p>
+        </div>
+      </header>
+
+      <form id="formulario">
+        <label for="url">URL de la tienda</label>
+        <input id="url" name="url" type="url" placeholder="https://mitienda.com" autocomplete="off" />
+
+        <label for="appUrl">URL de tu TrendHunter Pro</label>
+        <input id="appUrl" name="appUrl" type="url" placeholder="https://tu-app.com" autocomplete="off" />
+
+        <p id="aviso" class="popup__aviso" hidden>
+          Guarda la URL de tu app para analizar tiendas desde aquí.
+        </p>
+
+        <button id="catalogo" type="button" class="popup__boton">
+          Analizar en TrendHunter Pro
+        </button>
+      </form>
+
+      <p id="estado" class="popup__estado" role="status"></p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

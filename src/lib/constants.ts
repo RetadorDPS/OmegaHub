@@ -67,6 +67,8 @@ export interface PlanLimits {
   savedProducts: number | null;
   trackedItems: number | null;
   exports: number | null;
+  /** Personas que pueden usar la cuenta (1 = solo el titular). */
+  seats: number;
 }
 
 export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
@@ -77,6 +79,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     savedProducts: 5,
     trackedItems: 2,
     exports: 0,
+    seats: 1,
   },
   PRO: {
     productViews: null,
@@ -85,6 +88,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     savedProducts: 200,
     trackedItems: 50,
     exports: 20,
+    seats: 1,
   },
   BUSINESS: {
     productViews: null,
@@ -93,6 +97,16 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     savedProducts: null,
     trackedItems: null,
     exports: null,
+    seats: 5,
+  },
+  AGENCY: {
+    productViews: null,
+    aiGenerations: null,
+    storeScans: null,
+    savedProducts: null,
+    trackedItems: null,
+    exports: null,
+    seats: 15,
   },
 };
 
@@ -126,8 +140,8 @@ export const PLANS: PlanDefinition[] = [
   {
     id: "PRO",
     name: "Pro",
-    price: 49,
-    priceLabel: "49 $/mes",
+    price: 19,
+    priceLabel: "19 $/mes",
     description: "Para dropshippers que ya venden y escalan campañas.",
     highlighted: true,
     stripePriceEnv: "STRIPE_PRICE_PRO",
@@ -143,8 +157,8 @@ export const PLANS: PlanDefinition[] = [
   {
     id: "BUSINESS",
     name: "Business",
-    price: 149,
-    priceLabel: "149 $/mes",
+    price: 49,
+    priceLabel: "49 $/mes",
     description: "Para agencias y equipos con varias tiendas.",
     stripePriceEnv: "STRIPE_PRICE_BUSINESS",
     features: [
@@ -153,7 +167,26 @@ export const PLANS: PlanDefinition[] = [
       "50 análisis de tiendas al día",
       "Seguimiento ilimitado de tiendas y productos",
       "Alertas prioritarias en tiempo real",
-      "API de exportación y soporte dedicado",
+      "API pública v1 con claves y 5.000 peticiones/día",
+      "Equipo de hasta 5 personas (asientos)",
+      "Webhooks a Slack y Discord",
+      "Soporte dedicado",
+    ],
+  },
+  {
+    id: "AGENCY",
+    name: "Agency",
+    price: 149,
+    priceLabel: "149 $/mes",
+    description: "Agencias que gestionan clientes con la herramienta.",
+    stripePriceEnv: "STRIPE_PRICE_AGENCY",
+    features: [
+      "Todo lo incluido en Business",
+      "Modo agencia: clientes propios",
+      "Asigna productos y tiendas a cada cliente",
+      "Informes PDF con marca blanca",
+      "Equipo de hasta 15 personas con roles",
+      "Cuotas ilimitadas",
     ],
   },
 ];
@@ -173,6 +206,8 @@ export interface NavItem {
   icon: string;
   badge?: string;
   adminOnly?: boolean;
+  /** Plan mínimo para verlo (la sidebar filtra local). */
+  minPlan?: "PRO" | "BUSINESS" | "AGENCY";
 }
 
 /** Secciones de la barra lateral (el icono se resuelve en el componente). */
@@ -191,6 +226,13 @@ export const DASHBOARD_NAV: NavItem[] = [
     badge: "hot",
   },
   {
+    href: "/dashboard/fuentes",
+    label: "Fuentes en vivo",
+    description: "Catálogos y tendencias reales sin claves",
+    icon: "Activity",
+    badge: "live",
+  },
+  {
     href: "/dashboard/ads-spy",
     label: "Ads Spy",
     description: "Biblioteca de anuncios activos",
@@ -201,6 +243,20 @@ export const DASHBOARD_NAV: NavItem[] = [
     label: "Shop Analyzer",
     description: "Analiza cualquier tienda Shopify",
     icon: "Store",
+  },
+  {
+    href: "/dashboard/equipos",
+    label: "Equipo",
+    description: "Asientos, roles y accesos del equipo",
+    icon: "Users",
+    minPlan: "BUSINESS",
+  },
+  {
+    href: "/dashboard/clientes",
+    label: "Clientes",
+    description: "Modo agencia: clientes propios",
+    icon: "Briefcase",
+    minPlan: "BUSINESS",
   },
   {
     href: "/dashboard/store-tracker",
@@ -226,6 +282,13 @@ export const DASHBOARD_NAV: NavItem[] = [
     description: "Copys, guiones y buyer personas con IA",
     icon: "Sparkles",
     badge: "ai",
+  },
+  {
+    href: "/dashboard/api",
+    label: "API pública",
+    description: "Claves, cuotas y documentación v1",
+    icon: "KeyRound",
+    minPlan: "BUSINESS",
   },
   {
     href: "/dashboard/settings",

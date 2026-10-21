@@ -5,6 +5,9 @@ import { analyzeStore } from "@/lib/scraper";
 import { checkAndConsume } from "@/lib/planLimits";
 import { toJsonInput } from "@/lib/json";
 import { normalizeStoreUrl } from "@/lib/utils";
+import { permitido } from "@/lib/limite";
+import { logger } from "@/lib/logger";
+import { esCaidaRelevante, describirCaida } from "@/lib/precios";
 
 /**
  * Shop Analyzer: analiza una tienda Shopify.
@@ -36,6 +39,16 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message, code: "QUOTA_EXCEEDED" }, { status: 402 });
   }
+
+  // Ritmo: máximo 5 análisis/minuto por usuario (anti-ráfagas).
+  if (!permitido(`analisis:${sesion.user.id}`, 5, 60_000)) {
+    return NextResponse.json(
+      { error: "Demasiados análisis seguidos. Espera un minuto." },
+      { status: 429 },
+    );
+  }
+
+  logger.info("analisis_tienda_inicio", { userId: sesion.user.id, url: normalizada });
 
   // Registro del trabajo de análisis (visible en el panel de administración).
   const trabajo = await prisma.storeScan.create({
@@ -94,6 +107,33 @@ export async function POST(request: Request) {
 
     // Productos detectados en la tienda (sólo si el análisis trajo catálogo real).
     if (resultado.topProducts.length > 0) {
+      // Historial de precios: instantánea REAL de este análisis
+      // y detección de bajadas contra la ronda anterior.
+      const anteriores = await prisma.storeProduct.findMany({
+        where: { storeId: tienda.id },
+        select: { title: true, price: true },
+      });
+      const precioAnterior = new Map(anteriores.map((fila) => [fila.title, fila.price]));
+
+      for (const producto of resultado.topProducts) {
+        await prisma.priceHistory.create({
+          data: { storeId: tienda.id, title: producto.title, price: producto.price },
+        });
+        const antes = precioAnterior.get(producto.title);
+        if (antes !== undefined && esCaidaRelevante(antes, producto.price)) {
+          await prisma.storeChange.create({
+            data: {
+              storeId: tienda.id,
+              type: "PRICE_CHANGE",
+              title: `Bajada de precio: ${producto.title}`,
+              description: describirCaida(antes, producto.price),
+              imageUrl: producto.image ?? null,
+              impactScore: Math.min(100, Math.round(((antes - producto.price) / antes) * 200)),
+            },
+          });
+        }
+      }
+
       await prisma.storeProduct.deleteMany({ where: { storeId: tienda.id } });
       await prisma.storeProduct.createMany({
         data: resultado.topProducts.map((producto) => ({
@@ -138,6 +178,13 @@ export async function POST(request: Request) {
       },
     });
 
+    logger.info("analisis_tienda_ok", {
+      userId: sesion.user.id,
+      dominio: normalizada,
+      engine: resultado.engine,
+      productos: resultado.topProducts.length,
+      duracionMs: resultado.durationMs,
+    });
     // El resultado se devuelve con la tienda REAL de la base de datos (mismo
     // id que en el catálogo), para que el botón «rastrear esta tienda» funcione.
     return NextResponse.json({
@@ -154,6 +201,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    logger.error("analisis_tienda_fallo", { userId: sesion.user.id, url: normalizada, error: (error as Error).message });
     await prisma.storeScan.update({
       where: { id: trabajo.id },
       data: {
