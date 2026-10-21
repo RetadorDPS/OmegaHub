@@ -72,10 +72,26 @@ const MOVIL = [
   { ruta: "/dashboard/ads-spy", nombre: "24-movil-ads-spy" },
 ];
 
+/**
+ * Deja el contexto sin dependencia de internet.
+ *
+ * Las capturas se hacen siempre contra el servidor local; si una imagen remota
+ * (Unsplash, CDN de una tienda) no responde, la página no debe quedarse
+ * esperando. Se abortan solo las peticiones que NO van al servidor local.
+ */
+async function aislarDeInternet(contexto) {
+  await contexto.route("**/*", (ruta) => {
+    const url = ruta.request().url();
+    const local = url.startsWith(BASE_URL) || url.startsWith("data:") || url.startsWith("blob:");
+    return local ? ruta.continue() : ruta.abort();
+  });
+  contexto.setDefaultTimeout(45_000);
+}
+
 /** Espera a que la hidratación de React complete el formulario de acceso. */
 async function iniciarSesion(pagina, cuenta) {
   for (let intento = 1; intento <= 4; intento += 1) {
-    await pagina.goto(`${BASE_URL}/login`, { waitUntil: "networkidle" });
+    await pagina.goto(`${BASE_URL}/login`, { waitUntil: "domcontentloaded" });
     await pagina.waitForTimeout(2_500);
     await pagina.fill("#email", cuenta.email);
     await pagina.fill("#password", cuenta.password);
@@ -129,11 +145,12 @@ async function main() {
     //  1 · Páginas públicas
     // -----------------------------------------------------------------------
     const contextoPublico = await nuevoContexto(1600, 1100);
+    await aislarDeInternet(contextoPublico);
     const paginaPublica = await contextoPublico.newPage();
     for (const definicion of PUBLICAS) {
       console.log(`[capturas] ${definicion.ruta}`);
       await paginaPublica.setViewportSize({ width: definicion.ancho, height: definicion.alto });
-      await paginaPublica.goto(`${BASE_URL}${definicion.ruta}`, { waitUntil: "networkidle" });
+      await paginaPublica.goto(`${BASE_URL}${definicion.ruta}`, { waitUntil: "domcontentloaded" });
       await paginaPublica.waitForTimeout(1_200);
       await capturar(paginaPublica, definicion);
     }
@@ -143,6 +160,7 @@ async function main() {
     //  2 · Panel con la cuenta de demostración
     // -----------------------------------------------------------------------
     const contexto = await nuevoContexto(1600, 1200);
+    await aislarDeInternet(contexto);
     const pagina = await contexto.newPage();
 
     if (!(await iniciarSesion(pagina, USUARIO))) {
@@ -153,7 +171,7 @@ async function main() {
     for (const definicion of PANEL) {
       console.log(`[capturas] ${definicion.ruta}`);
       await pagina.setViewportSize({ width: definicion.ancho, height: definicion.alto });
-      await pagina.goto(`${BASE_URL}${definicion.ruta}`, { waitUntil: "networkidle" });
+      await pagina.goto(`${BASE_URL}${definicion.ruta}`, { waitUntil: "domcontentloaded" });
       await pagina.waitForTimeout(definicion.ruta.includes("ai-studio") ? 1_800 : 1_300);
       await capturar(pagina, definicion);
     }
@@ -168,7 +186,7 @@ async function main() {
     });
 
     if (primerProducto) {
-      await pagina.goto(`${BASE_URL}/dashboard/winning-products/${primerProducto}`, { waitUntil: "networkidle" });
+      await pagina.goto(`${BASE_URL}/dashboard/winning-products/${primerProducto}`, { waitUntil: "domcontentloaded" });
       await pagina.waitForTimeout(2_200);
       await capturar(pagina, { nombre: "25-detalle-producto" });
       await pagina.screenshot({ path: path.join(SALIDA, "25b-detalle-producto-completo.png"), fullPage: true });
@@ -185,7 +203,7 @@ async function main() {
     // --- Shop Analyzer con análisis real ---
     console.log("[capturas] Shop Analyzer (análisis real)");
     await pagina.setViewportSize({ width: 1600, height: 1400 });
-    await pagina.goto(`${BASE_URL}/dashboard/shop-analyzer`, { waitUntil: "networkidle" });
+    await pagina.goto(`${BASE_URL}/dashboard/shop-analyzer`, { waitUntil: "domcontentloaded" });
     await pagina.waitForTimeout(1_000);
     const campoUrl = pagina.locator('input[aria-label="URL de la tienda"]');
     if ((await campoUrl.count()) > 0) {
@@ -199,7 +217,7 @@ async function main() {
     // --- AI Studio con una generación real ---
     console.log("[capturas] AI Studio (generación real)");
     await pagina.setViewportSize({ width: 1600, height: 1350 });
-    await pagina.goto(`${BASE_URL}/dashboard/ai-studio`, { waitUntil: "networkidle" });
+    await pagina.goto(`${BASE_URL}/dashboard/ai-studio`, { waitUntil: "domcontentloaded" });
     await pagina.waitForTimeout(1_500);
     const botonGenerar = pagina.getByRole("button", { name: /Generar con IA/i });
     if ((await botonGenerar.count()) > 0) {
@@ -215,6 +233,7 @@ async function main() {
     //  3 · Panel de administración
     // -----------------------------------------------------------------------
     const contextoAdmin = await nuevoContexto(1700, 1250);
+    await aislarDeInternet(contextoAdmin);
     const paginaAdmin = await contextoAdmin.newPage();
     if (!(await iniciarSesion(paginaAdmin, ADMIN))) {
       throw new Error("No se pudo iniciar sesión con la cuenta de administración");
@@ -224,7 +243,7 @@ async function main() {
     for (const definicion of ADMINISTRACION) {
       console.log(`[capturas] ${definicion.ruta}${definicion.pestana ? ` · ${definicion.pestana}` : ""}`);
       await paginaAdmin.setViewportSize({ width: definicion.ancho, height: definicion.alto });
-      await paginaAdmin.goto(`${BASE_URL}${definicion.ruta}`, { waitUntil: "networkidle" });
+      await paginaAdmin.goto(`${BASE_URL}${definicion.ruta}`, { waitUntil: "domcontentloaded" });
       await paginaAdmin.waitForTimeout(1_300);
       if (definicion.pestana) {
         const pestana = paginaAdmin.getByRole("tab", { name: new RegExp(definicion.pestana, "i") });
@@ -241,13 +260,14 @@ async function main() {
     //  4 · Vistas móviles
     // -----------------------------------------------------------------------
     const contextoMovil = await nuevoContexto(414, 900, { deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+    await aislarDeInternet(contextoMovil);
     const paginaMovil = await contextoMovil.newPage();
     if (!(await iniciarSesion(paginaMovil, USUARIO))) {
       throw new Error("No se pudo iniciar sesión en la vista móvil");
     }
     for (const definicion of MOVIL) {
       console.log(`[capturas] ${definicion.ruta} (móvil)`);
-      await paginaMovil.goto(`${BASE_URL}${definicion.ruta}`, { waitUntil: "networkidle" });
+      await paginaMovil.goto(`${BASE_URL}${definicion.ruta}`, { waitUntil: "domcontentloaded" });
       await paginaMovil.waitForTimeout(1_400);
       await capturar(paginaMovil, definicion);
     }
