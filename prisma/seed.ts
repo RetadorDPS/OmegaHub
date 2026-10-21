@@ -18,6 +18,7 @@
 import { hash } from "bcryptjs";
 import { toJsonInput } from "@/lib/json";
 import prisma from "@/lib/prisma";
+import { recalcularTodasLasConfianzas } from "@/lib/confianzaProducto";
 import {
   calculateEngagementRate,
   calculateMarginPercent,
@@ -57,6 +58,9 @@ async function limpiarBaseDeDatos(): Promise<void> {
   await prisma.account.deleteMany();
   await prisma.passwordResetToken.deleteMany();
   await prisma.verificationToken.deleteMany();
+  await prisma.webhook.deleteMany();
+  await prisma.teamMember.deleteMany();
+  await prisma.team.deleteMany();
   await prisma.user.deleteMany();
 }
 
@@ -228,6 +232,18 @@ async function crearCatalogo() {
         shopifyStoresUsing: punto.shopifyStoresUsing,
         calculatedScore: punto.calculatedScore,
         breakdown: { fuente: "seed", generado: true },
+        // Catálogo de demostración: ninguna cifra viene de una API externa.
+        // Se guarda la procedencia por fuente para que la interfaz no mezcle
+        // datos estimados con datos medidos.
+        fuente: "seed-demo",
+        fechaMedicion: punto.date,
+        tipoDato: "ESTIMADO",
+        procedencia: toJsonInput({
+          google: { tipo: "ESTIMADO", fuente: "seed-demo", fecha: punto.date.toISOString(), valor: punto.googleSearchVolume },
+          tiktok: { tipo: "ESTIMADO", fuente: "seed-demo", fecha: punto.date.toISOString(), valor: punto.tiktokViews },
+          meta: { tipo: "ESTIMADO", fuente: "seed-demo", fecha: punto.date.toISOString(), valor: punto.metaAdsCount },
+          tiendas: { tipo: "ESTIMADO", fuente: "seed-demo", fecha: punto.date.toISOString(), valor: punto.shopifyStoresUsing },
+        }),
       })),
     });
 
@@ -284,6 +300,24 @@ async function crearTiendas(productos: Awaited<ReturnType<typeof crearCatalogo>>
       };
     });
     await prisma.storeProduct.createMany({ data: filasProductos });
+
+    // Historial de precios de demo: 4 rondas de análisis
+    // en las últimas 2 semanas con deriva realista
+    // hasta el precio actual.
+    const filasPrecio = semilla.topProducts.flatMap((top, i) =>
+      [14, 9, 4, 0].map((dias, ronda) => ({
+        storeId: tienda.id,
+        title: top.title,
+        price:
+          ronda === 3
+            ? top.price
+            : Math.round(top.price * (1 + ((i + ronda) % 3 === 0 ? 0.06 : -0.03 - ronda * 0.02)) * 100) / 100,
+        // Misma hora para todos los productos de una ronda: la gráfica
+        // agrupa por día y así todas las series comparten el mismo eje.
+        capturedAt: haceDias(dias),
+      })),
+    );
+    await prisma.priceHistory.createMany({ data: filasPrecio });
 
     tiendasCreadas.push({ tienda, semilla });
   }
@@ -582,6 +616,52 @@ async function crearActividadDeUsuario(
   return { notificaciones: notificaciones.length + 3, generaciones: generaciones.length };
 }
 
+/**
+ * Equipo y webhooks de demostración.
+ *
+ * El equipo lo tiene el administrador (plan Business): aparece con una plaza
+ * ocupada y una invitación pendiente, para que se vea cómo funciona sin
+ * inventar miembros que no existen.
+ */
+async function crearEquipoYWebhooks(adminId: string) {
+  const admin = await prisma.user.findUnique({ where: { id: adminId }, select: { email: true, name: true } });
+  if (!admin) return { miembros: 0, webhooks: 0 };
+
+  const equipo = await prisma.team.create({
+    data: {
+      name: "Agencia Norte",
+      ownerId: adminId,
+      seats: 5,
+      members: {
+        create: [
+          { userId: adminId, email: admin.email, role: "OWNER", status: "ACTIVE", joinedAt: new Date() },
+          {
+            email: "companero@trendhunter.pro",
+            role: "MEMBER",
+            status: "INVITED",
+            inviteToken: "demo-invitacion-equipo-trendhunter-2026",
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.webhook.create({
+    data: {
+      userId: adminId,
+      nombre: "Alertas del equipo (Slack)",
+      url: "https://hooks.slack.com/services/T00000000/B00000000/demoNoReal0000000000000000",
+      provider: "SLACK",
+      eventos: ["alerta", "producto", "precio"],
+      activo: false,
+      ultimoError: "Webhook de demostración: sustitúyelo por el tuyo.",
+    },
+  });
+
+  const miembros = await prisma.teamMember.count({ where: { teamId: equipo.id } });
+  return { miembros, webhooks: 1 };
+}
+
 async function notificarResumen(usuarios: number, productos: number, tiendas: number, anuncios: number, proveedores: number) {
   const totalMetricas = await prisma.trendMetric.count();
   const totalEventos = await prisma.storeChange.count();
@@ -627,14 +707,23 @@ async function main() {
   await limpiarBaseDeDatos();
   const usuarios = await crearUsuarios();
   const productos = await crearCatalogo();
+
+  // La confianza se calcula con la misma regla que en producción: el seed no
+  // tiene fuentes medidas, así que todos quedan como ESTIMADO (y se dice).
+  const confianzas = await recalcularTodasLasConfianzas();
+  const estimados = confianzas.filter((fila) => fila.nivel === "ESTIMADO").length;
+  console.log(`\n   Confianza calculada: ${confianzas.length} productos · ${estimados} estimados (seed sin fuentes externas).`);
   const tiendas = await crearTiendas(productos);
   const eventos = await crearTimelineTiendas(tiendas);
   const anuncios = await crearAnuncios(productos);
   const proveedores = await crearProveedores();
   await crearActividadDeUsuario(usuarios, productos, tiendas);
+  const equipo = await crearEquipoYWebhooks(usuarios.admin.id);
 
   await notificarResumen(4 + usuarios.extras.length, productos.length, tiendas.length, anuncios, proveedores);
   console.log(`   Eventos de timeline: ${eventos}`);
+  console.log(`   Equipo demo:     ${equipo.miembros} plazas (1 invitación pendiente) · ${equipo.webhooks} webhook`);
+  console.log(`   Invitación demo: /equipos/aceptar?token=demo-invitacion-equipo-trendhunter-2026`);
 }
 
 main()

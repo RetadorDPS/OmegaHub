@@ -8,12 +8,39 @@
  * Nota: la prueba da de alta un producto de prueba y lo archiva/despublica al
  * final; ejecútala sobre bases de datos de desarrollo.
  */
+import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { chromium } from "playwright-core";
 
+// ---------------------------------------------------------------------------
+//  Cuotas diarias: la batería debe poder repetirse el mismo día.
+//  Se limpia el consumo de hoy de las cuentas de demostración (solo en SQLite
+//  de desarrollo; en PostgreSQL este paso se omite).
+// ---------------------------------------------------------------------------
+const RUTA_BD = path.join(process.cwd(), "prisma", "trendhunter.db");
+const require = createRequire(import.meta.url);
+// Solo se limpian cuotas si la aplicación usa SQLite: con PostgreSQL
+// (Supabase) la base no es este fichero y las cuotas se dejan intactas.
+const usaSqlite = !/^postgres(ql)?:\/\//i.test(process.env.DATABASE_URL ?? "");
+const Database = usaSqlite && existsSync(RUTA_BD) ? require("better-sqlite3") : null;
+if (Database) {
+  const bd = new Database(RUTA_BD);
+  const hoy = new Date().toISOString().slice(0, 10);
+  const liberados = bd
+    .prepare(
+      `DELETE FROM UsageEvent
+        WHERE dayKey = ?
+          AND userId IN (SELECT id FROM User WHERE email IN ('demo@trendhunter.pro', 'free@trendhunter.pro'))`,
+    )
+    .run(hoy);
+  bd.close();
+  console.log(`[verify:api] Cuotas de hoy liberadas: ${liberados.changes} eventos.`);
+}
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
 const EJECUTABLE = process.env.CHROMIUM_PATH ?? path.join(process.cwd(), ".chromium", "chromium");
-const LIBRERIAS = path.join(process.cwd(), ".chromium", "libs", "lib");
+const LIBRERIAS = [path.join(process.cwd(), ".chromium", "libs"), path.join(process.cwd(), ".chromium", "libs", "lib")].join(":");
 const resultados = [];
 
 function registrar(nombre, ok, detalle = "") {
@@ -49,7 +76,10 @@ async function api(pagina, ruta, opciones = {}) {
     async ([rutaApi, opcionesApi]) => {
       const respuesta = await fetch(rutaApi, {
         method: opcionesApi.method ?? "GET",
-        headers: opcionesApi.body ? { "content-type": "application/json" } : undefined,
+        headers: {
+          ...opcionesApi.headers,
+          ...(opcionesApi.body ? { "content-type": "application/json" } : {}),
+        },
         body: opcionesApi.body ? JSON.stringify(opcionesApi.body) : undefined,
       });
       const texto = await respuesta.text();
@@ -124,6 +154,73 @@ registrar("GET /api/admin/scans", scrapings.estado === 200, `${scrapings.cuerpo?
 // Usuarios
 const usuarios = await api(admin, "/api/admin/users");
 registrar("GET /api/admin/users", usuarios.estado === 200, `${usuarios.cuerpo?.total} usuarios`);
+
+// ---------------------------------------------------------------------------
+//  API pública v1 (plan BUSINESS del administrador)
+// ---------------------------------------------------------------------------
+const claveCreada = await api(admin, "/api/api-keys", {
+  method: "POST",
+  body: { nombre: "Verificación automática de la API" },
+});
+const claveApi = claveCreada.cuerpo?.clave ?? "";
+registrar(
+  "POST /api/api-keys (clave nueva)",
+  claveCreada.estado === 201 && claveApi.startsWith("thp_live_"),
+  claveCreada.cuerpo?.item?.prefijo ?? `estado ${claveCreada.estado}`,
+);
+
+const conClaveApi = { headers: { authorization: `Bearer ${claveApi}` } };
+
+const indiceApi = await api(admin, "/api/v1");
+registrar(
+  "GET /api/v1 (índice público)",
+  indiceApi.estado === 200 && (indiceApi.cuerpo?.data?.endpoints?.length ?? 0) >= 8,
+  `${indiceApi.cuerpo?.data?.endpoints?.length} endpoints`,
+);
+
+const openapiApi = await api(admin, "/api/v1/openapi");
+registrar("GET /api/v1/openapi", openapiApi.estado === 200 && openapiApi.cuerpo?.openapi === "3.1.0");
+
+const sinClaveApi = await api(admin, "/api/v1/productos");
+registrar(
+  "API sin clave → 401",
+  sinClaveApi.estado === 401 && sinClaveApi.cuerpo?.error?.codigo === "SIN_CLAVE",
+  sinClaveApi.cuerpo?.error?.codigo,
+);
+
+const catalogoApi = await api(admin, "/api/v1/productos?porPagina=2&orden=margen", conClaveApi);
+registrar(
+  "API con clave → catálogo paginado",
+  catalogoApi.estado === 200 && catalogoApi.cuerpo?.data?.length === 2,
+  `${catalogoApi.cuerpo?.meta?.total} productos`,
+);
+
+const primeroApi = catalogoApi.cuerpo?.data?.[0]?.id;
+const detalleApi = await api(admin, `/api/v1/productos/${primeroApi}`, conClaveApi);
+registrar(
+  "API ficha de producto con procedencia",
+  detalleApi.estado === 200 && Array.isArray(detalleApi.cuerpo?.data?.metricas),
+  `${detalleApi.cuerpo?.data?.metricas?.length} métricas`,
+);
+
+const tiendasApi = await api(admin, "/api/v1/tiendas?limite=5", conClaveApi);
+const idsTiendasApi = (tiendasApi.cuerpo?.data ?? []).map((tienda) => tienda.id);
+
+const parametroApi = await api(admin, "/api/v1/productos?porPagina=500", conClaveApi);
+registrar(
+  "API parámetro inválido → 400",
+  parametroApi.estado === 400 && parametroApi.cuerpo?.error?.codigo === "PARAMETRO_INVALIDO",
+);
+
+const revocarApi = await api(admin, `/api/api-keys/${claveCreada.cuerpo?.item?.id}`, { method: "DELETE" });
+registrar("DELETE /api/api-keys/:id", revocarApi.estado === 200);
+
+const revocadaApi = await api(admin, "/api/v1/productos", conClaveApi);
+registrar(
+  "API clave revocada → 401",
+  revocadaApi.estado === 401 && revocadaApi.cuerpo?.error?.codigo === "CLAVE_REVOCADA",
+  revocadaApi.cuerpo?.error?.codigo,
+);
 
 // ---------------------------------------------------------------------------
 //  Usuario PRO (demo) — IA, scrapers, trackers, exportación
@@ -232,11 +329,32 @@ registrar("GET /api/suppliers", proveedores.estado === 200, `${proveedores.cuerp
 // ---------------------------------------------------------------------------
 const gratis = await iniciarSesion("free@trendhunter.pro", "free1234");
 
-const limite = await api(gratis, "/api/trackers/stores", { method: "POST", body: { storeId: tiendaId } });
+// El plan FREE permite 2 elementos seguidos en total. Se prueban tiendas
+// distintas hasta que la API responda 402: la comprobación no depende de
+// cuántas seguía ya la cuenta.
+// Identificadores de tienda para probar el límite: primero la base SQLite
+// local; si la aplicación usa PostgreSQL, los que devuelve la API pública.
+const tiendasDePrueba = [];
+if (Database) {
+  const bdTiendas = new Database(RUTA_BD, { readonly: true });
+  tiendasDePrueba.push(...bdTiendas.prepare("SELECT id FROM Store LIMIT 5").all());
+  bdTiendas.close();
+} else {
+  tiendasDePrueba.push(...idsTiendasApi.map((id) => ({ id })));
+}
+
+let intentoLimite = null;
+for (const tienda of tiendasDePrueba) {
+  intentoLimite = await api(gratis, "/api/trackers/stores", {
+    method: "POST",
+    body: { storeId: tienda.id },
+  });
+  if (intentoLimite.estado === 402) break;
+}
 registrar(
-  "Límite de plan FREE en trackers (402 esperado si ya sigue 2)",
-  limite.estado === 200 || limite.estado === 402,
-  `estado ${limite.estado}${limite.cuerpo?.error ? ` — ${limite.cuerpo.error}` : ""}`,
+  "Límite de plan FREE en trackers (402 al llegar a 2)",
+  intentoLimite?.estado === 402 && intentoLimite.cuerpo?.code === "PLAN_LIMIT",
+  `estado ${intentoLimite?.estado}${intentoLimite?.cuerpo?.error ? ` — ${intentoLimite.cuerpo.error}` : ""}`,
 );
 
 const sinExport = await gratis.evaluate(async () => {

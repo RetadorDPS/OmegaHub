@@ -55,3 +55,6 @@ yarn-error.log*
 
 # Chromium empaquetado (solo herramienta de capturas)
 .chromium/
+
+# Copia de trabajo de la exportación estática (la salida publicada es docs/)
+/.pages/

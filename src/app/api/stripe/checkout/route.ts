@@ -8,7 +8,7 @@ import type { PlanType } from "@/types";
 /**
  * Crea la sesión de pago de Stripe para cambiar de plan.
  *
- * POST /api/stripe/checkout  { plan: "PRO" | "BUSINESS" }
+ * POST /api/stripe/checkout  { plan: "PRO" | "BUSINESS" | "AGENCY" }
  *
  * Si Stripe no está configurado, activa el plan en modo demostración para que
  * todo el flujo de suscripción sea verificable sin claves.
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   if (!sesion?.user?.id) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
   const { plan } = (await request.json()) as { plan?: PlanType };
-  if (plan !== "PRO" && plan !== "BUSINESS") {
+  if (plan !== "PRO" && plan !== "BUSINESS" && plan !== "AGENCY") {
     return NextResponse.json({ error: "Plan no válido" }, { status: 400 });
   }
 

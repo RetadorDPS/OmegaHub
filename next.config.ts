@@ -39,6 +39,38 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.googleusercontent.com" },
     ],
   },
+  /**
+   * Cabeceras de seguridad comunes.
+   *
+   * No se envía `X-Frame-Options` ni `frame-ancestors`: la app se muestra
+   * embebida en la previsualización del entorno de desarrollo y en paneles de
+   * clientes; bloquear el iframe rompería esos usos legítimos.
+   */
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-DNS-Prefetch-Control", value: "on" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=()",
+          },
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
+        ],
+      },
+      {
+        // Las respuestas de datos nunca deben cachearse de forma compartida.
+        source: "/api/:path*",
+        headers: [{ key: "Cache-Control", value: "private, no-store" }],
+      },
+    ];
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "4mb",

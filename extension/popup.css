@@ -1,0 +1,78 @@
+/* popup.css · Extensión TrendHunter Pro */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.popup {
+  width: 300px;
+  padding: 14px;
+}
+
+.popup__cabecera {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.popup__logo {
+  font-size: 22px;
+}
+
+.popup__sub {
+  margin: 0;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.popup label {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 8px 0 3px;
+}
+
+.popup input {
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+.popup__aviso {
+  font-size: 11px;
+  color: #fbbf24;
+  margin: 8px 0 0;
+}
+
+.popup__boton {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.popup__boton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.popup__estado {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 8px 0 0;
+}

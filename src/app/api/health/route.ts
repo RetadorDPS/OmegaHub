@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { redisConfigured } from "@/lib/queue";
+import { modoCostes } from "@/lib/modoCostes";
 
 /** Marca de tiempo del arranque del proceso (para el uptime). */
 const ARRANQUE = Date.now();
@@ -28,6 +29,7 @@ export async function GET() {
   return NextResponse.json(
     {
       estado: saludable ? "ok" : "degradado",
+      modoCostes: modoCostes(),
       version: process.env.npm_package_version ?? "1.0.0",
       entorno: process.env.NODE_ENV ?? "development",
       uptimeSegundos: Math.round((Date.now() - ARRANQUE) / 1000),

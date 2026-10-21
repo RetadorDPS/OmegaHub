@@ -36,9 +36,35 @@ enum PlanType {
   FREE
   PRO
   BUSINESS
+  AGENCY
 }
 
 /// Nivel de saturación competitiva de un producto.
+/// Procedencia de una cifra: ¿cómo llegó a la base de datos?
+/// MEDIDO = leído de una API o fuente en vivo.
+/// IMPORTADO = subido por el usuario (CSV/JSON).
+/// ESTIMADO = calculado por el motor interno.
+enum TipoDato {
+  MEDIDO
+  IMPORTADO
+  ESTIMADO
+  /// La fila mezcla fuentes medidas con valores heredados de la anterior.
+  MIXTO
+}
+
+/// Nivel de confianza de un producto, calculado con sus fuentes reales.
+///
+///   VERIFICADO → 2+ fuentes medidas en los últimos 7 días.
+///   PARCIAL    → 1 fuente medida, o medidas antiguas.
+///   ESTIMADO   → solo cálculos internos, sin fuente externa.
+///   SIN_DATOS  → todavía no hay ninguna observación.
+enum NivelConfianza {
+  VERIFICADO
+  PARCIAL
+  ESTIMADO
+  SIN_DATOS
+}
+
 enum SaturationLevel {
   LOW
   MEDIUM
@@ -88,6 +114,12 @@ enum NotificationType {
   PRICE_CHANGE
   SYSTEM
   SUBSCRIPTION
+  /// El producto seguido alcanzó el score objetivo.
+  SCORE_THRESHOLD
+  /// Mercado saturado: demasiadas tiendas vendiendo el producto.
+  SATURATION_ALERT
+  /// La tendencia dejó de subir (reversión).
+  TREND_REVERSAL
 }
 
 /// Tipos de cambio detectados en una tienda monitorizada (timeline).
@@ -136,6 +168,27 @@ enum SupplierPlatform {
 }
 
 /// Motivo por el que se registra consumo de cuota (límites de plan).
+/// Rol dentro de un equipo.
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+/// Estado de una plaza del equipo.
+enum TeamMemberStatus {
+  INVITED
+  ACTIVE
+  REVOKED
+}
+
+/// Destino de un webhook saliente.
+enum WebhookProvider {
+  SLACK
+  DISCORD
+  GENERIC
+}
+
 enum UsageAction {
   PRODUCT_VIEW
   AI_GENERATION
@@ -181,6 +234,14 @@ model User {
   usageEvents     UsageEvent[]
   subscriptions   Subscription[]
   resetTokens     PasswordResetToken[]
+  clientes        Cliente[]
+  apiKeys         ApiKey[]
+  pushSubscriptions PushSubscription[]
+  /// Equipos de los que es dueño.
+  teamsOwned      Team[]        @relation("TeamOwner")
+  /// Plazas que ocupa (una por equipo).
+  teamMemberships TeamMember[]
+  webhooks        Webhook[]
 
   @@index([planType])
 }
@@ -316,10 +377,19 @@ model Product {
   tiktokViews        Int             @default(0)
   metaAdsCount       Int             @default(0)
   storesUsing        Int             @default(0)
+  youtubeViews       Int             @default(0)
   estimatedMonthlyRevenue Float      @default(0)
   estimatedUnitsSold Int             @default(0)
   status             ProductStatus   @default(ACTIVE)
   source             String          @default("seed")
+  // --- Confianza del dato (ver src/lib/confianza.ts) ---
+  /// Puntuación 0–100 calculada con fuentes medidas, frescura y diversidad.
+  confianza          Int             @default(0)
+  nivelConfianza     NivelConfianza  @default(SIN_DATOS)
+  /// Fuentes independientes medidas en la última ventana.
+  fuentesMedidas     Int             @default(0)
+  /// Fecha de la última observación medida (null si nunca se ha medido).
+  ultimaMedicion     DateTime?
   countryAvailability Json           @default("[]")
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt
@@ -336,6 +406,7 @@ model Product {
   @@index([nicheTag])
   @@index([trendScore])
   @@index([saturationLevel])
+  @@index([nivelConfianza])
 }
 
 /// Serie temporal diaria (30 días) usada por las gráficas de Recharts.
@@ -345,10 +416,19 @@ model TrendMetric {
   date               DateTime
   googleSearchVolume Int      @default(0)
   tiktokViews        Int      @default(0)
+  youtubeViews       Int      @default(0)
   metaAdsCount       Int      @default(0)
   shopifyStoresUsing Int      @default(0)
   calculatedScore    Int      @default(0)
   breakdown          Json?
+  /// Procedencia de la fila (resumen).
+  fuente        String     @default("motor-interno")
+  fechaMedicion DateTime   @default(now())
+  tipoDato      TipoDato   @default(ESTIMADO)
+  /// Procedencia **por fuente**: { google: { tipo, fuente, fecha, valor }, … }.
+  /// Es la verdad del dato: una fila puede tener YouTube medido y el resto
+  /// heredado de la medición anterior, y así debe quedar registrado.
+  procedencia   Json?
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -413,6 +493,8 @@ model Store {
   appsDetected            Json      @default("[]")
   socialProfiles          Json      @default("{}")
   growthRate              Float     @default(0)
+  /// Cómo entró la tienda en la base: `seed` (demo) o `ingesta` (catálogo público real).
+  origen                  String    @default("seed")
   lastScannedAt           DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
@@ -421,6 +503,7 @@ model Store {
   changes       StoreChange[]
   scans         StoreScan[]
   storeProducts StoreProduct[]
+  priceHistory  PriceHistory[]
 
   @@index([niche])
   @@index([country])
@@ -431,6 +514,8 @@ model StoreProduct {
   id          String   @id @default(cuid())
   storeId     String
   productId   String?
+  /// Identificador del producto en la tienda (Shopify `id`), para no duplicar.
+  externalId  String?
   title       String
   image       String?
   price       Float    @default(0)
@@ -439,13 +524,18 @@ model StoreProduct {
   salesRank   Int      @default(0)
   estimatedUnitsSold Int @default(0)
   productUrl  String?
+  /// ¿Sigue a la venta? Lo lee el catálogo público (`variants[].available`).
+  available   Boolean  @default(true)
   detectedAt  DateTime @default(now())
+  /// Última vez que el catálogo público devolvió este producto.
+  lastSeenAt  DateTime @default(now())
 
   store   Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([storeId])
   @@index([productId])
+  @@index([lastSeenAt])
 }
 
 /// Ejecución de un análisis de tienda (Shop Analyzer) y su resultado.
@@ -519,10 +609,12 @@ model TrackedStore {
   storeId             String
   notificationEnabled Boolean  @default(true)
   notes               String?
+  clienteId           String?
   createdAt           DateTime @default(now())
 
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store   Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
 
   @@unique([userId, storeId])
   @@index([userId])
@@ -535,10 +627,12 @@ model TrackedProduct {
   notificationEnabled Boolean  @default(true)
   targetTrendScore    Int      @default(80)
   notes               String?
+  clienteId           String?
   createdAt           DateTime @default(now())
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cliente   Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
 
   @@unique([userId, productId])
   @@index([userId])
@@ -611,4 +705,183 @@ model AiGeneration {
 
   @@index([userId, tool])
   @@index([createdAt])
+}
+
+/// Cliente de una agencia (modo agencia, plan BUSINESS+).
+model Cliente {
+  id        String   @id @default(cuid())
+  ownerId   String
+  nombre    String
+  dominio   String?
+  notas     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  followedStores TrackedStore[]
+  followedProducts TrackedProduct[]
+
+  @@index([ownerId])
+}
+
+/// Suscripción push de un dispositivo (PWA instalada o navegador).
+///
+/// Una fila por navegador: el endpoint es único y actúa como identificador.
+/// Si el servicio push responde 404/410, la fila se desactiva (`activa`).
+model PushSubscription {
+  id         String    @id @default(cuid())
+  userId     String
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  navegador  String    @default("Navegador")
+  activa     Boolean   @default(true)
+  ultimoUso  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Clave de API pública (plan BUSINESS o superior).
+///
+/// Solo se guarda el hash SHA-256 de la clave: el valor completo se muestra
+/// una única vez al crearla. `prefijo` permite identificarla en la interfaz.
+/// `peticionesHoy` y `diaUso` sostienen la cuota diaria sin depender de memoria.
+model ApiKey {
+  id            String    @id @default(cuid())
+  userId        String
+  nombre        String
+  prefijo       String    @unique
+  hash          String    @unique
+  ultimoUso     DateTime?
+  peticiones    Int       @default(0)
+  peticionesHoy Int       @default(0)
+  diaUso        String?
+  revocadaEn    DateTime?
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Historial de precios de un producto dentro de una tienda.
+/// Cada análisis de tienda (Shop Analyzer) guarda una
+/// instantánea real: así se dibuja la evolución y se
+/// detectan bajadas de precio.
+model PriceHistory {
+  id         String   @id @default(cuid())
+  storeId    String
+  title      String
+  price      Float
+  capturedAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, title, capturedAt])
+}
+
+// ---------------------------------------------------------------------------
+//  MÓDULO 9 · Términos en tendencia (Google Trends RSS, sin clave)
+// ---------------------------------------------------------------------------
+
+/// Término que Google Trends ha publicado como tendencia del día en un país.
+/// Es una observación real con fecha: sirve para explicar por qué un producto
+/// sube, no para inventar volumen de búsquedas.
+model TrendingTerm {
+  id         String   @id @default(cuid())
+  term       String
+  geo        String   @default("ES")
+  /// Día de la tendencia en formato YYYY-MM-DD (clave de idempotencia).
+  day        String
+  /// Volumen aproximado tal y como lo publica Google ("1M+", "50K+").
+  volume     String   @default("—")
+  /// Volumen aproximado convertido a número (0 si no se puede leer).
+  approxVolume Int    @default(0)
+  /// Posición en el listado de ese día (1 = la primera).
+  rank       Int      @default(0)
+  url        String   @default("")
+  capturedAt DateTime @default(now())
+
+  @@unique([term, geo, day])
+  @@index([day, geo])
+  @@index([term])
+}
+
+// ---------------------------------------------------------------------------
+//  MÓDULO 10 · Equipos y asientos
+// ---------------------------------------------------------------------------
+
+/// Equipo con asientos. El plan lo pone el dueño: los miembros heredan sus
+/// límites mientras la plaza esté activa (no pagan dos veces).
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  /// Asientos contratados según el plan del dueño (se recalcula al vuelo).
+  seats     Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner   User         @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members TeamMember[]
+
+  @@unique([ownerId])
+  @@index([ownerId])
+}
+
+/// Plaza de un equipo: invitación pendiente, miembro activo o revocado.
+model TeamMember {
+  id        String           @id @default(cuid())
+  teamId    String
+  /// Usuario real; `null` mientras la invitación no se ha aceptado.
+  userId    String?
+  email     String
+  role      TeamRole         @default(MEMBER)
+  status    TeamMemberStatus @default(INVITED)
+  /// Token de un solo uso que viaja en el enlace de invitación.
+  inviteToken String?        @unique
+  invitedAt DateTime         @default(now())
+  joinedAt  DateTime?
+  /// Última vez que el miembro usó el panel (para saber quién está activo).
+  lastActiveAt DateTime?
+
+  team Team  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([teamId, email])
+  @@index([userId])
+  @@index([teamId, status])
+}
+
+// ---------------------------------------------------------------------------
+//  MÓDULO 11 · Webhooks salientes (Slack, Discord y genéricos)
+// ---------------------------------------------------------------------------
+
+/// Webhook configurado por el usuario. Las alertas y la ingesta se envían aquí
+/// además de a la campana.
+model Webhook {
+  id         String          @id @default(cuid())
+  userId     String
+  nombre     String
+  url        String
+  provider   WebhookProvider @default(GENERIC)
+  /// Eventos suscritos: alertas, productos nuevos, cambios de precio…
+  eventos    Json            @default("[]")
+  /// Secreto para firmar el cuerpo (solo se usa con GENERIC).
+  secreto    String?
+  activo     Boolean         @default(true)
+  ultimoEstado Int?          @default(0)
+  ultimoError  String?
+  ultimoEnvio  DateTime?
+  envios     Int             @default(0)
+  fallos     Int             @default(0)
+  createdAt  DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

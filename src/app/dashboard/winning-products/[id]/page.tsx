@@ -9,6 +9,7 @@ import {
   Flame,
   LineChart,
   Megaphone,
+  ShieldCheck,
   ShoppingCart,
   Sparkles,
   Store,
@@ -23,9 +24,15 @@ import { ProductAiStudio } from "@/components/domain/product-ai-studio";
 import { ProfitCalculator } from "@/components/domain/profit-calculator";
 import { SaveProductButton } from "@/components/domain/save-product-button";
 import { TrackProductButton } from "@/components/domain/track-product-button";
+import { BotonInformePdf } from "@/components/domain/boton-informe-pdf";
+import { ImportadorTendencias } from "@/components/domain/importador-tendencias";
 import { ProductTrendChart } from "@/components/charts/trend-area-chart";
 import { TrendScoreRing, TrendScoreBar } from "@/components/domain/trend-score-ring";
 import { SaturationBadge } from "@/components/domain/saturation-badge";
+import { SelloConfianza } from "@/components/domain/sello-confianza";
+import { ProcedenciaPanel } from "@/components/domain/procedencia-panel";
+import { obtenerProcedenciaProducto } from "@/lib/confianzaProducto";
+import { etiquetaOportunidad } from "@/lib/confianza";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -53,7 +60,11 @@ export async function generateMetadata({ params }: PageProps) {
 
 export default async function ProductDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const [detalle, sesion] = await Promise.all([getProductDetail(id), auth()]);
+  const [detalle, sesion, procedencia] = await Promise.all([
+    getProductDetail(id),
+    auth(),
+    obtenerProcedenciaProducto(id),
+  ]);
   if (!detalle) notFound();
 
   const { product, metrics, ads, stores } = detalle;
@@ -88,16 +99,26 @@ export default async function ProductDetailPage({ params }: PageProps) {
           <>
             <SaveProductButton productId={product.id} saved={yaGuardado} />
             <TrackProductButton productId={product.id} tracked={false} />
+            <BotonInformePdf origen="producto" id={product.id} />
           </>
         }
       />
 
       {/* Insignias de estado */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
+        <SelloConfianza
+          nivel={product.nivelConfianza}
+          puntos={product.confianza}
+          fuentesMedidas={product.fuentesMedidas}
+          diasDesdeUltima={product.ultimaMedicion ? Math.max(0, Math.floor((Date.now() - new Date(product.ultimaMedicion).getTime()) / 86_400_000)) : null}
+        />
         {product.isGoldenOpportunity && (
-          <Badge variant="gradient" className="gap-1">
+          <Badge
+            variant={product.nivelConfianza === "VERIFICADO" ? "gradient" : "outline"}
+            className={product.nivelConfianza === "VERIFICADO" ? "gap-1" : "gap-1 border-amber-500/40 bg-amber-500/10 text-amber-200"}
+          >
             <Sparkles className="size-3" />
-            Oportunidad dorada
+            {etiquetaOportunidad(true, product.nivelConfianza)}
           </Badge>
         )}
         <SaturationBadge level={product.saturationLevel} />
@@ -132,7 +153,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 <Boxes />
                 Métricas por plataforma
               </TabsTrigger>
-              <TabsTrigger value="competencia">
+              <TabsTrigger value="procedencia">
+                <ShieldCheck />
+                Confianza
+              </TabsTrigger>
+            <TabsTrigger value="competencia">
                 <Store />
                 Competencia
               </TabsTrigger>
@@ -227,7 +252,28 @@ export default async function ProductDetailPage({ params }: PageProps) {
             </TabsContent>
 
             {/* --- Métricas por plataforma --- */}
+            <TabsContent value="procedencia" className="space-y-6">
+              {procedencia ? (
+                <ProcedenciaPanel
+                  nivel={procedencia.evaluacion.nivel}
+                  evaluacion={procedencia.evaluacion}
+                  items={procedencia.items}
+                  consulta={procedencia.consulta}
+                />
+              ) : (
+                <EmptyState
+                  icon={ShieldCheck}
+                  title="Sin datos de procedencia"
+                  description="Este producto todavía no tiene mediciones registradas."
+                />
+              )}
+            </TabsContent>
+
             <TabsContent value="metricas">
+              <div className="mb-4">
+                <ImportadorTendencias productoId={product.id} />
+              </div>
+
               <ProductMetricsPanel
                 product={product}
                 metrics={metrics}
@@ -253,7 +299,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                       description="Ninguna de las tiendas del radar vende este producto por ahora."
                     />
                   ) : (
-                    <Table>
+                    <Table className="min-w-[720px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Tienda</TableHead>

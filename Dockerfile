@@ -22,12 +22,21 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /app
 COPY --from=dependencias /app/node_modules ./node_modules
 COPY . .
-# El build no necesita la base de datos real: sólo la variable para el cliente.
-ENV DATABASE_URL="file:./prisma/trendhunter.db"
-ENV DATABASE_PROVIDER="sqlite"
+
+# El cliente de Prisma se genera EN TIEMPO DE COMPILACIÓN para el motor elegido:
+# Prisma no permite mezclar un cliente generado para SQLite con el adaptador de
+# PostgreSQL. El valor por defecto es PostgreSQL (producción: Supabase o el
+# contenedor local). Para una imagen con SQLite:
+#     docker build --build-arg DATABASE_PROVIDER=sqlite .
+ARG DATABASE_PROVIDER=postgresql
+ENV DATABASE_PROVIDER=${DATABASE_PROVIDER}
+# El build no necesita la base de datos real: sólo una URL válida por proveedor.
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 ENV AUTH_SECRET="build-time-placeholder"
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN node scripts/prisma-generate.mjs && npx next build
+RUN SKIP_ENV_FILE=1 node scripts/set-db-provider.mjs "${DATABASE_PROVIDER}" && \
+    node scripts/prisma-generate.mjs && \
+    npx next build
 
 # --- Producción -------------------------------------------------------------
 FROM node:22-bookworm-slim AS produccion
@@ -58,4 +67,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:3000/api/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-CMD ["npm", "start"]
+CMD ["node", "scripts/arranque.mjs"]

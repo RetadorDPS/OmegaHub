@@ -432,7 +432,7 @@ function GuionVideo({ guion, meta }: { guion: VideoScript; meta: RespuestaAi }) 
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[680px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-24">Minuto</TableHead>

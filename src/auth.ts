@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { compare } from "bcryptjs";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
+import { planEfectivo } from "@/lib/equipos";
 import { sendWelcomeEmail, sendVerificationEmail } from "@/lib/mail";
 import type { PlanType, Role } from "@/types";
 
@@ -153,9 +154,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           .catch(() => null);
         if (actual) {
           tokenExtendido.role = actual.role as Role;
-          tokenExtendido.planType = actual.planType as PlanType;
+          // Plan efectivo: si el usuario es miembro de un equipo Business o
+          // Agency, hereda ese plan aunque el suyo sea Free (no paga dos veces).
+          tokenExtendido.planType = await planEfectivo(tokenExtendido.id!, actual.planType as PlanType).catch(
+            () => actual.planType as PlanType,
+          );
           tokenExtendido.name = actual.name;
           tokenExtendido.picture = actual.image;
+          // Marca de actividad del miembro (sirve para ver quién usa el equipo).
+          await prisma.teamMember
+            .updateMany({
+              where: { userId: tokenExtendido.id, status: "ACTIVE" },
+              data: { lastActiveAt: new Date() },
+            })
+            .catch(() => null);
         }
         tokenExtendido.lastChecked = Date.now();
       }

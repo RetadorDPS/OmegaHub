@@ -76,6 +76,8 @@ writeFileSync(
 const nextConfig: NextConfig = {
   output: "export",
   basePath: ${JSON.stringify(BASE_PATH)},
+  // El manifiesto y el service worker se publican bajo /OmegaHub/.
+  env: { NEXT_PUBLIC_BASE_PATH: ${JSON.stringify(BASE_PATH)} },
   trailingSlash: true,
   reactStrictMode: true,
   poweredByHeader: false,
@@ -218,6 +220,20 @@ const paginasConParametros = [
   "src/app/dashboard/suppliers/page.tsx",
   "src/app/dashboard/settings/billing/page.tsx",
 ];
+
+// El Shop Analyzer recibe ?url= desde la extensión: en el
+// sitio estático no hay parámetros, se sirve sin prefijo.
+{
+  const ruta = path.join(TRABAJO, "src/app/dashboard/shop-analyzer/page.tsx");
+  if (existsSync(ruta)) {
+    let contenido = readFileSync(ruta, "utf8");
+    contenido = contenido.replace(
+      /const \{ url: urlInicial \} = await searchParams;/,
+      "// Sitio estático: sin deep link, sin prefijo.\n  const urlInicial: string | undefined = undefined;",
+    );
+    writeFileSync(ruta, contenido);
+  }
+}
 
 for (const relativa of paginasConParametros) {
   const ruta = path.join(TRABAJO, relativa);

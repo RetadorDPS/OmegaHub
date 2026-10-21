@@ -12,7 +12,7 @@ import { mkdirSync, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { TABLES, ENUMS } from "./db/table-spec.mjs";
 import { fullDdl } from "./db/emit-ddl.mjs";
-import { detectProvider, resolveDatabaseUrl, resolveSqlitePath } from "./db/load-env.mjs";
+import { detectProvider, pgSslOptions, resolveDatabaseUrl, resolveSqlitePath } from "./db/load-env.mjs";
 
 const force = process.argv.includes("--force");
 const provider = detectProvider();
@@ -58,7 +58,7 @@ if (provider === "sqlite") {
   console.log(`[db:bootstrap] ${tables.map((t) => t.name).join(", ")}`);
 } else {
   const { default: pg } = await import("pg");
-  const client = new pg.Client({ connectionString: databaseUrl });
+  const client = new pg.Client({ connectionString: databaseUrl, ssl: pgSslOptions(databaseUrl) });
   await client.connect();
   try {
     for (const statement of statements) await client.query(statement);

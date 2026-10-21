@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
+import { RegistrarServiceWorker } from "@/components/pwa/registrar-sw";
 import "./globals.css";
 
 /**
@@ -41,12 +42,33 @@ export const metadata: Metadata = {
     description: "Inteligencia de mercado para dropshippers y e-commerce.",
   },
   robots: { index: true, follow: true },
+  // PWA: manifiesto + iconos. Al instalarla se abre como aplicación propia.
+  manifest: "/manifest.webmanifest",
+  applicationName: "TrendHunter Pro",
+  appleWebApp: {
+    capable: true,
+    title: "TrendHunter",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/favicon-64.png", sizes: "64x64", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon-180.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/icons/favicon-64.png",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b1020",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0b1020" },
+    { media: "(prefers-color-scheme: light)", color: "#0b1020" },
+  ],
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -58,6 +80,7 @@ export default function RootLayout({
     <html lang="es" className="dark" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
         <SessionProvider>
+          <RegistrarServiceWorker />
           {children}
           <Toaster
             theme="dark"

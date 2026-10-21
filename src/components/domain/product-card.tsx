@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TrendScoreRing } from "@/components/domain/trend-score-ring";
 import { SaturationBadge } from "@/components/domain/saturation-badge";
-import { cn, formatCompactNumber, formatCurrencyPrecise } from "@/lib/utils";
+import { SelloConfianza } from "@/components/domain/sello-confianza";
+import { etiquetaOportunidad } from "@/lib/confianza";
+import { cn, formatCompactNumber, formatCurrency } from "@/lib/utils";
 import { TREND_DIRECTION_LABELS, type ProductDTO } from "@/types";
 import { toast } from "sonner";
 
@@ -84,9 +86,17 @@ export function ProductCard({ product, saved = false, index = 0, className }: Pr
           {/* Insignias superiores */}
           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
             {product.isGoldenOpportunity && (
-              <Badge variant="gradient" className="gap-1 shadow-lg">
+              <Badge
+                variant={product.nivelConfianza === "VERIFICADO" ? "gradient" : "outline"}
+                className={cn("gap-1 shadow-lg", product.nivelConfianza !== "VERIFICADO" && "border-amber-500/40 bg-amber-500/15 text-amber-200")}
+                title={
+                  product.nivelConfianza === "VERIFICADO"
+                    ? "Confirmado por dos o más fuentes medidas en los últimos 7 días."
+                    : "Estimación del motor interno: todavía no hay dos fuentes medidas que la confirmen."
+                }
+              >
                 <Sparkles className="size-3" />
-                Oportunidad dorada
+                {etiquetaOportunidad(true, product.nivelConfianza)}
               </Badge>
             )}
             {product.velocityScore >= 70 && (
@@ -132,7 +142,13 @@ export function ProductCard({ product, saved = false, index = 0, className }: Pr
             {product.title}
           </h3>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <SelloConfianza
+              nivel={product.nivelConfianza}
+              puntos={product.confianza}
+              fuentesMedidas={product.fuentesMedidas}
+              compacto
+            />
             <SaturationBadge level={product.saturationLevel} />
             <Badge variant="outline" className="gap-1 text-[10px]">
               <TrendingUp className="size-3" />
@@ -141,18 +157,19 @@ export function ProductCard({ product, saved = false, index = 0, className }: Pr
           </div>
 
           {/* Métricas */}
-          <div className="mt-auto grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-center">
+          <div className="mt-auto grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-center [&>div]:min-w-0">
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Margen</p>
               <p className="text-sm font-semibold text-emerald-400">{product.estimatedMargin.toFixed(0)} %</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Precio</p>
-              <p className="text-sm font-semibold">{formatCurrencyPrecise(product.suggestedSellPrice)}</p>
+              {/* Sin decimales: en la tarjeta el importe debe caber entero. */}
+              <p className="truncate text-sm font-semibold">{formatCurrency(product.suggestedSellPrice)}</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Facturación</p>
-              <p className="text-sm font-semibold">{formatCompactNumber(product.estimatedMonthlyRevenue)}</p>
+              <p className="truncate text-sm font-semibold">{formatCompactNumber(product.estimatedMonthlyRevenue)}</p>
             </div>
           </div>
 

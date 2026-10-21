@@ -26,7 +26,7 @@ export function loadEnv(file = ".env") {
 /** URL de conexión efectiva (con fallback local a SQLite). */
 export function resolveDatabaseUrl() {
   loadEnv();
-  return process.env.DATABASE_URL ?? "file:./prisma/trendhunter.db";
+  return process.env.DATABASE_URL || "file:./prisma/trendhunter.db";
 }
 
 /** Detecta el proveedor a partir de la URL, admitiendo override explícito. */
@@ -35,6 +35,21 @@ export function detectProvider(url = resolveDatabaseUrl()) {
   if (explicit === "postgres" || explicit === "postgresql") return "postgresql";
   if (explicit === "sqlite") return "sqlite";
   return url.startsWith("postgres://") || url.startsWith("postgresql://") ? "postgresql" : "sqlite";
+}
+
+/**
+ * Opciones TLS para PostgreSQL.
+ *
+ * · Si la URL ya trae `sslmode` (lo normal en Supabase), se respeta.
+ * · Si el host es local (docker compose, socket unix) no se usa TLS.
+ * · En cualquier otro host se activa TLS sin validar el certificado, que es lo
+ *   que necesitan los poolers gestionados (Supabase, Neon, Railway).
+ */
+export function pgSslOptions(url) {
+  const cadena = String(url ?? "");
+  if (/[?&]sslmode=/i.test(cadena)) return undefined;
+  if (/@(localhost|127\.0\.0\.1|postgres|db)(:\d+)?\//i.test(cadena) || /host=\//i.test(cadena)) return false;
+  return { rejectUnauthorized: false };
 }
 
 /** Convierte `file:./algo.db` en ruta absoluta. */

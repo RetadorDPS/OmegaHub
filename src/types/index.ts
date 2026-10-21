@@ -9,7 +9,10 @@
 // ---------------------------------------------------------------------------
 
 export type Role = "USER" | "ADMIN";
-export type PlanType = "FREE" | "PRO" | "BUSINESS";
+export type PlanType = "FREE" | "PRO" | "BUSINESS" | "AGENCY";
+export type TeamRole = "OWNER" | "ADMIN" | "MEMBER";
+export type TeamMemberStatus = "INVITED" | "ACTIVE" | "REVOKED";
+export type WebhookProvider = "SLACK" | "DISCORD" | "GENERIC";
 export type SaturationLevel = "LOW" | "MEDIUM" | "HIGH";
 export type AdPlatform = "FACEBOOK" | "TIKTOK" | "INSTAGRAM";
 export type TrendDirection = "RISING" | "STABLE" | "FALLING";
@@ -22,7 +25,13 @@ export type NotificationType =
   | "STORE_CHANGE"
   | "PRICE_CHANGE"
   | "SYSTEM"
-  | "SUBSCRIPTION";
+  | "SUBSCRIPTION"
+  | "SCORE_THRESHOLD"
+  | "SATURATION_ALERT"
+  | "TREND_REVERSAL";
+/** Nivel de confianza del dato de un producto. */
+export type NivelConfianza = "VERIFICADO" | "PARCIAL" | "ESTIMADO" | "SIN_DATOS";
+
 export type StoreChangeType =
   | "NEW_PRODUCT"
   | "PRICE_CHANGE"
@@ -50,6 +59,7 @@ export const PLAN_LABELS: Record<PlanType, string> = {
   FREE: "Free",
   PRO: "Pro",
   BUSINESS: "Business",
+  AGENCY: "Agency",
 };
 
 export const SATURATION_LABELS: Record<SaturationLevel, string> = {
@@ -71,6 +81,9 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   PRICE_CHANGE: "Cambio de precio",
   SYSTEM: "Sistema",
   SUBSCRIPTION: "Suscripción",
+  SCORE_THRESHOLD: "Score objetivo",
+  SATURATION_ALERT: "Mercado saturado",
+  TREND_REVERSAL: "Reversión de tendencia",
 };
 
 export const TREND_DIRECTION_LABELS: Record<TrendDirection, string> = {
@@ -106,7 +119,13 @@ export interface ProductDTO {
   saturationLevel: SaturationLevel;
   trendDirection: TrendDirection;
   isGoldenOpportunity: boolean;
+  /** Confianza del dato (0–100) y su nivel. */
+  confianza: number;
+  nivelConfianza: NivelConfianza;
+  fuentesMedidas: number;
+  ultimaMedicion: string | null;
   googleSearchVolume: number;
+  youtubeViews: number;
   tiktokViews: number;
   metaAdsCount: number;
   storesUsing: number;
@@ -119,13 +138,21 @@ export interface ProductDTO {
 }
 
 /** Métrica diaria serializada (gráficas de detalle). */
+/** Procedencia de una cifra: cómo llegó a la base de datos. */
+export type TipoDato = "MEDIDO" | "IMPORTADO" | "ESTIMADO" | "MIXTO";
+
 export interface TrendMetricDTO {
   date: string;
   googleSearchVolume: number;
   tiktokViews: number;
+  youtubeViews: number;
   metaAdsCount: number;
   shopifyStoresUsing: number;
   calculatedScore: number;
+  /// Procedencia de la cifra (dato real, no excusa):
+  fuente: string;
+  fechaMedicion: string;
+  tipoDato: TipoDato;
 }
 
 /** Anuncio serializado para Ads Spy. */
@@ -260,6 +287,8 @@ export interface ProductFilters {
   maxPrice?: number;
   minPrice?: number;
   goldenOnly?: boolean;
+  /** Solo productos con dos o más fuentes medidas en los últimos 7 días. */
+  verificadosOnly?: boolean;
   sort?: ProductSortOption;
   page?: number;
   pageSize?: number;
@@ -345,4 +374,16 @@ export interface StoreNameIdea {
   domain: string;
   rationale: string;
   available?: boolean;
+}
+
+
+/** Cliente de una agencia (modo agencia, plan BUSINESS+). */
+export interface ClienteDTO {
+  id: string;
+  nombre: string;
+  dominio: string | null;
+  notas: string | null;
+  createdAt: string;
+  productosSeguidos: number;
+  tiendasSeguidas: number;
 }

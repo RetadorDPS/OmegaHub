@@ -19,7 +19,7 @@ las creatividades de tu campaña con IA.
 4. [Comandos disponibles](#comandos-disponibles)
 5. [Cuentas de demostración](#cuentas-de-demostración)
 6. [Arquitectura](#arquitectura)
-7. [API](#api)
+7. [API](#api) · [API pública (API.md)](API.md)
 8. [Datos de prueba](#datos-de-prueba)
 9. [Despliegue](#despliegue)
 10. [Solución de problemas](#solución-de-problemas)
@@ -31,7 +31,7 @@ las creatividades de tu campaña con IA.
 | # | Módulo | Ruta | Qué hace |
 | --- | --- | --- | --- |
 | 1 | Autenticación y usuarios | `/login`, `/register`, `/forgot-password`, `/dashboard/settings` | Registro con verificación por correo, Google OAuth opcional, roles USER/ADMIN, perfil, contraseña y plan |
-| 2 | Base de datos | `prisma/` | 21 modelos, seeding con 20 productos, 600 métricas diarias, 31 anuncios, 10 tiendas y 12 proveedores |
+| 2 | Base de datos | `prisma/` | 29 modelos, seeding con 20 productos, 600 métricas diarias, 31 anuncios, 10 tiendas y 12 proveedores |
 | 3 | Motor de tendencias | `src/lib/trendEngine.ts` | `calculateTrendScore`, `determineSaturationLevel`, `detectGoldenOpportunity`, `calculateProfitEstimate` (48 tests) |
 | 4 | Shell del dashboard | `/dashboard` | KPIs, gráfica de 30 días, oportunidades doradas, saturación por nivel, búsqueda global, idioma, campana de notificaciones |
 | 5 | Winning Products | `/dashboard/winning-products` | Catálogo con filtros avanzados, ordenaciones, exportación CSV y ficha con galería, histórico Recharts, competencia, proveedores, calculadora de beneficio y AI Marketing |
@@ -39,8 +39,13 @@ las creatividades de tu campaña con IA.
 | 7 | Shop Analyzer | `/dashboard/shop-analyzer` | URL → scraping (Playwright o determinista) → facturación, tráfico, top 10 productos, categorías, apps y competencia |
 | 8 | Store Tracker y Product Tracker | `/dashboard/store-tracker`, `/dashboard/product-tracker` | Timeline de cambios, umbrales de alerta, sparklines y notificaciones en la campana |
 | 9 | AI Studio | `/dashboard/ai-studio` | 5 variantes de copy, guiones de 15/30/60 s, buyer persona, nombres de tienda y análisis de producto |
-| 10 | Suscripciones | `/pricing`, `/dashboard/settings/billing` | FREE / PRO 49 $ / BUSINESS 149 $, checkout, portal, cancelación, webhook y límites por plan |
+| 10 | Suscripciones | `/pricing`, `/dashboard/settings/billing` | FREE / PRO 19 $ / BUSINESS 49 $ / AGENCY 149 $, checkout, portal, cancelación, webhook y límites por plan |
 | 11 | Panel de administración | `/dashboard/admin` | Alta de productos, aprobación de scrapings, gestión de usuarios y revocación de acceso |
+| 12 | API pública v1 | `/dashboard/api`, `/api/v1/*` | Claves con hash SHA-256, cuotas por minuto y día, CORS, OpenAPI 3.1 y 9 endpoints de solo lectura ([API.md](API.md)) |
+| 14 | Confianza del dato | catálogo, ficha y PDF | Sello Verificado/Parcial/Estimado en cada producto, índice 0–100 con sus cuatro factores, panel de procedencia con fuente, fecha y enlace de comprobación, y filtro «solo datos verificados» |
+| 15 | Equipos y asientos | `/dashboard/equipos`, `/equipos/aceptar` | Business 5 plazas y Agency 15: invitar por correo, roles OWNER/ADMIN/MEMBER, heredar el plan del equipo y revocar accesos |
+| 16 | Webhooks salientes | `/dashboard/settings/notifications` | Avisos a Slack, Discord o cualquier automatización (n8n, Make, Zapier), con firma HMAC y prueba de entrega |
+| 13 | PWA y avisos push | `/manifest.webmanifest`, `/dashboard/settings/notifications` | Instalable en Android, iPhone y escritorio; service worker con caché de estáticos y pantalla sin conexión; alertas al móvil con VAPID por `web-push` |
 
 ---
 
@@ -103,7 +108,7 @@ Genera un secreto de producción con `openssl rand -base64 32`.
 | `npm run build` | Genera el cliente Prisma y compila para producción |
 | `npm start` | Servidor de producción |
 | `npm run worker` | Workers de BullMQ (requiere `REDIS_URL`) |
-| `npm test` | Tests del motor de tendencias (Vitest) |
+| `npm test` | 170 tests (motor de tendencias, confianza, equipos, webhooks) |
 | `npm run typecheck` | TypeScript estricto (`tsc --noEmit`) |
 | `npm run lint` | Análisis estático con oxlint (0 avisos) |
 | `npm run db:bootstrap` | Crea la base de datos y aplica el esquema |
@@ -111,19 +116,28 @@ Genera un secreto de producción con `openssl rand -base64 32`.
 | `npm run db:verify` | Comprueba integridad y recuentos de la base de datos |
 | `npm run db:reset` | Recrea la base de datos desde cero y vuelve a sembrar |
 | `npm run db:provider` | Cambia entre `sqlite` y `postgresql` |
+| `npm run db:migration:postgres` | Genera `prisma/postgres-inicial.sql` (`-- --aplicar` lo ejecuta) |
 | `npm run db:studio` | Prisma Studio |
 | `npm run screenshots` | Genera las capturas de todas las pantallas en `screenshots/` |
+| `npm run verify:api` | 42 comprobaciones de API y flujos con sesiones reales (IA, scraper, trackers, admin, Stripe) |
+| `npm run verify:api-v1` | 23 comprobaciones de la API pública (claves, cuotas, revocación) |
+| `npm run audit:ui` | Recorre la navegación real de dos cuentas: enlaces, errores de consola y tiempos |
+| `npm run verify:pwa` | 18 comprobaciones de la PWA (manifiesto, iconos, service worker, push y sin conexión) |
+| `npm run verify:confianza` | 15 comprobaciones del sello de confianza (catálogo, ficha, API y caso verificado) |
+| `npm run verify:ingesta` | 45 comprobaciones de la ingesta real (catálogo, cambios, cruce, tendencias y caducidad del sello) |
+| `npm run captura:fuentes` | Capturas de la sección «Fuentes en vivo» |
+| `npm run confianza:recalcular` | Recalcula el nivel de confianza de todos los productos |
+| `npm run verify:equipos` | 33 comprobaciones de equipos, asientos, invitaciones y webhooks |
 | `npm run chromium` | Prepara el Chromium local que usan las capturas y las verificaciones |
 | `npm run build:pages` | Exporta el sitio estático para GitHub Pages a `docs/` |
 | `npm run preview:pages` | Sirve `docs/` igual que GitHub Pages (`http://localhost:4000/OmegaHub/`) |
-| `npm run verify:pages` | Verifica 58 comprobaciones de página (usuario + administrador, HTTP y consola) |
-| `npm run verify:api` | Verifica 33 flujos de API de punta a punta (IA, scraper, trackers, admin, Stripe) |
+| `npm run verify:pages` | 60 comprobaciones del sitio estático en `docs/` (usuario + administrador, HTTP y consola) |
 
 ---
 
 ## Capturas de la interfaz
 
-Todas las pantallas están documentadas en [`screenshots/`](screenshots) (31
+Todas las pantallas están documentadas en [`screenshots/`](screenshots) (34
 imágenes, incluidas las vistas móviles y las hojas de contacto
 `00-hoja-contacto-*.png`). Se regeneran con `npm run screenshots` contra el
 servidor en ejecución.
@@ -208,6 +222,9 @@ Todas las rutas devuelven JSON y exigen sesión salvo las públicas indicadas.
 | `GET/POST/PATCH/DELETE` | `/api/trackers/products` | Seguimiento de productos y umbrales |
 | `GET/POST/PATCH/DELETE` | `/api/trackers/stores` | Seguimiento de tiendas |
 | `GET/PATCH/DELETE` | `/api/notifications` | Campana y preferencias |
+| `POST` | `/api/ingesta` | Ingesta de catálogos públicos + tendencias (cron o admin) |
+| `POST` | `/api/ingesta/manual` | Lectura manual desde «Fuentes en vivo» (sesión, 6/hora) |
+| `POST` | `/api/cron/confianza` | Revisa y corrige el sello de confianza (`simular` no escribe) |
 | `POST` | `/api/shop-analyzer` | Análisis de tienda Shopify |
 | `GET` | `/api/shop-analyzer` | Historial de análisis del usuario |
 | `GET` | `/api/suppliers` | Proveedores con filtros |
@@ -219,6 +236,17 @@ Todas las rutas devuelven JSON y exigen sesión salvo las públicas indicadas.
 | `GET/POST/PATCH` | `/api/admin/products` | Catálogo (ADMIN) |
 | `GET/POST` | `/api/admin/scans` | Cola de scrapings (ADMIN) |
 | `GET` | `/api/admin/stats` | KPIs de la plataforma (ADMIN) |
+| `GET` | `/api/v1/*` | **API pública** con clave (`Business`/`Agency`): productos, tiendas, tendencias y estadísticas |
+| `GET` | `/api/v1/openapi` | Contrato OpenAPI 3.1 (público) |
+| `GET/POST/DELETE` | `/api/api-keys` | Gestión de claves desde la sesión del panel |
+| `GET/POST` | `/api/equipos` | Equipo propio, equipos en los que participa y alta del equipo (Business/Agency) |
+| `POST` | `/api/equipos/invitaciones` | Invita por correo (rol + enlace de un solo uso de 14 días) |
+| `GET` | `/api/equipos/invitaciones?token=` | Datos públicos de una invitación (sin ids ni datos internos) |
+| `POST` | `/api/equipos/invitaciones/aceptar` | Acepta la invitación; exige que el correo de la sesión sea el invitado |
+| `PATCH/DELETE` | `/api/equipos/miembros/:id` | Cambia el rol o revoca la plaza (el OWNER no se puede quitar) |
+| `GET/POST` | `/api/webhooks` | Webhooks salientes (máx. 10, solo https público) |
+| `PATCH/DELETE` | `/api/webhooks/:id` | Pausar, reanudar o borrar |
+| `POST` | `/api/webhooks/:id/probar` | Envío de prueba (10/hora) con el resultado real |
 
 ---
 

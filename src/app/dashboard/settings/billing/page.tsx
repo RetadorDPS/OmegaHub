@@ -131,7 +131,7 @@ export default async function BillingPage({ searchParams }: PageProps) {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[680px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Plan</TableHead>

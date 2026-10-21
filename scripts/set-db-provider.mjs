@@ -12,7 +12,9 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const target = (process.argv[2] ?? "").toLowerCase();
-const connectionString = process.argv[3];
+// Solo se acepta una cadena de conexión real como tercer argumento.
+const candidata = process.argv[3];
+const connectionString = candidata && /^(file:|postgres(?:ql)?:\/\/)/i.test(candidata) ? candidata : undefined;
 
 if (!["sqlite", "postgres", "postgresql"].includes(target)) {
   console.error("Uso: node scripts/set-db-provider.mjs <sqlite|postgres> [DATABASE_URL]");
@@ -32,11 +34,14 @@ if (updated === schema) {
 }
 
 // Actualiza .env (creándolo desde .env.example si no existe).
-if (existsSync(".env.example") && !existsSync(".env")) {
+// `SKIP_ENV_FILE=1` evita tocar ficheros de entorno (se usa al compilar la
+// imagen de Docker, donde la configuración llega por variables de entorno).
+const tocarEnv = process.env.SKIP_ENV_FILE !== "1";
+if (tocarEnv && existsSync(".env.example") && !existsSync(".env")) {
   writeFileSync(".env", readFileSync(".env.example", "utf8"));
   console.log("[db:provider] .env creado a partir de .env.example");
 }
-if (existsSync(".env")) {
+if (tocarEnv && existsSync(".env")) {
   let env = readFileSync(".env", "utf8");
   const setVar = (key, value) => {
     const line = `${key}="${value}"`;
