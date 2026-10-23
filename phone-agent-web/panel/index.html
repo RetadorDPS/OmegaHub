@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Phone Agent · cabina</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="dot" id="stateDot"></span>
+    <h1>Phone Agent</h1>
+  </div>
+  <button id="btnConfig" class="ghost" aria-label="Configuración">⚙</button>
+</header>
+
+<p id="statusLine" class="status">Cargando…</p>
+
+<!-- ── Pestañas vivas ─────────────────────────────────────────────────── -->
+<section class="tabs" id="tabsBar" aria-label="Pestañas conectadas">
+  <span class="tabsHint">Ningún ejecutor conectado todavía</span>
+</section>
+
+<!-- ── Micrófono ─────────────────────────────────────────────────────── -->
+<main>
+  <button id="btnMic" class="mic" aria-label="Hablar">
+    <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true">
+      <path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z"/>
+    </svg>
+    <span id="micLabel">Pulsa y habla</span>
+  </button>
+
+  <form id="cmdForm" autocomplete="off">
+    <input id="cmdInput" type="text" placeholder="…o escríbelo: busca recetas de pan" aria-label="Comando">
+    <button type="submit" aria-label="Enviar">➤</button>
+  </form>
+
+  <div class="chips" id="chips">
+    <button data-cmd="busca el tiempo en Madrid">busca el tiempo en Madrid</button>
+    <button data-cmd="pregunta a claude qué es la fotosíntesis en una frase">pregunta a claude…</button>
+    <button data-cmd="traduce good morning al español">traduce…</button>
+    <button data-cmd="lee la página">lee la página</button>
+    <button data-cmd="estás ahí">estás ahí</button>
+  </div>
+
+  <!-- ── Conversación ────────────────────────────────────────────────── -->
+  <ol id="log" class="log" aria-live="polite"></ol>
+</main>
+
+<!-- ── Configuración ─────────────────────────────────────────────────── -->
+<dialog id="configDialog">
+  <form method="dialog" id="configForm">
+    <h2>Conexión</h2>
+    <p class="hint">
+      Estos datos están en tu navegador. La <b>anon key</b> es pública por diseño;
+      lo que protege tus datos es el RLS de Supabase.
+    </p>
+
+    <label>Supabase URL
+      <input id="cfgUrl" type="url" placeholder="https://xxxx.supabase.co" inputmode="url">
+    </label>
+
+    <label>Anon key
+      <input id="cfgKey" type="text" placeholder="eyJhbGciOi…">
+    </label>
+
+    <label>Canal
+      <span class="row">
+        <input id="cfgChannel" type="text" placeholder="uuid del canal" readonly>
+        <button type="button" id="btnNewChannel" class="ghost">generar</button>
+      </span>
+    </label>
+
+    <details>
+      <summary>Cómo conectar las manos (el ejecutor)</summary>
+      <ol class="steps">
+        <li>Instala <b>Firefox para Android</b> y, dentro, la extensión <b>Violentmonkey</b>.</li>
+        <li>Abre el fichero <code>phone-agent.user.js</code> y cópialo todo.</li>
+        <li>En Violentmonkey crea un script nuevo y pega el contenido.</li>
+        <li>Abre la consola del navegador en una pestaña con el script activo y escribe:
+          <code>window.phoneAgent.setup({supabaseUrl:"…", anonKey:"…", channel:"<span id="chanEcho">…</span>"})</code>
+        </li>
+        <li>Abre Google y Claude en otras pestañas. Verás la etiqueta 🤖 abajo a la izquierda.</li>
+      </ol>
+      <p class="hint">
+        Alternativa sin consola: pega el mismo objeto dentro del script, en la
+        llamada <code>saveCfg</code> del arranque.
+      </p>
+    </details>
+
+    <label class="switch">
+      <input id="cfgVoice" type="checkbox" checked>
+      <span>Leer las respuestas en voz alta</span>
+    </label>
+
+    <div class="dialogActions">
+      <button type="button" id="btnTestConn" class="ghost">Probar conexión</button>
+      <button type="submit" class="primary">Guardar</button>
+    </div>
+    <p id="cfgMsg" class="hint" role="status"></p>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>
