@@ -15,15 +15,33 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const aqui = dirname(fileURLToPath(import.meta.url));
-const src = readFileSync(join(aqui, '..', 'panel', 'app.js'), 'utf8');
 
-const bloque = src.match(/function parse\(text\) \{[\s\S]*?\n {2}\}/);
-if (!bloque) {
-  console.error('❌ No encuentro parse() en panel/app.js — ¿se renombró?');
-  process.exit(1);
+/**
+ * Extrae una función de un fichero y la devuelve ejecutable.
+ *
+ * Se hace así, y no reimplementándola, para que el test pruebe el código que de
+ * verdad se sirve. Es lo que permitió cazar los cuatro fallos originales.
+ */
+function extraer(ruta, nombre) {
+  const src = readFileSync(join(aqui, '..', ruta), 'utf8');
+  const bloque = src.match(new RegExp('function ' + nombre + '\\(text\\) \\{[\\s\\S]*?\\n {2}\\}'));
+  if (!bloque) {
+    console.error(`❌ No encuentro ${nombre}() en ${ruta} — ¿se renombró?`);
+    process.exit(1);
+  }
+  // eslint-disable-next-line no-eval
+  return eval('(' + bloque[0].replace('function ' + nombre, 'function') + ')');
 }
-// eslint-disable-next-line no-eval
-const parse = eval('(' + bloque[0].replace('function parse', 'function') + ')');
+
+const parsePanel = extraer('panel/app.js', 'parse');
+const parseUserscript = extraer('userscript/phone-agent.user.js', 'parse');
+
+// Las dos copias existen porque un userscript tiene que ser un fichero único y
+// autocontenido. Este array es lo que impide que se separen con el tiempo.
+const parsers = [
+  ['cabina (panel/app.js)', parsePanel],
+  ['userscript (manos)', parseUserscript]
+];
 
 const casos = [
   // ── Buscar en Google ────────────────────────────────────────────────
@@ -73,17 +91,35 @@ const casos = [
 ];
 
 let fallos = 0;
-for (const [frase, accion, params] of casos) {
-  const r = parse(frase);
-  const okAccion = r.action === accion;
-  const okParams = Object.entries(params).every(([k, v]) => r.params[k] === v);
-  const ok = okAccion && okParams;
-  if (!ok) fallos++;
-  console.log(`  ${ok ? '✅' : '❌'} "${frase}" → ${r.action} ${JSON.stringify(r.params)}`);
-  if (!ok) console.log(`       esperado: ${accion} ${JSON.stringify(params)}`);
+let total = 0;
+
+for (const [nombre, parse] of parsers) {
+  console.log(`\n── ${nombre} ──`);
+  for (const [frase, accion, params] of casos) {
+    total++;
+    const r = parse(frase);
+    const okAccion = r.action === accion;
+    const okParams = Object.entries(params).every(([k, v]) => r.params[k] === v);
+    const ok = okAccion && okParams;
+    if (!ok) fallos++;
+    console.log(`  ${ok ? '✅' : '❌'} "${frase}" → ${r.action} ${JSON.stringify(r.params)}`);
+    if (!ok) console.log(`       esperado: ${accion} ${JSON.stringify(params)}`);
+  }
 }
 
-console.log(fallos === 0
-  ? `\n${casos.length}/${casos.length} casos correctos ✅`
-  : `\n${fallos} de ${casos.length} casos fallan ❌`);
-process.exit(fallos === 0 ? 0 : 1);
+// Comprobación explícita de que las dos copias no han divergido: mismo
+// resultado en las mismas frases, caso por caso.
+console.log('\n── coincidencia entre las dos copias ──');
+let divergen = 0;
+for (const [frase] of casos) {
+  const a = JSON.stringify(parsePanel(frase));
+  const b = JSON.stringify(parseUserscript(frase));
+  if (a !== b) { divergen++; console.log(`  ❌ "${frase}"\n       cabina:     ${a}\n       userscript: ${b}`); }
+}
+if (divergen === 0) console.log('  ✅ las dos copias coinciden en los ' + casos.length + ' casos');
+
+const ok = fallos === 0 && divergen === 0;
+console.log(ok
+  ? `\n${total}/${total} casos correctos y copias sincronizadas ✅`
+  : `\n${fallos} casos fallan y ${divergen} divergencias ❌`);
+process.exit(ok ? 0 : 1);

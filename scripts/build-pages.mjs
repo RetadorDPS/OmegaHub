@@ -343,5 +343,24 @@ for (const fichero of ficherosDeTexto) {
 }
 console.log(`[build:pages] Rutas de imágenes ajustadas en ${reescritos} ficheros.`);
 
+// ── Cabina de Phone Agent ──────────────────────────────────────────────────
+// Se publica en docs/agente/ para que tenga URL propia y permanente:
+//   https://retadordps.github.io/OmegaHub/agente/
+//
+// Va AL FINAL a propósito. La línea 48 borra docs/ entero al empezar, así que
+// cualquier fichero puesto ahí a mano desaparece en el siguiente build; copiándolo
+// aquí sobrevive. Y al ir después del reescritor de imágenes, no se toca.
+//
+// Es un añadido aislado: si la carpeta no existe, se avisa y el build de
+// TrendHunter Pro termina igual. No puede romperlo.
+const CABINA_ORIGEN = path.join(RAIZ, "phone-agent-web", "panel");
+if (existsSync(CABINA_ORIGEN)) {
+  const CABINA_DESTINO = path.join(DESTINO, "agente");
+  cpSync(CABINA_ORIGEN, CABINA_DESTINO, { recursive: true });
+  console.log("[build:pages] Cabina de Phone Agent copiada a docs/agente/.");
+} else {
+  console.log("[build:pages] phone-agent-web/panel no existe; se omite la cabina.");
+}
+
 const rutas = execFileSync("find", [DESTINO, "-name", "index.html"], { encoding: "utf8" }).trim().split("\n");
 console.log(`[build:pages] Listo: ${rutas.length} páginas en docs/ (base path ${BASE_PATH}).`);

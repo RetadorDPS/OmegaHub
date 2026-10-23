@@ -520,17 +520,289 @@
     } catch (e) { /* no romper la página por un adorno */ }
   }
 
+  // ==========================================================================
+  // MODO AUTÓNOMO — voz e interfaz dentro de la propia pestaña
+  // ==========================================================================
+  // Por qué existe esto: sin esto, la cabina y las manos necesitan un buzón
+  // compartido (Supabase) porque viven en orígenes distintos. Pero si la voz y
+  // los botones están DENTRO de la pestaña, todo ocurre en un mismo sitio y no
+  // hace falta conectar absolutamente nada.
+  //
+  // El precio: solo actúa sobre la pestaña en la que está. Para mandar en varias
+  // a la vez hace falta el modo con bus (más abajo). Los dos conviven.
+
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+  function speak(text) {
+    if (!text || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();   // corta lo anterior: si no, se acumula
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'es-ES';
+      u.rate = 1.03;
+      var v = (speechSynthesis.getVoices() || []).filter(function (x) {
+        return /^es/i.test(x.lang);
+      })[0];
+      if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    } catch (e) { log('no se pudo hablar:', e.message); }
+  }
+
+  function listen(onText, onError) {
+    if (!SR) {
+      // Firefox para Android no reconoce la voz en páginas web. No es un fallo
+      // nuestro y no hay polyfill: se usa el dictado del teclado.
+      onError('Este navegador no reconoce la voz. Escribe abajo, o usa el micrófono del propio teclado.');
+      return;
+    }
+    var rec = new SR();
+    rec.lang = 'es-ES';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = function (e) { onText(e.results[0][0].transcript.trim()); };
+    rec.onerror = function (e) {
+      onError(e.error === 'not-allowed' ? 'El navegador no me deja usar el micrófono.'
+            : e.error === 'no-speech'   ? 'No he oído nada.'
+            : 'No te he oído bien (' + e.error + ').');
+    };
+    try { rec.start(); } catch (e) { onError('No pude arrancar el micrófono.'); }
+  }
+
+  /**
+   * Convierte una frase en una acción.
+   *
+   * Es la MISMA tabla que la de panel/app.js, duplicada a propósito: un
+   * userscript tiene que ser un fichero único y autocontenido, no puede
+   * importar nada. El test (tests/parser.test.mjs) ejecuta las dos copias sobre
+   * los mismos casos, así que si alguien cambia una y se olvida de la otra,
+   // falla el test en vez de divergir en silencio.
+   */
+  function parse(text) {
+    // Se quitan los signos de apertura: al dictar por voz salen ("¿qué pone
+    // aquí?") y un patrón anclado con ^ no casa si la frase empieza por "¿".
+    var t = text.trim().replace(/^[¿?¡!«»"'\s]+/, '').replace(/\s+/g, ' ');
+    var m;
+    var fin = '(?:$|[\\s.,!?¡¿])';
+
+    if (new RegExp('^(?:est[áa]s ah[íi]|sigues ah[íi]|ping|hola|oye)' + fin, 'i').test(t)) {
+      return { action: 'ping', params: {} };
+    }
+    if (/^(?:lee|leer)\s+(?:la\s+)?p[áa]gina|^qu[ée]\s+pone\s+aqu[íi]|^(?:lee|leer)\s+esto/i.test(t)) {
+      return { action: 'read_page', params: {} };
+    }
+    m = t.match(/^(?:b[úu]sca|b[úu]scar|b[úu]squeme|b[úu]scame|google|googlear)(?:\s+en\s+google)?\s+(.+)$/i);
+    if (m) return { action: 'search_google', params: { query: m[1].trim() } };
+    m = t.match(/^tradu(?:ce|cir|ceme|ce)\s+(.+?)(?:\s+al?\s+([a-záéíóúñ]+))?$/i);
+    if (m) return { action: 'translate', params: { text: m[1].trim(), target: m[2] || 'español' } };
+    m = t.match(/^(?:pregunta|dile|pide|preg[úu]ntale)\s+a\s+claude[\s:,]*(.+)$/i);
+    if (m) return { action: 'ask_claude', params: { text: m[1].trim() } };
+    m = t.match(/^(?:pregunta|dile|pide|preg[úu]ntale)\s+a\s+chat\s?gpt[\s:,]*(.+)$/i);
+    if (m) return { action: 'ask_chatgpt', params: { text: m[1].trim() } };
+    m = t.match(/^abre\s+(.+)$/i);
+    if (m) {
+      var target = m[1].trim();
+      var known = {
+        'claude': 'https://claude.ai', 'claude ai': 'https://claude.ai',
+        'chatgpt': 'https://chatgpt.com', 'chat gpt': 'https://chatgpt.com',
+        'google': 'https://www.google.com', 'el google': 'https://www.google.com'
+      };
+      var url = known[target.toLowerCase()] || (/^https?:\/\//i.test(target) ? target : null);
+      if (!url) return { action: 'search_google', params: { query: target }, note: 'No conozco esa web, la busco en Google.' };
+      return { action: 'open_tab', params: { url: url } };
+    }
+    return { action: 'ask_claude', params: { text: t } };
+  }
+
+  /** Resultado crudo → frase que se puede leer en voz alta. */
+  function summarise(action, res) {
+    if (action === 'ping') return 'Sí, estoy aquí. Esta pestaña es ' + res.tab + '.';
+    if (action === 'search_google') {
+      if (!res.results || !res.results.length) return 'No he encontrado resultados para ' + res.query + '.';
+      return res.results.slice(0, 3).map(function (r, i) {
+        return (i + 1) + '. ' + r.title + '. ' + (r.snippet || '').slice(0, 150);
+      }).join('\n\n');
+    }
+    if (action === 'ask_claude' || action === 'ask_chatgpt' || action === 'translate') {
+      return (res.answer || '(respuesta vacía)').slice(0, 1500);
+    }
+    if (action === 'read_page') return res.title + '\n\n' + (res.text || '').slice(0, 900);
+    if (action === 'open_tab') return 'Abriendo ' + res.url;
+    return 'Hecho.';
+  }
+
+  async function runLocal(text) {
+    if (!text || !text.trim()) return;
+    var parsed = parse(text);
+    uiSay('tú', text);
+    if (parsed.note) uiSay('sistema', parsed.note);
+
+    if (!canHandle(parsed.action)) {
+      var msg = 'Esta pestaña no puede hacer eso. Aquí solo sé: ' +
+        ((currentDriver() ? currentDriver().actions : []).concat(Object.keys(universal))).join(', ') + '.';
+      uiSay('agente', msg, 'err');
+      speak(msg);
+      return;
+    }
+    var doing = (parsed.action === 'search_google' ? 'Buscando…'
+              : parsed.action === 'read_page' ? 'Leyendo…'
+              : parsed.action === 'translate' ? 'Traduciendo…'
+              : parsed.action === 'open_tab' ? 'Abriendo…'
+              : parsed.action === 'ping' ? 'Comprobando…'
+              : 'Preguntando…');
+    var id = uiSay('agente', doing, 'pending');
+
+    try {
+      var d = currentDriver();
+      var fn = (d && d[parsed.action]) || universal[parsed.action];
+      var res = await fn(parsed.params || {});
+      var out = summarise(parsed.action, res);
+      uiReplace(id, out);
+      speak(out);
+    } catch (e) {
+      uiReplace(id, 'Ha fallado: ' + (e.message || e), 'err');
+      speak('Ha fallado.');
+    }
+  }
+
+  // ── Interfaz flotante ────────────────────────────────────────────────────
+  //
+  // Va dentro de un shadow root a propósito: Google y Claude tienen CSS muy
+  // agresivo y, sin aislamiento, cualquiera de sus reglas puede destrozar el
+  // widget. Con shadow DOM sus estilos no entran y los nuestros no salen.
+
+  var ui = null;
+
+  function mountUI() {
+    if (ui) return ui;
+    var host = document.createElement('div');
+    host.id = 'phoneagent-host';
+    var root = host.attachShadow({ mode: 'open' });
+    root.innerHTML =
+      '<style>' +
+      ':host{all:initial}' +
+      '*{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
+      '.fab{position:fixed;right:14px;bottom:14px;z-index:2147483647;width:56px;height:56px;' +
+        'border-radius:50%;border:none;background:#6c63ff;color:#fff;font-size:22px;cursor:pointer;' +
+        'box-shadow:0 4px 16px rgba(0,0,0,.4);touch-action:manipulation}' +
+      '.fab.busy{background:#d69b2a}' +
+      '.panel{position:fixed;right:12px;bottom:80px;z-index:2147483647;width:min(92vw,360px);' +
+        'max-height:64vh;display:none;flex-direction:column;background:#171a21;color:#e8eaed;' +
+        'border:1px solid #2a2f3a;border-radius:14px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.5)}' +
+      '.panel.open{display:flex}' +
+      '.head{padding:9px 12px;font-size:12px;color:#9aa2b1;border-bottom:1px solid #2a2f3a;' +
+        'display:flex;justify-content:space-between;gap:8px;align-items:center}' +
+      '.log{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;' +
+        'min-height:90px;font-size:14px;line-height:1.45}' +
+      '.e{display:flex;flex-direction:column;gap:2px}' +
+      '.e .w{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#9aa2b1}' +
+      '.e .b{padding:8px 10px;border-radius:11px;background:#1e222b;border:1px solid #2a2f3a;' +
+        'white-space:pre-wrap;overflow-wrap:anywhere}' +
+      '.e.me{align-items:flex-end}.e.me .b{background:#23283a;border-color:#33405f}' +
+      '.e.err .b{background:#2a1a1a;border-color:#5e2a28}' +
+      '.e.pending .b{color:#9aa2b1;font-style:italic}' +
+      '.row{display:flex;gap:6px;padding:9px;border-top:1px solid #2a2f3a}' +
+      '.row input{flex:1;min-width:0;padding:10px;border-radius:9px;border:1px solid #2a2f3a;' +
+        'background:#1e222b;color:#e8eaed;font-size:14px}' +
+      '.row button{width:42px;border:none;border-radius:9px;background:#6c63ff;color:#fff;' +
+        'font-size:16px;cursor:pointer}' +
+      '.row button.mic{background:#2fa96b}.row button.mic.off{background:#3a3f4a}' +
+      '.chips{display:flex;gap:5px;flex-wrap:wrap;padding:0 9px 9px}' +
+      '.chips button{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid #2a2f3a;' +
+        'background:#1e222b;color:#9aa2b1;cursor:pointer}' +
+      '</style>' +
+      '<button class="fab" aria-label="Phone Agent">🤖</button>' +
+      '<div class="panel">' +
+        '<div class="head"><span class="who"></span><button class="mute" style="background:none;border:none;color:#9aa2b1;cursor:pointer;font-size:13px">🔊 voz</button></div>' +
+        '<div class="log"></div>' +
+        '<div class="chips"></div>' +
+        '<div class="row">' +
+          '<button class="mic" aria-label="Hablar">🎤</button>' +
+          '<input type="text" placeholder="Di o escribe…">' +
+          '<button class="go" aria-label="Enviar">➤</button>' +
+        '</div>' +
+      '</div>';
+    (document.body || document.documentElement).appendChild(host);
+
+    var panel = root.querySelector('.panel');
+    var logEl = root.querySelector('.log');
+    var input = root.querySelector('input');
+    var fab = root.querySelector('.fab');
+    var micBtn = root.querySelector('.mic');
+    var voicing = true;
+
+    root.querySelector('.who').textContent =
+      location.host + (SR ? '' : ' · sin voz de entrada');
+    if (!SR) micBtn.classList.add('off');
+
+    var chips = ['estás ahí', 'lee la página', 'busca el tiempo en Madrid', 'traduce hello al español'];
+    var chipsEl = root.querySelector('.chips');
+    chips.forEach(function (c) {
+      var b = document.createElement('button');
+      b.textContent = c;
+      b.onclick = function () { runLocal(c); };
+      chipsEl.appendChild(b);
+    });
+
+    fab.onclick = function () { panel.classList.toggle('open'); if (panel.classList.contains('open')) input.focus(); };
+    root.querySelector('.go').onclick = function () {
+      var v = input.value; input.value = ''; runLocal(v);
+    };
+    input.onkeydown = function (e) {
+      if (e.key === 'Enter') { var v = input.value; input.value = ''; runLocal(v); }
+    };
+    micBtn.onclick = function () {
+      if (!SR) { uiSay('sistema', 'Este navegador no reconoce la voz. Escribe, o usa el micrófono del teclado.', 'err'); return; }
+      micBtn.classList.add('busy');
+      listen(function (text) { micBtn.classList.remove('busy'); runLocal(text); },
+             function (err) { micBtn.classList.remove('busy'); uiSay('sistema', err, 'err'); });
+    };
+    root.querySelector('.mute').onclick = function (e) {
+      voicing = !voicing;
+      e.target.textContent = voicing ? '🔊 voz' : '🔇 voz';
+    };
+
+    ui = {
+      say: function (who, text, cls) {
+        var d = document.createElement('div');
+        d.className = 'e ' + (cls || '');
+        var w = document.createElement('span'); w.className = 'w'; w.textContent = who;
+        var b = document.createElement('div'); b.className = 'b'; b.textContent = text;
+        d.appendChild(w); d.appendChild(b);
+        logEl.insertBefore(d, logEl.firstChild);
+        while (logEl.children.length > 30) logEl.removeChild(logEl.lastChild);
+        panel.classList.add('open');
+        return d;
+      },
+      replace: function (node, text, cls) {
+        if (!node) return;
+        node.className = 'e ' + (cls || '');
+        node.querySelector('.b').textContent = text;
+      },
+      busy: function (on) { fab.classList.toggle('busy', !!on); }
+    };
+    return ui;
+  }
+
+  function uiSay(who, text, cls) { return mountUI().say(who, text, cls); }
+  function uiReplace(node, text, cls) { mountUI().replace(node, text, cls); }
+
   // ── Arranque ─────────────────────────────────────────────────────────────
 
   function start() {
     var d = currentDriver();
     log('activo en', location.host, d ? '(driver ' + d.key + ')' : '(solo acciones universales)');
+
+    // La interfaz va SIEMPRE: es lo que permite usarlo sin configurar nada.
+    mountUI();
+
     if (!isConfigured()) {
-      badge('sin configurar', 'warn');
-      log('Falta configuración. Desde la consola: window.phoneAgent.setup({supabaseUrl, anonKey, channel})');
-    } else {
-      badge('a la escucha', 'ok');
+      // No es un error: sin Supabase funciona en modo autónomo (esta pestaña).
+      badge('listo (esta pestaña)', 'ok');
+      log('Modo autónomo: funciona en esta pestaña sin conectar nada. ' +
+          'Para mandar en varias pestañas a la vez: window.phoneAgent.setup({supabaseUrl, anonKey, channel})');
+      return;
     }
+    badge('a la escucha', 'ok');
     setInterval(poll, POLL_MS);
     setInterval(heartbeat, 5000);
     heartbeat();
@@ -550,7 +822,10 @@
     resume: function () { saveCfg({ enabled: true }); poll(); },
     test: function () { return poll(); },
     drivers: function () { return drivers.map(function (x) { return x.key; }); },
-    can: canHandle
+    can: canHandle,
+    run: runLocal,          // ejecutar algo a mano desde la consola
+    parse: parse,           // expuesto para que el test use la copia real
+    ui: mountUI
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);

@@ -3,7 +3,42 @@
 Un agente de voz que **conduce páginas web** por ti: busca en Google, pregunta a
 Claude o a ChatGPT, traduce y te lee la respuesta en voz alta.
 
-No hay app Android que instalar ni compilar. Son dos piezas:
+No hay app Android que instalar ni compilar.
+
+---
+
+## Empieza por aquí: modo autónomo (nada que conectar)
+
+**Instalas un fichero y ya funciona.** Sin Supabase, sin base de datos, sin
+cuentas, sin ordenador. Es lo que hay que probar primero.
+
+1. Instala **Firefox para Android** desde Google Play.
+2. Dentro de Firefox: menú **⋮ → Extensiones** → busca **Violentmonkey** → instalar.
+3. Abre este enlace en el propio Firefox (o copia el fichero desde GitHub):
+   `phone-agent-web/userscript/phone-agent.user.js`
+4. En Violentmonkey: crear script nuevo → pegar **todo** el contenido → guardar.
+5. Abre **Google** o **claude.ai**. Verás un botón **🤖** abajo a la derecha.
+6. Tócalo y escribe o dicta: `estás ahí`, `busca el tiempo en Madrid`,
+   `pregunta a claude qué es la fotosíntesis`.
+
+Ya está. El botón 🤖 tiene su propio micrófono y lee las respuestas en voz alta.
+
+**Qué puede y qué no puede en este modo:** actúa sobre **la pestaña en la que
+está**. Eso cubre buscar, preguntar, traducir y leer. Lo que no puede es mandar
+en varias pestañas a la vez — para eso hace falta el modo con buzón, más abajo.
+
+> **El micrófono en Firefox:** Firefox para Android no reconoce la voz en páginas
+> web (limitación suya, no del script). Ahí usa el **dictado del teclado**: toca
+> el campo de texto y luego el icono del micrófono del propio teclado. Para
+> hablar de verdad, instala el mismo script en un navegador Chromium con
+> extensiones (Quetta, Vivaldi o Yandex), donde el reconocimiento de voz sí va.
+
+---
+
+## Modo completo: cabina + varias pestañas a la vez
+
+Cuando quieras una página propia desde la que mandar, y que una orden mueva
+varias pestañas, se añade un buzón en Supabase. Son dos piezas:
 
 | Pieza | Qué es | Dónde vive |
 |---|---|---|
@@ -31,6 +66,19 @@ base de datos hace de buzón.
 
 ---
 
+## Los dos modos, de un vistazo
+
+| | Modo autónomo | Modo completo |
+|---|---|---|
+| Qué hay que conectar | **nada** | Supabase (15 min) |
+| Dónde se habla | dentro de la pestaña | en una página aparte |
+| Alcance | la pestaña actual | todas las pestañas |
+| Hace falta para probarlo | no | sí |
+
+El script es **el mismo fichero** en los dos modos: si no está configurado
+funciona en autónomo, y si le das un canal de Supabase además obedece a la
+cabina. No hay dos versiones que mantener.
+
 ## Por qué esto y no la app de Android
 
 La app nativa (`../phone-agent/`) necesita Android Studio, Gradle y firmar un
@@ -42,7 +90,9 @@ tus herramientas son claude.ai, chatgpt.com y Google, no te hace falta nada más
 
 ---
 
-## Montarlo (15 minutos)
+## Montar el modo completo (15 minutos)
+
+> Si solo quieres probar, no hace falta nada de esto. Mira arriba.
 
 ### Paso 1 — Crear las tablas en Supabase
 
@@ -179,6 +229,8 @@ Decidido a propósito, para que se pueda probar pronto:
 - **No graba macros.** El concepto existe en el proyecto Android; aquí aún no.
 - **No decide solo.** No hay un bucle que planifique varios pasos: tú mandas una
   orden y se ejecuta una acción. Eso es lo que lo hace fiable para probar.
+- **En modo autónomo no coordina pestañas.** Cada botón 🤖 manda solo en su
+  pestaña. Coordinar varias es justo lo que añade el buzón de Supabase.
 - **Las RLS son permisivas.** El único secreto es el canal (un UUID imposible de
   adivinar). Está documentado al final de la migración, con el camino para
   endurecerlo con `auth.uid()` cuando esto pase de prototipo.
@@ -208,14 +260,24 @@ texto → *Inspeccionar*, y copia el selector nuevo.
 ```
 phone-agent-web/
 ├── README.md                          ← esto
-├── panel/
-│   ├── index.html                     ← la cabina
-│   ├── app.js                         ← voz, parser, buzón
-│   └── styles.css
 ├── userscript/
-│   └── phone-agent.user.js            ← las manos (Google, Claude, ChatGPT)
+│   └── phone-agent.user.js            ← EL FICHERO QUE SE INSTALA. Lleva las
+│                                        manos + la voz + la interfaz. Solo, sin
+│                                        nada más, ya funciona.
+├── panel/                             ← opcional: la cabina para varias pestañas
+│   ├── index.html
+│   ├── app.js
+│   └── styles.css
 ├── supabase/migrations/
-│   └── 002_web_tasks.sql              ← buzón + pestañas + RLS
+│   └── 002_web_tasks.sql              ← buzón + pestañas + RLS (solo modo completo)
 └── tests/
-    └── parser.test.mjs                ← 26 casos sobre el código real
+    └── parser.test.mjs                ← 26 casos × las 2 copias del parser
+```
+
+La cabina se publica en GitHub Pages junto con el resto del sitio gracias a un
+paso añadido al final de `scripts/build-pages.mjs` (va al final porque ese
+script borra `docs/` entero al empezar). Cuando se fusione a `main` estará en:
+
+```
+https://retadordps.github.io/OmegaHub/agente/
 ```
