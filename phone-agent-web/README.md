@@ -14,14 +14,30 @@ cuentas, sin ordenador. Es lo que hay que probar primero.
 
 1. Instala **Firefox para Android** desde Google Play.
 2. Dentro de Firefox: menú **⋮ → Extensiones** → busca **Violentmonkey** → instalar.
-3. Abre este enlace en el propio Firefox (o copia el fichero desde GitHub):
-   `phone-agent-web/userscript/phone-agent.user.js`
-4. En Violentmonkey: crear script nuevo → pegar **todo** el contenido → guardar.
-5. Abre **Google** o **claude.ai**. Verás un botón **🤖** abajo a la derecha.
-6. Tócalo y escribe o dicta: `estás ahí`, `busca el tiempo en Madrid`,
+   > No hace falta cuenta de Firefox para esto: Violentmonkey está en la lista
+   > que Firefox Android admite de serie.
+3. **Abre este enlace en el propio Firefox** y pulsa *Confirmar instalación*:
+
+   ```
+   https://raw.githubusercontent.com/RetadorDPS/OmegaHub/arena/95f82923-omegahub/phone-agent-web/userscript/phone-agent.user.js
+   ```
+
+   No hay que copiar ni pegar nada: son 833 líneas y Violentmonkey las instala
+   solas al reconocer la cabecera `==UserScript==`.
+
+   Si al abrir el enlace no salta la pantalla de instalación: icono de
+   Violentmonkey → **+** → *Install from URL* → pegar el mismo enlace.
+
+4. Abre **Google** o **claude.ai**. Verás un botón **🤖** abajo a la derecha.
+5. Tócalo y escribe o dicta: `estás ahí`, `busca el tiempo en Madrid`,
    `pregunta a claude qué es la fotosíntesis`.
 
 Ya está. El botón 🤖 tiene su propio micrófono y lee las respuestas en voz alta.
+
+**Las correcciones llegan solas.** El script lleva `@updateURL`, así que cuando
+se arregle algo (lo más probable: un selector que Claude o ChatGPT cambiaron)
+Violentmonkey lo detecta y lo actualiza sin volver a instalar nada. Se puede
+forzar desde el panel de Violentmonkey → *Check for updates*.
 
 **Qué puede y qué no puede en este modo:** actúa sobre **la pestaña en la que
 está**. Eso cubre buscar, preguntar, traducir y leer. Lo que no puede es mandar

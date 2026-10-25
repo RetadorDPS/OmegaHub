@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         Phone Agent — manos
 // @namespace    https://github.com/RetadorDPS/OmegaHub
-// @version      0.1.0
+// @version      0.2.0
+// @updateURL    https://raw.githubusercontent.com/RetadorDPS/OmegaHub/arena/95f82923-omegahub/phone-agent-web/userscript/phone-agent.user.js
+// @downloadURL  https://raw.githubusercontent.com/RetadorDPS/OmegaHub/arena/95f82923-omegahub/phone-agent-web/userscript/phone-agent.user.js
 // @description  Ejecutor de Phone Agent: recibe tareas de la cabina y conduce Google, Claude y ChatGPT.
 // @author       Phone Agent
 // @match        https://www.google.com/*
