@@ -66,7 +66,8 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     // Supabase Kotlin SDK (cliente/Auth/Storage; el transporte fino va por OkHttp
     // para controlar timeouts y errores de las Edge Functions byte a byte)
-    implementation(platform("io.github.jan-tennert.supabase:bom:2.7.0"))
+    // 2.7.0 final no se publicó en Maven Central; beta-1 es la versión 2.7 disponible.
+    implementation(platform("io.github.jan-tennert.supabase:bom:2.7.0-beta-1"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:functions-kt")
