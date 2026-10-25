@@ -11,11 +11,7 @@ import com.phoneagent.models.Project
 import com.phoneagent.models.VerificationResult
 import io.github.jan.supabase.gotrue.Auth
 import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.gotrue.currentSessionOrNull
 import io.github.jan.supabase.gotrue.providers.builtin.Email
-import io.github.jan.supabase.gotrue.signInWith
-import io.github.jan.supabase.gotrue.signOut
-import io.github.jan.supabase.gotrue.signUpWith
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.postgrest.Postgrest

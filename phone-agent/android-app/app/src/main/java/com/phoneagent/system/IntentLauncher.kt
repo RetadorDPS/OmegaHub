@@ -49,7 +49,7 @@ class IntentLauncher(private val context: Context) {
         val handle = profiles.getOrNull(profileId) ?: run {
             Log.e(TAG, "Perfil $profileId no existe (hay ${profiles.size})"); return false
         }
-        val launcherApps = context.getSystemService(Context.LAUNCHER_SERVICE) as LauncherApps
+        val launcherApps = context.getSystemService(LauncherApps::class.java) ?: return false
         val activities = launcherApps.getActivityList(packageName, handle)
         val main = activities.firstOrNull()
         if (main == null) {
