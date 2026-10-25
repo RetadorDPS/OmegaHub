@@ -120,7 +120,7 @@ jobs:
           name: phone-agent-debug-apk
           path: phone-agent/android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 90
 
       - name: Tests unitarios (lógica de seguridad, macros, modelos)
         if: steps.assemble.outcome == 'success'

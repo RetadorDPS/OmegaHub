@@ -140,7 +140,7 @@ GitHub Actions construye un APK de prueba en cada cambio del proyecto. Para inst
 4. Abre el ZIP descargado, extrae `app-debug.apk` y tócalo para instalar. Si Android pregunta, permite a Firefox (o a la aplicación de Archivos) instalar apps para esta vez.
 5. Abre Phone Agent, configura Supabase en **Ajustes → Conexión de Supabase**, inicia sesión y concede los permisos de la §6.
 
-El artefacto es un **APK debug de prueba**, no una versión de Play Store. Se compila sin credenciales; la URL y clave pública se introducen desde el teléfono en Ajustes, cifradas en el almacenamiento privado de la app. Los artefactos de Actions caducan a los 14 días: si el enlace expiró, abre la ejecución más reciente.
+El artefacto es un **APK debug de prueba**, no una versión de Play Store. Se compila sin credenciales; la URL y clave pública se introducen desde el teléfono en Ajustes, cifradas en el almacenamiento privado de la app. Los artefactos de Actions caducan a los 90 días: si el enlace expiró, abre la ejecución más reciente.
 
 Android Studio/USB siguen siendo útiles para quien desarrolla en un ordenador, pero no son pasos que tú tengas que hacer.
 
