@@ -51,7 +51,7 @@ export function resolveLlmModel(provider: LlmProvider, configured = ""): string 
 }
 
 /** Envía texto e imagen al proveedor configurado sin exponer su clave al teléfono. */
-export async function generateText(request: LlmRequest): Promise<string> {
+export function generateText(request: LlmRequest): Promise<string> {
   return request.config.provider === "gemini"
     ? generateGeminiText(request)
     : generateAnthropicText(request);
