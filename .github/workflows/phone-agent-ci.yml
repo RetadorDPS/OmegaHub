@@ -1,15 +1,19 @@
 name: Phone Agent CI
 
-# Verifica las tres partes del proyecto en cada push. Cada job es independiente:
-# que falle el SQL no debe impedir ver si el Android compila.
+# Verifica las piezas web, Android, Edge Functions y SQL en cada push. Cada job
+# es independiente: un fallo del SQL no impide ver si pasa el test web.
 on:
   push:
     paths:
       - 'phone-agent/**'
+      - 'phone-agent-web/**'
+      - 'scripts/build-pages.mjs'
       - '.github/workflows/phone-agent-ci.yml'
   pull_request:
     paths:
       - 'phone-agent/**'
+      - 'phone-agent-web/**'
+      - 'scripts/build-pages.mjs'
       - '.github/workflows/phone-agent-ci.yml'
   workflow_dispatch:
 
@@ -19,6 +23,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Web: regresiones del parser y final real de respuestas ────────────────
+  web:
+    name: Web · parser + espera de respuesta completa
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Sintaxis JavaScript
+        run: |
+          node --check phone-agent-web/userscript/phone-agent.user.js
+          node --check phone-agent-web/panel/app.js
+          node --check scripts/build-pages.mjs
+
+      - name: 'Parser: dos copias, mismos casos'
+        run: node phone-agent-web/tests/parser.test.mjs
+
+      - name: 'Respuesta: pausa, final y timeout'
+        run: node phone-agent-web/tests/completion.test.mjs
+
   # ── Android: tests de JVM + APK de debug ──────────────────────────────────
   android:
     name: Android · tests unitarios + assembleDebug

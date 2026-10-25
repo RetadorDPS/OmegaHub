@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Phone Agent — manos
 // @namespace    https://github.com/RetadorDPS/OmegaHub
-// @version      0.2.0
+// @version      0.3.0
 // @updateURL    https://raw.githubusercontent.com/RetadorDPS/OmegaHub/arena/95f82923-omegahub/phone-agent-web/userscript/phone-agent.user.js
 // @downloadURL  https://raw.githubusercontent.com/RetadorDPS/OmegaHub/arena/95f82923-omegahub/phone-agent-web/userscript/phone-agent.user.js
 // @description  Ejecutor de Phone Agent: recibe tareas de la cabina y conduce Google, Claude y ChatGPT.
@@ -93,25 +93,80 @@
     return true;
   }
 
-  /** Espera a que un texto deje de crecer: así se sabe que la IA terminó. */
-  function waitUntilStable(getText, timeoutMs) {
-    timeoutMs = timeoutMs || 60000;
+  /**
+   * Espera al final REAL de la respuesta; una pausa de generación no cuenta.
+   * La UI suele mostrar un botón Detener mientras la IA trabaja. Si el diseño
+   * cambia y no lo encontramos, exigimos una estabilidad mucho más larga; al
+   * agotar el plazo rechazamos la tarea en vez de leer un fragmento como final.
+   */
+  function waitForAssistantCompletion(readState, options, onProgress) {
+    options = options || {};
+    var intervalMs = options.intervalMs || 200;
+    var stableMs = options.stableMs || 2400;
+    var noSignalStableMs = options.noSignalStableMs || 20000;
+    var timeoutMs = options.timeoutMs || 180000;
     var deadline = Date.now() + timeoutMs;
-    var last = '';
+    var lastText = '';
     var stableSince = Date.now();
-    return new Promise(function (resolve) {
+    var firstTextAt = 0;
+    var sawGenerating = false;
+    var lastProgress = 0;
+    function reportProgress(message) {
+      try { if (onProgress) onProgress(message); }
+      catch (e) { log('no pude mostrar el progreso:', e.message); }
+    }
+
+    return new Promise(function (resolve, reject) {
       (function tick() {
-        var now = getText() || '';
-        if (now !== last) {
-          last = now;
-          stableSince = Date.now();
-        } else if (now.length > 0 && Date.now() - stableSince > 1800) {
-          return resolve(now);
+        var now = Date.now();
+        var sample;
+        try { sample = readState() || {}; }
+        catch (e) { return reject(new Error('No pude leer el estado de la respuesta: ' + e.message)); }
+        var text = String(sample.text || '').trim();
+        var generating = !!sample.generating;
+
+        if (generating) {
+          if (!sawGenerating) reportProgress('La respuesta se está generando. Esperaré a que termine.');
+          sawGenerating = true;
         }
-        if (Date.now() > deadline) return resolve(now);
-        setTimeout(tick, 400);
+        if (text && !firstTextAt) firstTextAt = now;
+        if (text !== lastText) {
+          lastText = text;
+          stableSince = now;
+        }
+
+        var requiredStable = sawGenerating ? stableMs : noSignalStableMs;
+        if (text && !generating && now - stableSince >= requiredStable &&
+            (sawGenerating || now - firstTextAt >= noSignalStableMs)) {
+          return resolve(text);
+        }
+
+        if (now >= deadline) {
+          return reject(new Error('No pude confirmar que la respuesta terminó. No leeré este fragmento como si fuera la respuesta final; revisa la pestaña y vuelve a intentarlo.'));
+        }
+        if (onProgress && text && !sawGenerating && now - firstTextAt >= 8000 &&
+            now - lastProgress >= 8000) {
+          lastProgress = now;
+          reportProgress('Sigo esperando para asegurarme de no leer una respuesta incompleta.');
+        }
+        setTimeout(tick, intervalMs);
       })();
     });
+  }
+
+  /** Detecta las señales visibles habituales de que Claude/ChatGPT siguen generando. */
+  function assistantIsGenerating() {
+    try {
+      if (document.querySelector('[data-is-streaming="true"], [data-streaming="true"]')) return true;
+      var buttons = document.querySelectorAll('button, [role="button"]');
+      for (var i = 0; i < buttons.length; i++) {
+        var b = buttons[i];
+        var label = [b.getAttribute('aria-label'), b.getAttribute('title'),
+          b.getAttribute('data-testid'), b.innerText].filter(Boolean).join(' ');
+        if (/(?:stop|detener|parar|generating|generando|stop-button)/i.test(label)) return true;
+      }
+    } catch (e) { log('no pude detectar si la IA sigue generando:', e.message); }
+    return false;
   }
 
   // ── Bus con Supabase ─────────────────────────────────────────────────────
@@ -228,7 +283,7 @@
           send: 'button[aria-label*="Send" i], button[aria-label*="Enviar" i], button[aria-label*="send message" i]',
           answer: '[data-is-streaming], .font-claude-message, [class*="response"]',
           name: 'Claude'
-        });
+        }, p.onProgress);
       },
 
       translate: async function (p) {
@@ -242,7 +297,7 @@
             send: 'button[aria-label*="Send" i], button[aria-label*="Enviar" i]',
             answer: '[data-is-streaming], .font-claude-message, [class*="response"]',
             name: 'Claude'
-          }
+          }, p.onProgress
         );
       }
     },
@@ -259,7 +314,7 @@
           send: 'button[data-testid="send-button"], button[aria-label*="Send" i], button[aria-label*="Enviar" i]',
           answer: '[data-message-author-role="assistant"]',
           name: 'ChatGPT'
-        });
+        }, p.onProgress);
       },
 
       translate: async function (p) {
@@ -273,7 +328,7 @@
             send: 'button[data-testid="send-button"], button[aria-label*="Send" i]',
             answer: '[data-message-author-role="assistant"]',
             name: 'ChatGPT'
-          }
+          }, p.onProgress
         );
       }
     }
@@ -360,8 +415,12 @@
    * la respuesta deje de crecer. Compartido entre Claude y ChatGPT porque el
    * esqueleto es idéntico; solo cambian los selectores.
    */
-  async function askAssistant(text, sel) {
+  async function askAssistant(text, sel, onProgress) {
     if (!text || !String(text).trim()) throw new Error('No me has dado texto para ' + sel.name);
+    function reportProgress(message) {
+      try { if (onProgress) onProgress(message); }
+      catch (e) { log('no pude mostrar el progreso:', e.message); }
+    }
 
     var box = await waitFor(sel.box, 8000);
     if (!box) throw new Error('No encuentro la caja de texto de ' + sel.name + '. ¿Estás dentro de una conversación?');
@@ -382,17 +441,21 @@
       if (send && send.disabled) throw new Error('El botón de enviar de ' + sel.name + ' sigue bloqueado');
     }
     send.click();
+    reportProgress('Tarea enviada a ' + sel.name + '. Espero la respuesta completa.');
 
-    var nodes = await waitForNewAnswer(sel.answer, before, 15000);
+    var nodes = await waitForNewAnswer(sel.answer, before, 30000);
     if (!nodes) throw new Error(sel.name + ' no ha respondido. Puede que necesite iniciar sesión.');
 
-    var answer = await waitUntilStable(function () {
+    var answer = await waitForAssistantCompletion(function () {
       var all = document.querySelectorAll(sel.answer);
       var last = all[all.length - 1];
-      return last ? last.innerText : '';
-    }, 90000);
+      return {
+        text: last ? last.innerText : '',
+        generating: assistantIsGenerating()
+      };
+    }, { timeoutMs: 180000 }, onProgress);
 
-    return { assistant: sel.name, answer: (answer || '').trim().slice(0, 6000) };
+    return { assistant: sel.name, answer: answer.trim() };
   }
 
   function waitForNewAnswer(selector, countBefore, timeoutMs) {
@@ -535,18 +598,41 @@
 
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
+  var speechSequence = 0;
   function speak(text) {
     if (!text || !('speechSynthesis' in window)) return;
     try {
-      speechSynthesis.cancel();   // corta lo anterior: si no, se acumula
-      var u = new SpeechSynthesisUtterance(text);
-      u.lang = 'es-ES';
-      u.rate = 1.03;
-      var v = (speechSynthesis.getVoices() || []).filter(function (x) {
+      // En móvil, una frase enorme puede cortarse; se encola por fragmentos
+      // para que la respuesta larga se lea entera y en orden.
+      speechSequence++;
+      var token = speechSequence;
+      speechSynthesis.cancel();
+      var words = String(text).replace(/\s+/g, ' ').trim().split(' ');
+      var chunks = [];
+      var chunk = '';
+      words.forEach(function (word) {
+        if (chunk && (chunk.length + word.length + 1 > 650)) {
+          chunks.push(chunk);
+          chunk = '';
+        }
+        chunk += (chunk ? ' ' : '') + word;
+      });
+      if (chunk) chunks.push(chunk);
+      var index = 0;
+      var voice = (speechSynthesis.getVoices() || []).filter(function (x) {
         return /^es/i.test(x.lang);
-      })[0];
-      if (v) u.voice = v;
-      speechSynthesis.speak(u);
+      })[0] || null;
+      function next() {
+        if (token !== speechSequence || index >= chunks.length) return;
+        var u = new SpeechSynthesisUtterance(chunks[index++]);
+        u.lang = 'es-ES';
+        u.rate = 1.03;
+        if (voice) u.voice = voice;
+        u.onend = next;
+        u.onerror = function (e) { log('falló un fragmento de voz:', e.error || 'error'); };
+        speechSynthesis.speak(u);
+      }
+      next();
     } catch (e) { log('no se pudo hablar:', e.message); }
   }
 
@@ -625,7 +711,7 @@
       }).join('\n\n');
     }
     if (action === 'ask_claude' || action === 'ask_chatgpt' || action === 'translate') {
-      return (res.answer || '(respuesta vacía)').slice(0, 1500);
+      return (res.answer || '(respuesta vacía)').slice(0, 6000);
     }
     if (action === 'read_page') return res.title + '\n\n' + (res.text || '').slice(0, 900);
     if (action === 'open_tab') return 'Abriendo ' + res.url;
@@ -656,7 +742,16 @@
     try {
       var d = currentDriver();
       var fn = (d && d[parsed.action]) || universal[parsed.action];
-      var res = await fn(parsed.params || {});
+      var params = Object.assign({}, parsed.params || {}, {
+        onProgress: function (message) {
+          uiReplace(id, message, 'pending');
+          speak(message);
+        }
+      });
+      if (parsed.action === 'ask_claude' || parsed.action === 'ask_chatgpt' || parsed.action === 'translate') {
+        speak('He enviado tu petición. Esperaré a que termine la respuesta completa y luego te la leeré.');
+      }
+      var res = await fn(params);
       var out = summarise(parsed.action, res);
       uiReplace(id, out);
       speak(out);

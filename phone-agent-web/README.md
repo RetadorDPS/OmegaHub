@@ -22,8 +22,8 @@ cuentas, sin ordenador. Es lo que hay que probar primero.
    https://raw.githubusercontent.com/RetadorDPS/OmegaHub/arena/95f82923-omegahub/phone-agent-web/userscript/phone-agent.user.js
    ```
 
-   No hay que copiar ni pegar nada: son 833 líneas y Violentmonkey las instala
-   solas al reconocer la cabecera `==UserScript==`.
+   No hay que copiar ni pegar código: Violentmonkey reconoce la cabecera
+   `==UserScript==` y prepara la instalación automáticamente.
 
    Si al abrir el enlace no salta la pantalla de instalación: icono de
    Violentmonkey → **+** → *Install from URL* → pegar el mismo enlace.
@@ -32,7 +32,10 @@ cuentas, sin ordenador. Es lo que hay que probar primero.
 5. Tócalo y escribe o dicta: `estás ahí`, `busca el tiempo en Madrid`,
    `pregunta a claude qué es la fotosíntesis`.
 
-Ya está. El botón 🤖 tiene su propio micrófono y lee las respuestas en voz alta.
+Ya está. El botón 🤖 permite dictar con el micrófono del teclado y lee las
+respuestas en voz alta. Mientras Claude o ChatGPT trabajan, da avisos de estado
+y espera a que termine la generación antes de leer la respuesta. Si no puede
+confirmar que terminó, avisa en vez de presentar un fragmento como final.
 
 **Las correcciones llegan solas.** El script lleva `@updateURL`, así que cuando
 se arregle algo (lo más probable: un selector que Claude o ChatGPT cambiaron)
@@ -43,11 +46,13 @@ forzar desde el panel de Violentmonkey → *Check for updates*.
 está**. Eso cubre buscar, preguntar, traducir y leer. Lo que no puede es mandar
 en varias pestañas a la vez — para eso hace falta el modo con buzón, más abajo.
 
-> **El micrófono en Firefox:** Firefox para Android no reconoce la voz en páginas
-> web (limitación suya, no del script). Ahí usa el **dictado del teclado**: toca
-> el campo de texto y luego el icono del micrófono del propio teclado. Para
-> hablar de verdad, instala el mismo script en un navegador Chromium con
-> extensiones (Quetta, Vivaldi o Yandex), donde el reconocimiento de voz sí va.
+> **La voz y el navegador:** Firefox para Android no permite que este script
+> escuche directamente con su botón de micrófono; en Firefox, dicta con el
+> micrófono del teclado y pulsa enviar. Firefox no es la única opción para
+> userscripts: hay navegadores Android con soporte de extensiones. **Chrome para
+> Android, en cambio, no instala extensiones.** Y ninguno de esos navegadores
+> permite que un userscript controle aplicaciones Android: para ese objetivo,
+> el camino de producto es la app nativa.
 
 ---
 
@@ -205,12 +210,13 @@ En la cabina di o escribe:
 | `abre claude` / `abre google` / `abre https://…` | Abre la pestaña |
 | `lee la página` / `¿qué pone aquí?` | Lee el texto de la pestaña actual |
 | `estás ahí` / `hola` | Comprueba que el ejecutor vive |
-| **cualquier otra cosa** | Se lo pasa a Claude |
+| **cualquier otra cosa** | En la pestaña de Claude, se lo pasa a Claude |
 
 Las reglas están en `panel/app.js` → `parse()`, y hay un test que las cubre:
 
 ```bash
-node phone-agent-web/tests/parser.test.mjs     # 26 casos
+node phone-agent-web/tests/parser.test.mjs     # 26 frases × dos parsers
+node phone-agent-web/tests/completion.test.mjs  # pausa, fin real y timeout
 ```
 
 ---
@@ -243,8 +249,9 @@ Decidido a propósito, para que se pueda probar pronto:
 - **No tiene memoria entre sesiones.** Cada tarea es independiente. La tabla
   `projects` del proyecto Android ya está preparada para cuando se quiera.
 - **No graba macros.** El concepto existe en el proyecto Android; aquí aún no.
-- **No decide solo.** No hay un bucle que planifique varios pasos: tú mandas una
-  orden y se ejecuta una acción. Eso es lo que lo hace fiable para probar.
+- **No es todavía un agente autónomo de varios pasos.** Resuelve una orden por
+  turno; no planifica ni encadena tareas largas. Eso es parte de la siguiente
+  etapa del producto, no algo que esta prueba web pueda hacer por sí sola.
 - **En modo autónomo no coordina pestañas.** Cada botón 🤖 manda solo en su
   pestaña. Coordinar varias es justo lo que añade el buzón de Supabase.
 - **Las RLS son permisivas.** El único secreto es el canal (un UUID imposible de
@@ -287,7 +294,8 @@ phone-agent-web/
 ├── supabase/migrations/
 │   └── 002_web_tasks.sql              ← buzón + pestañas + RLS (solo modo completo)
 └── tests/
-    └── parser.test.mjs                ← 26 casos × las 2 copias del parser
+    ├── parser.test.mjs                ← 26 frases × las 2 copias del parser
+    └── completion.test.mjs            ← no confundir pausa con respuesta final
 ```
 
 La cabina se publica en GitHub Pages junto con el resto del sitio gracias a un
