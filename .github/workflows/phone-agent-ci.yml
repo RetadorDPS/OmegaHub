@@ -97,8 +97,8 @@ jobs:
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
             grep -E '(^e: |error:|FAILURE:|What went wrong:|Execution failed|Could not|Required by|Searched in|Caused by:|No matching variant|failed to resolve)' gradle-build.log | tail -n 30 | while IFS= read -r line; do
-              echo "::error::$line"
-            done
+              [ -n "$line" ] && echo "::error::$line"
+            done < deno-check.log
             exit "$result"
           fi
 
@@ -167,9 +167,9 @@ jobs:
               cat deno-check.log
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
-            grep -E 'error:|TS[0-9]+|Cannot |Property |not assignable|No overload|Could not' deno-check.log | while IFS= read -r line; do
-              echo "::error::$line"
-            done
+            while IFS= read -r line; do
+              [ -n "$line" ] && echo "::error::$line"
+            done < deno-check.log
             exit "$result"
           fi
 
