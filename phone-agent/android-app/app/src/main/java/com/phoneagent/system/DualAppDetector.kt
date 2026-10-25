@@ -34,8 +34,8 @@ class DualAppDetector(private val context: Context) {
 
     /** package -> índices de perfil donde aparece como app launcher. */
     fun packagesByProfile(): Map<String, Set<Int>> {
-        val launcherApps = context.getSystemService(Context.LAUNCHER_SERVICE) as LauncherApps
-        val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
+        val launcherApps = context.getSystemService(LauncherApps::class.java) ?: return emptyMap()
+        val userManager = context.getSystemService(UserManager::class.java) ?: return emptyMap()
         val result = mutableMapOf<String, MutableSet<Int>>()
         userManager.userProfiles.forEachIndexed { index, handle ->
             try {
@@ -123,8 +123,8 @@ class DualAppDetector(private val context: Context) {
 
     /** Candidatas físicas relacionadas con un driver (para la UI). */
     fun candidatesFor(driver: DriverConfig): List<InstalledAppCandidate> {
-        val launcherApps = context.getSystemService(Context.LAUNCHER_SERVICE) as LauncherApps
-        val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
+        val launcherApps = context.getSystemService(LauncherApps::class.java) ?: return emptyList()
+        val userManager = context.getSystemService(UserManager::class.java) ?: return emptyList()
         val out = mutableListOf<InstalledAppCandidate>()
         userManager.userProfiles.forEachIndexed { index, handle ->
             try {

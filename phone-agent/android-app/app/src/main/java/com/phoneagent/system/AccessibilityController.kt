@@ -68,7 +68,7 @@ class AccessibilityController {
         return svc.dispatchGesture(gesture, null, null)
     }
 
-    fun swipe(direction: String, distanceFraction: Float = 0.45): Boolean {
+    fun swipe(direction: String, distanceFraction: Float = 0.45f): Boolean {
         val svc = service ?: return false
         val w = displayWidth(); val h = displayHeight()
         val cx = w / 2f; val cy = h / 2f
