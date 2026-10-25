@@ -122,12 +122,42 @@ class MainActivity : AppCompatActivity() {
 
     private fun onMicPressed() {
         if (taskJob?.isActive == true) { toast("Ya estoy trabajando en una tarea. Cancélala antes de pedir otra."); return }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED) {
-            requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
-            return
+        lifecycleScope.launch {
+            // No pedir permisos de voz ni captura si todavía falta el backend y la sesión.
+            if (!container.supabase.isConfigured()) {
+                val mensaje = "Phone Agent aún no puede iniciar: falta conectar tu proyecto Supabase. Abro Ajustes para configurarlo."
+                binding.tvLastResult.text = mensaje
+                toast(mensaje)
+                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                return@launch
+            }
+            val userId = SecurePrefs.get(this@MainActivity, SecurePrefs.KEY_USER_ID).orEmpty()
+            val sesionActiva = runCatching { container.supabase.isAuthenticated() }.getOrDefault(false)
+            if (userId.isBlank() || !sesionActiva) {
+                val mensaje = "Primero inicia sesión en Supabase desde Ajustes; sin cuenta no puedo cargar las apps autorizadas."
+                binding.tvLastResult.text = mensaje
+                toast(mensaje)
+                startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                return@launch
+            }
+            if (!container.accessibility.isConnected()) {
+                val mensaje = "Falta activar el servicio de accesibilidad. Sin ese permiso no puedo controlar las apps."
+                binding.tvLastResult.text = mensaje
+                MaterialAlertDialogBuilder(this@MainActivity)
+                    .setTitle("Falta un permiso necesario")
+                    .setMessage("Phone Agent necesita Accesibilidad para leer la app autorizada y ejecutar los toques que tú pidas. No lo actives si no confías en esta compilación. Puedes hacerlo después en Ajustes del teléfono → Accesibilidad → Phone Agent.")
+                    .setPositiveButton("Abrir Ajustes") { _, _ -> container.intentLauncher.openAccessibilitySettings() }
+                    .setNegativeButton("Ahora no", null)
+                    .show()
+                return@launch
+            }
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+                requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
+                return@launch
+            }
+            startListening()
         }
-        startListening()
     }
 
     private fun startListening() {
@@ -291,7 +321,7 @@ class MainActivity : AppCompatActivity() {
             val authOk = runCatching { container.supabase.isAuthenticated() }.getOrDefault(false)
             binding.tvPermissions.text = buildString {
                 appendLine("Estado de permisos y conexión:")
-                appendLine("${mark(supabaseOk)} Supabase configurado (local.properties)")
+                appendLine("${mark(supabaseOk)} Proyecto Supabase conectado")
                 appendLine("${mark(authOk)} Sesión iniciada (Ajustes → Cuenta)")
                 appendLine("${mark(mic)} Micrófono")
                 appendLine("${mark(accSettings && accConnected)} Servicio de accesibilidad activo")
@@ -304,8 +334,10 @@ class MainActivity : AppCompatActivity() {
             }
             binding.tvPermissions.setOnClickListener {
                 when {
-                    !authOk -> startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                    !supabaseOk || !authOk -> startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                     !accSettings -> container.intentLauncher.openAccessibilitySettings()
+                    !mic -> requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
+                    else -> startActivity(Intent(this@MainActivity, DriverManagerActivity::class.java))
                 }
             }
         }
