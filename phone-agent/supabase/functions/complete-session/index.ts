@@ -5,13 +5,13 @@
 // Deploy: supabase functions deploy complete-session
 // ============================================================================
 import { createClient } from "@supabase/supabase-js";
+import { generateText, resolveLlmConfig, resolveLlmModel, type LlmConfig } from "../_shared/llm.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
@@ -25,8 +25,9 @@ function extractJson(text: string): Record<string, unknown> {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método no permitido, usa POST" }, 405);
-  const AnthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-  if (!AnthropicKey) return json({ error: "Falta el secreto ANTHROPIC_API_KEY" }, 500);
+  let llmConfig: LlmConfig;
+  try { llmConfig = resolveLlmConfig(); }
+  catch (e) { return json({ error: String(e), code: "LLM_CONFIG_MISSING" }, 500); }
   const db = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     { auth: { persistSession: false } });
 
@@ -51,7 +52,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: caps } = await db.from("capability_config").select("model,settings")
       .eq("capability_key", "memory").or(`user_id.eq.${session.user_id},user_id.is.null`).limit(1);
-    const model = String(caps?.[0]?.model ?? Deno.env.get("PHONE_AGENT_MODEL") ?? DEFAULT_MODEL);
+    const model = resolveLlmModel(llmConfig.provider, String(caps?.[0]?.model ?? Deno.env.get("PHONE_AGENT_MODEL") ?? ""));
     const updateProject = ((caps?.[0]?.settings as Record<string, unknown> | undefined)?.update_project_on_complete) !== false;
 
     // Resumen con LLM a partir del historial real de pasos (sin screenshots:
@@ -66,16 +67,9 @@ Deno.serve(async (req: Request) => {
     let summary = "", projectSummary = "", lastProgress = "";
     let pendingItems: string[] = [];
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", signal: ctrl.signal,
-        headers: { "x-api-key": AnthropicKey, "Anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: 1024, system, messages: [{ role: "user", content:
-          `Comando original: "${session.voice_command}"\nEstado final: ${finalStatus}${errorMessage ? "\nError: " + errorMessage : ""}\nPasos ejecutados (${verifiedCount}/${stepList.length} verificados):\n${history}` }] }),
-      });
-      const raw = await res.text();
-      if (!res.ok) throw new Error(`Claude API ${res.status}: ${raw.slice(0, 300)}`);
-      const parsed = JSON.parse(raw) as { content?: Array<{ type: string; text?: string }> };
-      const text = (parsed.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("\n");
+      const text = await generateText({ config: llmConfig, model, system,
+        userText: `Comando original: "${session.voice_command}"\nEstado final: ${finalStatus}${errorMessage ? "\nError: " + errorMessage : ""}\nPasos ejecutados (${verifiedCount}/${stepList.length} verificados):\n${history}`,
+        maxOutputTokens: 1024, signal: ctrl.signal });
       const out = extractJson(text);
       summary = String(out.summary ?? ""); projectSummary = String(out.project_summary ?? "");
       lastProgress = String(out.last_progress ?? "");

@@ -6,6 +6,7 @@
 // Deploy: supabase functions deploy verify-and-next
 // ============================================================================
 import { createClient } from "@supabase/supabase-js";
+import { generateText, resolveLlmConfig, resolveLlmModel, type LlmConfig } from "../_shared/llm.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +14,6 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const ALLOWED_ACTIONS = ["tap","swipe","type","scroll","wait","open_app","read","verify","back","home","long_press","clear_text","press_enter","request_confirmation","done"];
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -31,8 +31,9 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Método no permitido, usa POST" }, 405);
 
-  const AnthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-  if (!AnthropicKey) return json({ error: "Falta el secreto ANTHROPIC_API_KEY (supabase secrets set ANTHROPIC_API_KEY=...)" }, 500);
+  let llmConfig: LlmConfig;
+  try { llmConfig = resolveLlmConfig(); }
+  catch (e) { return json({ error: String(e), code: "LLM_CONFIG_MISSING" }, 500); }
   const db = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     { auth: { persistSession: false } });
 
@@ -68,7 +69,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: caps } = await db.from("capability_config").select("model")
       .eq("capability_key", "vision").or(`user_id.eq.${session.user_id},user_id.is.null`).limit(1);
-    const model = String(caps?.[0]?.model ?? Deno.env.get("PHONE_AGENT_MODEL") ?? DEFAULT_MODEL);
+    const model = resolveLlmModel(llmConfig.provider, String(caps?.[0]?.model ?? Deno.env.get("PHONE_AGENT_MODEL") ?? ""));
     const autonomy = String(session.autonomy_level ?? "draft");
     const autonomyRule = autonomy === "read"
       ? "Autonomía 'read': nunca propongas escribir/enviar; si hace falta, next_action debe ser request_confirmation."
@@ -81,26 +82,17 @@ Deno.serve(async (req: Request) => {
 Reglas de params: open_app {"driver_key":"..."}; tap {"x":540,"y":1200} (referencia 1080px de ancho) o {"target_text":"..."}; type {"text":"...","target_hint":"..."}; swipe/scroll {"direction":"up|down|left|right"}; wait {"ms":1200}; done {"summary":"resultado final"}.
 ${autonomyRule} Paso actual: ${stepNumber} de un máximo de ${maxSteps}; si step_number >= máximo, should_stop debe ser true.`;
 
-    const content: unknown[] = [];
-    if (screenshot) content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: screenshot } });
-    content.push({ type: "text", text: `Tarea completa del usuario: "${goal}"\nAcción que se acaba de ejecutar (paso ${stepNumber}): ${actionExecuted}\nResultado esperado: ${step?.expected_result ?? "ver el cambio en pantalla"}\n${uiTree ? "Árbol de UI actual:\n" + uiTree + "\n" : ""}¿Se ejecutó correctamente? Devuelve el JSON de verificación con la siguiente acción o la corrección.` });
+    const userText = `Tarea completa del usuario: "${goal}"\nAcción que se acaba de ejecutar (paso ${stepNumber}): ${actionExecuted}\nResultado esperado: ${step?.expected_result ?? "ver el cambio en pantalla"}\n${uiTree ? "Árbol de UI actual:\n" + uiTree + "\n" : ""}¿Se ejecutó correctamente? Devuelve el JSON de verificación con la siguiente acción o la corrección.`;
 
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 60_000);
     let llmText = "";
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", signal: ctrl.signal,
-        headers: { "x-api-key": AnthropicKey, "Anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: 2048, system, messages: [{ role: "user", content }] }),
-      });
-      const raw = await res.text();
-      if (!res.ok) throw new Error(`Claude API ${res.status}: ${raw.slice(0, 400)}`);
-      const parsed = JSON.parse(raw) as { content?: Array<{ type: string; text?: string }> };
-      llmText = (parsed.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("\n");
+      llmText = await generateText({ config: llmConfig, model, system, userText,
+        imageBase64: screenshot, maxOutputTokens: 2048, signal: ctrl.signal });
     } catch (e) {
-      await log("error", "llm_verify_failed", String(e), { stepNumber });
-      return json({ error: "El LLM no respondió en la verificación: " + String(e), code: "LLM_ERROR" }, 502);
+      await log("error", "llm_verify_failed", String(e), { stepNumber, provider: llmConfig.provider });
+      return json({ error: "El proveedor IA no respondió en la verificación: " + String(e), code: "LLM_ERROR" }, 502);
     } finally { clearTimeout(timer); }
 
     let v: Record<string, unknown>;

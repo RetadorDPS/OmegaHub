@@ -103,27 +103,27 @@ select public.seed_initial_data('TU-UUID-DE-USUARIO');
 ```
 No hace falta: al autorizar una app en Driver Manager, la app crea tu fila propia y deja el seed global intacto.
 
-### 3.4 Desplegar las Edge Functions + la clave de Anthropic
-**La API key de Anthropic vive SOLO aquí, en el servidor. Nunca en la app** (salvo que uses el modo local de la §5.3).
+### 3.4 Desplegar las Edge Functions + elegir el modelo de IA
+
+**No hace falta pagar Anthropic para probar.** El backend admite Google Gemini y Anthropic; con `AI_PROVIDER=auto` (valor por defecto) elige Gemini si está configurada `GEMINI_API_KEY`, y si no, usa Anthropic. La clave se guarda una sola vez en los secretos de Supabase; nunca se incluye en el APK ni se pide a cada usuario.
+
+Para una prueba económica: crea una clave de Gemini API en [Google AI Studio](https://aistudio.google.com/apikey) y configúrala como secreto del servidor. El modelo predeterminado es `gemini-3.1-flash-lite`, compatible con texto e imágenes.
 
 Con CLI, desde la carpeta `phone-agent/`:
 ```bash
 supabase link --project-ref TU_REF
-supabase secrets set ANTHROPIC_API_KEY='sk-ant-api03-...'
+supabase secrets set AI_PROVIDER=gemini GEMINI_API_KEY='TU_CLAVE_DE_AI_STUDIO' GEMINI_MODEL=gemini-3.1-flash-lite
 supabase functions deploy plan-task
 supabase functions deploy verify-and-next
 supabase functions deploy complete-session
 supabase functions deploy check-alerts
 ```
 
-Sin CLI (dashboard): **Edge Functions → Deploy a new function**, crea cada una con el nombre exacto de su carpeta (`plan-task`, etc.), pega el contenido de su `index.ts`, y añade el secreto en **Project Settings → Edge Functions → Secrets** (`ANTHROPIC_API_KEY`).
+Sin CLI (dashboard): despliega las cuatro funciones desde **Edge Functions** y añade `AI_PROVIDER`, `GEMINI_API_KEY` y `GEMINI_MODEL` en **Project Settings → Edge Functions → Secrets**. No pongas la clave en la app ni en el repositorio.
 
-Comprobación rápida (debe responder un error 400 de validación, no un 404):
-```bash
-curl -i -X POST 'https://TU-PROYECTO.supabase.co/functions/v1/plan-task' \
-  -H 'apikey: TU_ANON_KEY' -H 'Authorization: Bearer TU_ANON_KEY' \
-  -H 'Content-Type: application/json' -d '{}'
-```
+**Límites y privacidad del nivel gratuito:** no es ilimitado ni garantizado para siempre; Google puede cambiar los modelos/cuotas. Además, en el nivel gratuito puede usar las entradas para mejorar sus productos. Phone Agent envía capturas de pantalla, que podrían mostrar información privada: úsalo solo para pruebas con datos no sensibles mientras se use ese nivel. Para información sensible/publicar a otros usuarios, hay que revisar las condiciones de privacidad y optar por un servicio que no use esos datos para mejora (por ejemplo, el nivel de pago, que puede generar coste). [Precios y niveles de Google](https://ai.google.dev/gemini-api/docs/pricing) · [modelo Gemini 3.1 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite).
+
+Anthropic sigue siendo una alternativa de pago: basta con establecer `AI_PROVIDER=anthropic` y guardar `ANTHROPIC_API_KEY` como secreto de Supabase. La API key de Anthropic nunca va en el APK.
 
 ### 3.5 (Opcional) Programar check-alerts
 En **Edge Functions → check-alerts → Schedule** crea un trigger cada 30-60 min. Detecta ráfagas de errores, pasos fallidos y sesiones atascadas, y ejecuta la limpieza de screenshots de más de 24 h. Los avisos quedan en `event_log` (los canales push/email son la Fase 2; la detección ya es funcional).
@@ -153,9 +153,9 @@ En **Ajustes → 1. Conexión de Supabase**, pega la **Project URL** y la clave 
 
 > No pegues la clave `service_role` ni una clave `sb_secret_`: dan acceso de administrador y no deben estar en una app de teléfono. La app la rechaza. `local.properties` sigue disponible para desarrollo, pero no lo necesitas para el APK de prueba.
 
-### 5.3 Anthropic API Key → secreto de Supabase (recomendado) o Ajustes de la app
-- **Recomendado (backend):** `supabase secrets set ANTHROPIC_API_KEY='sk-ant-...'` (paso 3.4). La app jamás ve la clave.
-- **Alternativa para probar sin desplegar las funciones de IA:** en la app, **Ajustes → Anthropic API Key**. Se guarda cifrada y el `LLMRouter` llama a Claude directamente desde el teléfono. **Aun así necesitas el proyecto y la base de datos de Supabase** para iniciar sesión y cargar las apps autorizadas; las sesiones creadas en modo directo no se guardan en la tabla remota.
+### 5.3 Proveedor de IA (solo el responsable del backend)
+
+La persona que publica Phone Agent configura Gemini o Anthropic una sola vez como secreto en Supabase (§3.4). Cada usuario no necesita su propia cuenta de API ni pegar una clave. Para una prueba gratis, Gemini requiere una clave de Google AI Studio; el nivel gratuito tiene cuotas y condiciones de uso de datos, así que evita capturas con información privada.
 
 ### 5.4 Sesión de Supabase Auth → Ajustes de la app
 En **Ajustes → 2. Cuenta de Supabase** pon tu email y contraseña y pulsa **Iniciar sesión** (o **Crear cuenta** la primera vez). La app guarda el token cifrado en `EncryptedSharedPreferences` y lo usa en todas las llamadas, así `auth.uid()` existe en el servidor y el RLS te deja leer y guardar tus datos. El **User ID** se rellena automáticamente.
@@ -234,7 +234,7 @@ La pantalla principal muestra una lista ✅/❌ con el estado de cada uno. Hazlo
 | "No hay ninguna app autorizada" pese a haberlas marcado | Sesión caducada, o no se llegó a guardar | Inicia sesión otra vez y vuelve a **Guardar en Supabase**; ejecuta el SQL 001 si aún no lo hiciste |
 | `new row violates row-level security` al guardar | Estás escribiendo sin sesión válida | Inicia sesión; el botón Guardar usa tu token |
 | Las Edge Functions devuelven 404 | No desplegadas o nombre distinto | Despliega con los nombres exactos: `plan-task`, `verify-and-next`, `complete-session`, `check-alerts` |
-| Error 500 "Falta el secreto ANTHROPIC_API_KEY" | Secreto no configurado | `supabase secrets set ANTHROPIC_API_KEY=...` y redespiega |
+| Error 500 `LLM_CONFIG_MISSING` | Falta la clave del proveedor IA en Supabase | Configura `GEMINI_API_KEY` (recomendado para pruebas) o `ANTHROPIC_API_KEY`, junto con `AI_PROVIDER`; mira la §3.4 |
 | "El servicio de accesibilidad no está activo" | Permiso no concedido o revocado por el fabricante | §6.2. En Xiaomi/Samsung desactiva también el "ahorro de batería" para Phone Agent, que mata el servicio |
 | No captura pantalla / screenshot vacío | MediaProjection denegado o detenido | Vuelve a dar un comando: la app re-pide el permiso. No detengas el servicio desde la notificación |
 | El reconocedor de voz falla siempre | Sin app de Google o sin paquete de español offline | Instala/actualiza la app de Google; Ajustes → Sistema → Idiomas → Reconocimiento de voz → Español |

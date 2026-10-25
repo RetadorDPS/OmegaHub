@@ -1,12 +1,13 @@
 // ============================================================================
 // Phone Agent · Edge Function: plan-task
 // Recibe el comando de voz + screenshot inicial, construye el system prompt
-// dinámico (base + apps autorizadas + proyecto + autonomía), llama a Claude
+// dinámico (base + apps autorizadas + proyecto + autonomía), llama al proveedor IA
 // con visión y devuelve el PRIMER paso del plan. Crea la sesión en DB.
 // Deploy: supabase functions deploy plan-task
-// Secretos: ANTHROPIC_API_KEY (obligatorio). SUPABASE_* los inyecta la plataforma.
+// Secretos: GEMINI_API_KEY o ANTHROPIC_API_KEY en Supabase. SUPABASE_* los inyecta la plataforma.
 // ============================================================================
 import { createClient } from "@supabase/supabase-js";
+import { generateText, resolveLlmConfig, resolveLlmModel, type LlmConfig } from "../_shared/llm.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +15,6 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const ALLOWED_ACTIONS = ["tap","swipe","type","scroll","wait","open_app","read","verify","back","home","long_press","clear_text","press_enter","request_confirmation","done"];
-const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -36,9 +36,10 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  const AnthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
   if (!supabaseUrl || !serviceKey) return json({ error: "Faltan SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY en el servidor" }, 500);
-  if (!AnthropicKey) return json({ error: "Falta el secreto ANTHROPIC_API_KEY. Ejecuta: supabase secrets set ANTHROPIC_API_KEY=sk-ant-..." }, 500);
+  let llmConfig: LlmConfig;
+  try { llmConfig = resolveLlmConfig(); }
+  catch (e) { return json({ error: String(e), code: "LLM_CONFIG_MISSING" }, 500); }
 
   const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
@@ -93,7 +94,7 @@ Deno.serve(async (req: Request) => {
       .in("capability_key", ["planner", "vision"])
       .or(`user_id.eq.${userId},user_id.is.null`);
     const planner = (caps ?? []).find((c) => c.capability_key === "planner");
-    const model = String(planner?.model ?? Deno.env.get("PHONE_AGENT_MODEL") ?? DEFAULT_MODEL);
+    const model = resolveLlmModel(llmConfig.provider, String(planner?.model ?? Deno.env.get("PHONE_AGENT_MODEL") ?? ""));
     const autonomy = String(body.autonomy_level ?? planner?.autonomy_level ?? "draft");
     const maxSteps = Number((planner?.settings as Record<string, unknown> | undefined)?.max_steps ?? 25);
 
@@ -140,29 +141,20 @@ Planifica paso a paso: devuelve SOLO la siguiente acción. Máximo ${maxSteps} p
 ${projectBlock}
 BLOQUE AUTONOMÍA: ${autonomyBlock}`;
 
-    const userContent: unknown[] = [];
-    if (screenshot) userContent.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: screenshot } });
-    userContent.push({ type: "text", text: `Comando de voz del usuario: "${voiceCommand}"\nApp en primer plano según Android: ${currentApp}\n${uiTree ? "Árbol de UI accesible (texto visible):\n" + uiTree + "\n" : ""}Analiza la pantalla y devuelve la PRIMERA acción del plan en el formato JSON indicado.` });
+    const userText = `Comando de voz del usuario: "${voiceCommand}"\nApp en primer plano según Android: ${currentApp}\n${uiTree ? "Árbol de UI accesible (texto visible):\n" + uiTree + "\n" : ""}Analiza la pantalla y devuelve la PRIMERA acción del plan en el formato JSON indicado.`;
 
-    // -- Llamada a Claude con visión -----------------------------------------
+    // -- Llamada multimodal al proveedor configurado (Gemini o Anthropic) ----
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 60_000);
     let llmText = "";
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", signal: ctrl.signal,
-        headers: { "x-api-key": AnthropicKey, "Anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model, max_tokens: 2048, system, messages: [{ role: "user", content: userContent }] }),
-      });
-      const raw = await res.text();
-      if (!res.ok) throw new Error(`Claude API ${res.status}: ${raw.slice(0, 400)}`);
-      const parsed = JSON.parse(raw) as { content?: Array<{ type: string; text?: string }> };
-      llmText = (parsed.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("\n");
+      llmText = await generateText({ config: llmConfig, model, system, userText,
+        imageBase64: screenshot, maxOutputTokens: 2048, signal: ctrl.signal });
     } catch (e) {
-      await log("error", "llm_call_failed", String(e), { model });
-      return json({ error: "El LLM no respondió: " + String(e), code: "LLM_ERROR" }, 502);
+      await log("error", "llm_call_failed", String(e), { model, provider: llmConfig.provider });
+      return json({ error: "El proveedor IA no respondió: " + String(e), code: "LLM_ERROR" }, 502);
     } finally { clearTimeout(timer); }
-    if (!llmText) return json({ error: "Claude devolvió una respuesta vacía", code: "LLM_EMPTY" }, 502);
+    if (!llmText) return json({ error: "El proveedor IA devolvió una respuesta vacía", code: "LLM_EMPTY" }, 502);
 
     let plan: Record<string, unknown>;
     try { plan = extractJson(llmText); }
