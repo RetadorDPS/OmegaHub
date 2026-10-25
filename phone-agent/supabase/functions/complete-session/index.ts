@@ -4,7 +4,7 @@
 // proyecto (memoria entre sesiones) y marca agent_sessions como completed.
 // Deploy: supabase functions deploy complete-session
 // ============================================================================
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient } from "@supabase/supabase-js";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

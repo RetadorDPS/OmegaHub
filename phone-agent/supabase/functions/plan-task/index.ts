@@ -6,7 +6,7 @@
 // Deploy: supabase functions deploy plan-task
 // Secretos: ANTHROPIC_API_KEY (obligatorio). SUPABASE_* los inyecta la plataforma.
 // ============================================================================
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient } from "@supabase/supabase-js";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

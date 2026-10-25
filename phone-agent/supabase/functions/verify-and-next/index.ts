@@ -5,7 +5,7 @@
 // ¿hay que parar? Actualiza session_steps y agent_sessions.
 // Deploy: supabase functions deploy verify-and-next
 // ============================================================================
-import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import { createClient } from "@supabase/supabase-js";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
