@@ -40,7 +40,7 @@ class DriverManagerActivity : AppCompatActivity() {
     private fun loadDrivers() {
         val userId = container.configManager.userId()
         if (userId.isBlank()) {
-            toast("Primero pega tu User ID de Supabase en Ajustes.")
+            toast("Primero crea una cuenta o inicia sesión en Phone Agent desde Ajustes.")
             return
         }
         binding.progress.visibility = View.VISIBLE
@@ -53,7 +53,7 @@ class DriverManagerActivity : AppCompatActivity() {
                 }
                 workingCopies.clear(); workingCopies.addAll(drivers)
                 adapter.submit(workingCopies)
-                if (drivers.isEmpty()) toast("Supabase no devolvió drivers. ¿Ejecutaste el SQL 001 y seed_initial_data()?")
+                if (drivers.isEmpty()) toast("No se encontraron apps disponibles. Comprueba tu conexión e inténtalo otra vez.")
             } catch (e: Exception) {
                 toast("Error cargando drivers: ${e.message}")
             } finally {
@@ -64,7 +64,7 @@ class DriverManagerActivity : AppCompatActivity() {
 
     private fun saveAll() {
         val userId = container.configManager.userId()
-        if (userId.isBlank()) { toast("Falta el User ID (Ajustes)"); return }
+        if (userId.isBlank()) { toast("Inicia sesión en Phone Agent desde Ajustes"); return }
         binding.progress.visibility = View.VISIBLE
         lifecycleScope.launch {
             var savedCount = 0
@@ -78,7 +78,7 @@ class DriverManagerActivity : AppCompatActivity() {
                 container.supabase.logEvent(userId, null, "info", "drivers_updated",
                     "$savedCount drivers guardados", JSONObject().put("authorized",
                         saved.filter { it.authorized }.joinToString(",") { it.driverKey }))
-                toast("Guardado en Supabase: $savedCount apps (${saved.count { it.authorized }} autorizadas)")
+                toast("Guardadas $savedCount apps (${saved.count { it.authorized }} autorizadas)")
                 loadDrivers()
             } catch (e: Exception) {
                 toast("No se pudo guardar: ${e.message}")

@@ -73,15 +73,8 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      # local.properties no se versiona (lleva credenciales). El build cae en
-      # System.getenv y luego a cadena vacía, así que compila sin ellas; se
-      # ponen valores de relleno solo para que BuildConfig no lleve "".
-      - name: local.properties de relleno (sin secretos)
-        run: |
-          {
-            echo "SUPABASE_URL=https://ci.invalid"
-            echo "SUPABASE_ANON_KEY=ci-placeholder-key"
-          } > local.properties
+      # El APK de prueba usa los valores públicos del backend compartido
+      # definidos como fallback en app/build.gradle.kts. No inyectar placeholders.
 
       - name: Compilar APK de debug para probar en el teléfono
         id: assemble

@@ -82,7 +82,7 @@ class MacroActivity : AppCompatActivity() {
     /** Activar/desactivar: se guarda en Supabase para que se sincronice. */
     private fun toggle(macro: Macro, enabled: Boolean) {
         val userId = container.configManager.userId()
-        if (userId.isBlank()) { toast("Falta el User ID (Ajustes)"); return }
+        if (userId.isBlank()) { toast("Inicia sesión en Phone Agent desde Ajustes"); return }
         lifecycleScope.launch {
             try {
                 val saved = container.supabase.saveMacro(userId, macro.copy(enabled = enabled))
@@ -100,7 +100,7 @@ class MacroActivity : AppCompatActivity() {
 
     private fun delete(macro: Macro) {
         val userId = container.configManager.userId()
-        if (userId.isBlank()) { toast("Falta el User ID (Ajustes)"); return }
+        if (userId.isBlank()) { toast("Inicia sesión en Phone Agent desde Ajustes"); return }
         lifecycleScope.launch {
             try {
                 container.supabase.deleteMacro(userId, macro.id)

@@ -125,7 +125,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             // No pedir permisos de voz ni captura si todavía falta el backend y la sesión.
             if (!container.supabase.isConfigured()) {
-                val mensaje = "Phone Agent aún no puede iniciar: falta conectar tu proyecto Supabase. Abro Ajustes para configurarlo."
+                val mensaje = "No se pudo cargar la conexión del servicio de Phone Agent. Instala la versión oficial más reciente."
                 binding.tvLastResult.text = mensaje
                 toast(mensaje)
                 startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
@@ -134,7 +134,7 @@ class MainActivity : AppCompatActivity() {
             val userId = SecurePrefs.get(this@MainActivity, SecurePrefs.KEY_USER_ID).orEmpty()
             val sesionActiva = runCatching { container.supabase.isAuthenticated() }.getOrDefault(false)
             if (userId.isBlank() || !sesionActiva) {
-                val mensaje = "Primero inicia sesión en Supabase desde Ajustes; sin cuenta no puedo cargar las apps autorizadas."
+                val mensaje = "Primero crea o inicia sesión en tu cuenta desde Ajustes para cargar las apps autorizadas."
                 binding.tvLastResult.text = mensaje
                 toast(mensaje)
                 startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
@@ -321,14 +321,14 @@ class MainActivity : AppCompatActivity() {
             val authOk = runCatching { container.supabase.isAuthenticated() }.getOrDefault(false)
             binding.tvPermissions.text = buildString {
                 appendLine("Estado de permisos y conexión:")
-                appendLine("${mark(supabaseOk)} Proyecto Supabase conectado")
+                appendLine("${mark(supabaseOk)} Servicio de Phone Agent disponible")
                 appendLine("${mark(authOk)} Sesión iniciada (Ajustes → Cuenta)")
                 appendLine("${mark(mic)} Micrófono")
                 appendLine("${mark(accSettings && accConnected)} Servicio de accesibilidad activo")
                 appendLine("${mark(capture)} Captura de pantalla (MediaProjection)")
                 appendLine("${mark(overlay)} Burbuja flotante (overlay)")
                 append(when {
-                    !authOk -> "Empieza por iniciar sesión en Ajustes: sin eso no se pueden guardar las apps autorizadas."
+                    !authOk -> "Empieza creando o iniciando sesión en tu cuenta desde Ajustes."
                     else -> "Toca «Apps autorizadas» para autorizar Claude / ChatGPT / WhatsApp."
                 })
             }

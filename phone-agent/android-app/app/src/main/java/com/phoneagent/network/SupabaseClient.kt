@@ -48,21 +48,16 @@ data class PlanTaskResponse(
  *  - REST fino con OkHttp contra PostgREST y las Edge Functions: control
  *    total de timeouts (el LLM puede tardar 30-60 s) y de mensajes de error.
  *
- * Credenciales: se configuran en la propia app y se guardan cifradas. BuildConfig
- * queda como fallback solo para desarrollo local. Si el usuario inicia sesión en
- * Auth, su JWT (guardado cifrado) sustituye a la clave pública en las llamadas.
+ * El APK de distribución apunta al backend compartido con la configuración
+ * pública de BuildConfig. El usuario no configura proyectos ni claves. Su JWT
+ * de Auth se guarda cifrado y sustituye a la clave pública en las llamadas.
  */
 class SupabaseClient(private val context: Context) {
     companion object { private const val TAG = "[PhoneAgent].[SupabaseClient]" }
 
-    // Se leen en cada acceso para que el usuario pueda configurar el proyecto
-    // desde el teléfono sin generar un APK distinto por cada clave.
-    val supabaseUrl: String
-        get() = (SecurePrefs.get(context, SecurePrefs.KEY_SUPABASE_URL)
-            ?: BuildConfig.SUPABASE_URL).trim().removeSuffix("/")
-    val anonKey: String
-        get() = (SecurePrefs.get(context, SecurePrefs.KEY_SUPABASE_ANON_KEY)
-            ?: BuildConfig.SUPABASE_ANON_KEY).trim()
+    // La URL y la clave pública pertenecen al backend compartido, no al usuario.
+    val supabaseUrl: String get() = BuildConfig.SUPABASE_URL.trim().removeSuffix("/")
+    val anonKey: String get() = BuildConfig.SUPABASE_ANON_KEY.trim()
 
     fun isConfigured(): Boolean = supabaseUrl.startsWith("https://") && anonKey.length > 20 &&
         !supabaseUrl.contains("TU-PROYECTO") && !supabaseUrl.contains(".invalid")
@@ -73,7 +68,7 @@ class SupabaseClient(private val context: Context) {
 
     val sdkClient: io.github.jan.supabase.SupabaseClient
         get() {
-            check(isConfigured()) { "Configura la URL y la clave pública de Supabase en Ajustes." }
+            check(isConfigured()) { "La conexión del backend compartido no está incluida en esta versión." }
             val url = supabaseUrl
             val key = anonKey
             val fingerprint = "$url\n$key"
@@ -109,7 +104,7 @@ class SupabaseClient(private val context: Context) {
      * Persiste user_id y token cifrados para reutilizarlos mientras duren.
      */
     suspend fun signIn(email: String, password: String): AuthResult {
-        if (!isConfigured()) throw SupabaseException("Supabase no configurado. Abre Ajustes y completa la conexión de Supabase.", "NOT_CONFIGURED")
+        if (!isConfigured()) throw SupabaseException("La conexión del servicio no está incluida en esta versión de Phone Agent.", "NOT_CONFIGURED")
         if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
         return try {
             sdkClient.auth.signInWith(Email) {
@@ -124,13 +119,13 @@ class SupabaseClient(private val context: Context) {
             AuthResult(userId, userEmail, false)
         } catch (e: Exception) {
             throw SupabaseException("No se pudo iniciar sesión: ${e.message ?: e::class.java.simpleName}. " +
-                "Revisa email/contraseña y que el usuario exista en Supabase > Authentication.", "AUTH_FAILED")
+                "Comprueba el correo y la contraseña; si aún no tienes cuenta, pulsa Crear cuenta.", "AUTH_FAILED")
         }
     }
 
     /** Crea la cuenta. Si el proyecto exige confirmar el email, hay que hacerlo antes de usar la app. */
     suspend fun signUp(email: String, password: String): AuthResult {
-        if (!isConfigured()) throw SupabaseException("Supabase no configurado. Abre Ajustes y completa la conexión de Supabase.", "NOT_CONFIGURED")
+        if (!isConfigured()) throw SupabaseException("La conexión del servicio no está incluida en esta versión de Phone Agent.", "NOT_CONFIGURED")
         if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
         return try {
             val createdUser = sdkClient.auth.signUpWith(Email) {
@@ -198,7 +193,7 @@ class SupabaseClient(private val context: Context) {
         } catch (e: SupabaseException) { throw e }
         catch (e: IOException) {
             Log.e(TAG, "Error de red llamando a Supabase", e)
-            throw SupabaseException("Sin conexión con Supabase (${e.message}). Revisa internet y la URL del proyecto.", "NO_NETWORK")
+            throw SupabaseException("Sin conexión con Phone Agent (${e.message}). Revisa internet e inténtalo de nuevo.", "NO_NETWORK")
         }
     }
 
@@ -218,7 +213,7 @@ class SupabaseClient(private val context: Context) {
 
     private suspend fun invokeFunction(name: String, body: JSONObject): JSONObject {
         if (!isConfigured()) throw SupabaseException(
-            "Supabase no está configurado. Abre Ajustes y completa la URL y la clave pública del proyecto.",
+            "La conexión del servicio no está incluida en esta versión de Phone Agent.",
             "NOT_CONFIGURED")
         Log.d(TAG, "Invocando Edge Function $name (${body.length()} campos)")
         return execute(baseRequest(functionUrl(name))
@@ -281,7 +276,7 @@ class SupabaseClient(private val context: Context) {
     // ── PostgREST (lecturas/escrituras directas con RLS) ───────────────────
 
     suspend fun fetchDrivers(userId: String): List<DriverConfig> {
-        if (!isConfigured()) throw SupabaseException("Supabase no configurado. Abre Ajustes y completa la conexión de Supabase.", "NOT_CONFIGURED")
+        if (!isConfigured()) throw SupabaseException("La conexión del servicio no está incluida en esta versión de Phone Agent.", "NOT_CONFIGURED")
         requireAuth()
         val url = restUrl("app_drivers").newBuilder()
             .addQueryParameter("select", "*")
@@ -411,8 +406,7 @@ class SupabaseClient(private val context: Context) {
     /** Sin sesión real, RLS devuelve 0 filas y el agente cree que no hay apps. */
     private suspend fun requireAuth() {
         if (!isAuthenticated()) throw SupabaseException(
-            "No has iniciado sesión en Supabase. Ve a Ajustes e inicia sesión con tu email y contraseña: " +
-                "sin sesión, la seguridad de la base (RLS) no deja leer ni guardar tus apps autorizadas.",
+            "No has iniciado sesión en Phone Agent. Ve a Ajustes e inicia sesión con tu correo y contraseña para cargar tus apps autorizadas.",
             "NOT_AUTHENTICATED")
     }
 

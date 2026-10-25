@@ -5,27 +5,15 @@
         android:orientation="vertical">
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="Ajustes" android:textSize="22sp" android:textStyle="bold" />
-        <!-- La conexión se configura aquí desde el móvil; no hay que recompilar ni editar archivos. -->
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="20dp" android:textStyle="bold"
-            android:text="1. Conexión de Supabase" />
+            android:text="Tu cuenta de Phone Agent" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" android:textSize="12sp"
-            android:text="Pega la URL del proyecto y la clave pública (anon/publishable). Nunca uses la service_role." />
-        <EditText android:id="@+id/etSupabaseUrl" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="8dp"
-            android:hint="https://tu-proyecto.supabase.co" android:inputType="textUri"
-            android:importantForAutofill="no" />
-        <EditText android:id="@+id/etSupabaseAnonKey" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:hint="Clave pública anon / publishable"
-            android:inputType="textPassword" android:importantForAutofill="no" />
-        <!-- ── Cuenta de Supabase (imprescindible: sin sesión, RLS bloquea todo) ── -->
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="20dp" android:textStyle="bold"
-            android:text="2. Cuenta de Supabase" />
+            android:layout_marginTop="4dp" android:textSize="13sp"
+            android:text="La conexión ya está preparada. No necesitas crear un proyecto ni copiar URL, claves de Supabase o claves de IA. Crea tu cuenta con correo y contraseña." />
         <TextView android:id="@+id/tvAuthState" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="4dp"
-            android:textSize="13sp" android:text="Sin sesión iniciada" />
+            android:textSize="13sp" android:text="Aún no has iniciado sesión" />
         <EditText android:id="@+id/etEmail" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="8dp"
             android:hint="tu@email.com" android:inputType="textEmailAddress"
@@ -47,12 +35,7 @@
             android:visibility="gone" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="4dp" android:textSize="12sp"
-            android:text="Iniciar sesión es obligatorio: genera el token con el que la base de datos reconoce tus datos (RLS). El User ID se rellena solo." />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" android:text="User ID (automático tras iniciar sesión)" />
-        <EditText android:id="@+id/etUserId" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:hint="00000000-0000-0000-0000-000000000000"
-            android:inputType="text" android:importantForAutofill="no" />
+            android:text="Tu cuenta separa y protege tus datos. Al crearla, la sesión se inicia automáticamente." />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="16dp" android:text="Palabra de activación (wake word)" />
         <EditText android:id="@+id/etWakeWord" android:layout_width="match_parent"
@@ -68,11 +51,6 @@
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="4dp" android:textSize="13sp"
             android:text="read = solo lee · draft = escribe pero pide confirmar envíos · act = ejecuta todo lo permitido" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="16dp" android:text="Anthropic API Key (opcional: solo si NO la pusiste como secreto en Supabase)" />
-        <EditText android:id="@+id/etApiKey" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:hint="sk-ant-… (se guarda cifrada)"
-            android:inputType="textPassword" android:importantForAutofill="no" />
         <CheckBox android:id="@+id/checkWakeWord" android:layout_width="wrap_content"
             android:layout_height="wrap_content" android:layout_marginTop="16dp"
             android:text="Escuchar wake word en segundo plano (consume más batería)" />

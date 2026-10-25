@@ -73,10 +73,10 @@ class AgentEngine(
 
         // ── Precondiciones con mensajes accionables ────────────────────────
         if (userId.isBlank()) {
-            return failBeforeStart("Falta tu User ID de Supabase. Ve a Ajustes y pega el UUID de tu usuario (Supabase > Authentication > Users).")
+            return failBeforeStart("Falta una cuenta activa. Ve a Ajustes e inicia sesión en Phone Agent.")
         }
         if (!supabase.isConfigured() && llmRouter.directApiKey() == null) {
-            return failBeforeStart("Supabase no está configurado. Pon SUPABASE_URL y SUPABASE_ANON_KEY en android-app/local.properties y vuelve a compilar, o pega tu Anthropic API Key en Ajustes.")
+            return failBeforeStart("No se pudo cargar la conexión del servicio de Phone Agent. Instala la versión oficial más reciente.")
         }
         // Sin sesión no hay JWT: RLS devolvería 0 drivers y el agente diría que
         // no hay apps autorizadas aunque el usuario las hubiera marcado.

@@ -94,10 +94,10 @@ Eso crea las 8 tablas (`users`, `app_drivers`, `projects`, `agent_sessions`, `se
 Todas las sesiones, drivers autorizados y logs pertenecen a un usuario de Supabase Auth. **Sin iniciar sesión no hay JWT, y sin JWT las políticas RLS no dejan leer ni escribir nada tuyo**: el agente diría que no tienes ninguna app autorizada aunque la hubieras marcado.
 
 Dos formas, elige una:
-- **Desde la app (recomendado):** Ajustes → *1. Cuenta de Supabase* → **Crear cuenta** con tu email y contraseña, y luego **Iniciar sesión**. El User ID se rellena solo.
-- **Desde el dashboard:** **Authentication → Users → Add user → Create new user**. Después inicia sesión en la app con ese email y contraseña.
+- **Para usar la app oficial:** Ajustes → escribe tu correo y contraseña y pulsa **Crear cuenta**. La cuenta queda iniciada automáticamente y no requiere copiar ningún UUID.
+- **Solo para quien administra un proyecto alternativo:** también puede crear usuarios desde **Authentication → Users → Add user**.
 
-> Si tu proyecto tiene activada la confirmación por email (Authentication → Providers → Email), confirma el enlace antes de iniciar sesión; la app te lo dirá.
+> En el backend compartido de pruebas, la confirmación del correo está desactivada temporalmente para simplificar el primer acceso. Antes de abrir el registro al público hay que configurar correo transaccional y volver a activarla.
 
 Opcional, para tener también filas de driver propias además del seed global:
 ```sql
@@ -140,33 +140,29 @@ En **Edge Functions → check-alerts → Schedule** crea un trigger cada 30-60 m
 
 GitHub Actions construye un APK de prueba en cada cambio del proyecto. Para instalarlo:
 
-1. En el teléfono abre [Phone Agent CI](https://github.com/RetadorDPS/OmegaHub/actions/workflows/phone-agent-ci.yml).
-2. Abre la ejecución más reciente de la rama `arena/95f82923-omegahub`.
-3. Baja hasta **Artifacts** y descarga `phone-agent-debug-apk`.
-4. Abre el ZIP descargado, extrae `app-debug.apk` y tócalo para instalar. Si Android pregunta, permite a Firefox (o a la aplicación de Archivos) instalar apps para esta vez.
-5. Abre Phone Agent, crea tu cuenta e inicia sesión. La conexión al proyecto compartido ya viene configurada; después concede los permisos de la §6.
+1. Abre el [enlace directo al APK de prueba](https://github.com/RetadorDPS/OmegaHub/releases/download/phone-agent-test-2026-10-25/app-debug.apk) desde Firefox.
+2. Cuando termine, toca `app-debug.apk` en **Descargas** para instalarlo. Si Android pregunta, permite a Firefox (o a Archivos) instalar apps para esta vez.
+3. Abre Phone Agent y crea tu cuenta con correo y contraseña. El backend ya viene conectado; después concede los permisos de la §6.
 
-El artefacto es un **APK debug de prueba**, no una versión de Play Store. Incluye únicamente la URL y la clave pública `publishable` del proyecto compartido (no son secretos); nunca contiene la clave de servicio ni la clave de Gemini. Los artefactos de Actions caducan a los 90 días: si el enlace expiró, abre la ejecución más reciente.
+Es un APK debug de prueba, no una versión de Play Store. La app incluye la dirección y la clave **pública** del backend común; no incluye la clave de administración ni la clave de Gemini. No descargues el ZIP de Actions ni configures un Supabase propio.
 
 Android Studio/USB siguen siendo útiles para quien desarrolla en un ordenador, pero no son pasos que tú tengas que hacer.
 
 ---
 
-## 5. COSAS QUE EL USUARIO DEBE CONECTAR (la lista exacta)
+## 5. Primeros pasos del usuario
 
-### 5.1 Conexión con Supabase → ya configurada
-El APK de esta rama viene conectado al proyecto compartido. No crees otro proyecto ni copies una URL o clave. Si abres **Ajustes → Conexión de Supabase**, los campos ya aparecen rellenados.
+### 5.1 Conexión al backend → automática
+La app oficial viene conectada al backend compartido. No crees un proyecto Supabase ni escribas URL, clave pública o clave de IA. En Ajustes solo verás la cuenta de Phone Agent y las preferencias personales. Si aparece un formulario para URL/clave, es una versión de APK antigua o incorrecta: instala la versión actualizada del enlace directo de la §4.
 
-> La clave que lleva la app es la pública `publishable`, protegida por RLS; no contiene permisos de administrador. Nunca pegues en el teléfono ni compartas `service_role`, `sb_secret_` ni la clave de Gemini. `local.properties` queda solo para desarrolladores.
+La clave pública del backend va integrada en el APK y no es una clave administrativa. La clave de Gemini está guardada solo en el servidor y nunca se pide al usuario.
 
 ### 5.3 Proveedor de IA (solo el responsable del backend)
 
 La persona que publica Phone Agent configura Gemini o Anthropic una sola vez como secreto en Supabase (§3.4). Cada usuario no necesita su propia cuenta de API ni pegar una clave. Para una prueba gratis, Gemini requiere una clave de Google AI Studio; el nivel gratuito tiene cuotas y condiciones de uso de datos, así que evita capturas con información privada.
 
-### 5.4 Sesión de Supabase Auth → Ajustes de la app
-En **Ajustes → 2. Cuenta de Supabase** pon tu email y contraseña y pulsa **Iniciar sesión** (o **Crear cuenta** la primera vez). La app guarda el token cifrado en `EncryptedSharedPreferences` y lo usa en todas las llamadas, así `auth.uid()` existe en el servidor y el RLS te deja leer y guardar tus datos. El **User ID** se rellena automáticamente.
-
-> ¿Por qué no basta con pegar el UUID? Porque el UUID solo identifica; no autentica. Sin token, PostgREST te trata como anónimo y las 11 políticas `auth.uid() = user_id` devuelven cero filas. Por eso la app lo comprueba antes de cada operación y te avisa con un mensaje claro en vez de fallar en silencio.
+### 5.4 Cuenta personal → Ajustes
+En **Ajustes**, escribe tu correo y contraseña y pulsa **Crear cuenta** la primera vez. La sesión se inicia automáticamente y la app guarda su token de forma cifrada. Para volver a entrar en otro momento, usa **Iniciar sesión**. No tienes que conocer ni copiar el User ID.
 
 ### 5.5 Permisos del teléfono
 Guía completa en la §6. Resumen: micrófono, servicio de accesibilidad, captura de pantalla, burbuja flotante y las apps autorizadas marcadas en Driver Manager.
@@ -234,9 +230,8 @@ La pantalla principal muestra una lista ✅/❌ con el estado de cada uno. Hazlo
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| La app dice "Supabase no está configurado" | Aún no has introducido URL y clave pública | Ajustes → Conexión de Supabase; pega ambas y vuelve a iniciar sesión |
-| `USER_NOT_FOUND` al hablar | El User ID de Ajustes no existe en Supabase Auth | Crea el usuario (§3.3) y pega su UUID exacto |
-| "No has iniciado sesión en Supabase" | Falta el login (o el token caducó) | Ajustes → **2. Cuenta de Supabase** → **Iniciar sesión**. Sin sesión, el RLS oculta tus apps autorizadas |
+| La app pide URL o clave pública | APK antiguo o compilado con valores incorrectos | Instala el APK actualizado desde el enlace directo de la §4; no crees un proyecto propio |
+| No se inicia sesión | Correo/contraseña incorrectos o sesión caducada | Ajustes → **Iniciar sesión**; si es tu primera vez, pulsa **Crear cuenta** |
 | "No hay ninguna app autorizada" pese a haberlas marcado | Sesión caducada, o no se llegó a guardar | Inicia sesión otra vez y vuelve a **Guardar en Supabase**; ejecuta el SQL 001 si aún no lo hiciste |
 | `new row violates row-level security` al guardar | Estás escribiendo sin sesión válida | Inicia sesión; el botón Guardar usa tu token |
 | Las Edge Functions devuelven 404 | No desplegadas o nombre distinto | Despliega con los nombres exactos: `plan-task`, `verify-and-next`, `complete-session`, `check-alerts` |
@@ -337,9 +332,9 @@ phone-agent/
 
 - **Whitelist dura:** `PermissionGate` intercepta el 100% de las acciones. Sin driver autorizado no hay gestos, aunque el LLM los pida.
 - **Autonomía por niveles:** `read` (solo lee), `draft` (escribe pero todo envío pide confirmación humana), `act` (ejecuta lo permitido). Se configura en Ajustes o en `capability_config`.
-- **La API key de Anthropic vive en el servidor** (secreto de Supabase). La app solo conoce la *anon key* pública de Supabase + RLS. El modo local con clave en el teléfono es opcional y la guarda cifrada.
+- **Las claves de IA viven solo en el servidor** (secreto de Supabase). La app no pide claves de Anthropic o Gemini al usuario; contiene únicamente la clave pública del backend, protegida por RLS.
 - **Screenshots:** bucket privado, políticas por usuario y **auto-borrado a las 24 h** (`delete_old_screenshots()` + `check-alerts`).
-- **Sin hardcodeos:** URL y clave pública en `EncryptedSharedPreferences` (o `local.properties` solo para desarrollo); claves privadas de API en el secreto de Supabase o, para pruebas, en las preferencias cifradas del teléfono.
+- La configuración del backend compartido se fija durante la compilación; las claves privadas de IA solo se guardan como secretos del servidor. Las preferencias personales se cifran en el teléfono.
 - **Trazabilidad total:** cada sesión, paso, verificación y evento queda en PostgreSQL (`agent_sessions`, `session_steps`, `event_log`).
 
 ---
