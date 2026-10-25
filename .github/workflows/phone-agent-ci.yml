@@ -151,7 +151,7 @@ jobs:
         with:
           deno-version: v2.x
 
-      # deno check resuelve los imports de esm.sh y verifica tipos. Es lo mismo
+      # deno check instala los imports npm: y verifica tipos. Es lo mismo
       # que `supabase functions deploy` hace antes de subir.
       - name: Verificar tipos
         shell: bash
