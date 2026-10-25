@@ -6,7 +6,9 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// Lee credenciales de local.properties (NUNCA hardcodeadas en código).
+// Los valores de local.properties o del entorno permiten builds privados.
+// El fallback es solo la URL y la clave PÚBLICA publishable del proyecto común;
+// nunca se incluye aquí una service_role key ni otra credencial de servidor.
 val localProps = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -14,6 +16,8 @@ val localProps = Properties().apply {
 fun cfg(name: String): String =
     (localProps.getProperty(name) ?: System.getenv(name) ?: "")
         .replace("\\", "\\\\").replace("\"", "\\\"")
+val sharedSupabaseUrl = "https://ccapdpiqawpnqlyumgqh.supabase.co"
+val sharedSupabasePublishableKey = "sb_publishable_yCmJG7zj4RGP_NL0SaQcyA_253KH9z3"
 
 android {
     namespace = "com.phoneagent"
@@ -26,8 +30,10 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "SUPABASE_URL", "\"${cfg("SUPABASE_URL")}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${cfg("SUPABASE_ANON_KEY")}\"")
+        val supabaseUrl = cfg("SUPABASE_URL").ifBlank { sharedSupabaseUrl }
+        val supabasePublicKey = cfg("SUPABASE_ANON_KEY").ifBlank { sharedSupabasePublishableKey }
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabasePublicKey\"")
     }
 
     buildTypes {

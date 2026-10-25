@@ -7,6 +7,7 @@
 // Secretos: GEMINI_API_KEY o ANTHROPIC_API_KEY en Supabase. SUPABASE_* los inyecta la plataforma.
 // ============================================================================
 import { createClient } from "@supabase/supabase-js";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
 import { generateText, resolveLlmConfig, resolveLlmModel, type LlmConfig } from "../_shared/llm.ts";
 
 const CORS = {
@@ -42,6 +43,8 @@ Deno.serve(async (req: Request) => {
   catch (e) { return json({ error: String(e), code: "LLM_CONFIG_MISSING" }, 500); }
 
   const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+  const authenticatedUserId = await getAuthenticatedUserId(req, db);
+  if (!authenticatedUserId) return json({ error: "Inicia sesión en la app para usar Phone Agent.", code: "UNAUTHORIZED" }, 401);
 
   let body: Record<string, unknown>;
   try { body = await req.json(); }
@@ -54,6 +57,7 @@ Deno.serve(async (req: Request) => {
   const projectId = body.project_id ? String(body.project_id) : null;
   const uiTree = typeof body.ui_tree === "string" ? body.ui_tree.slice(0, 6000) : "";
   if (!userId) return json({ error: "user_id es obligatorio (UUID de Supabase Auth del usuario)" }, 400);
+  if (userId !== authenticatedUserId) return json({ error: "El user_id no coincide con la cuenta autenticada.", code: "FORBIDDEN" }, 403);
   if (!voiceCommand) return json({ error: "voice_command es obligatorio" }, 400);
 
   const log = async (level: string, event_type: string, message: string, payload: Record<string, unknown> = {}, session_id: string | null = null) => {

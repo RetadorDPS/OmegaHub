@@ -44,20 +44,19 @@ enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 
-# Las Edge Functions de Phone Agent se invocan desde Android con la anon key
-# y validan user_id contra la DB con service_role. En producción estricta
-# cambia verify_jwt a true y envía el JWT del usuario en Authorization.
+# Android invoca las funciones con el JWT real de Supabase Auth. El Gateway
+# valida el JWT y cada función comprueba que los datos pertenecen a esa cuenta.
 [functions.plan-task]
-verify_jwt = false
+verify_jwt = true
 
 [functions.verify-and-next]
-verify_jwt = false
+verify_jwt = true
 
 [functions.complete-session]
-verify_jwt = false
+verify_jwt = true
 
 [functions.check-alerts]
-verify_jwt = false
+verify_jwt = true
 
 [edge_runtime]
 enabled = true

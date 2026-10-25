@@ -8,6 +8,7 @@
 // Deploy: supabase functions deploy check-alerts
 // ============================================================================
 import { createClient } from "@supabase/supabase-js";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -21,15 +22,19 @@ interface Alert { type: string; severity: "info" | "warning" | "critical"; messa
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
-  const db = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } });
-
-  let userId: string | null = null;
-  if (req.method === "POST") {
-    try { const b = await req.json(); if (b?.user_id) userId = String(b.user_id); } catch { /* body vacío permitido */ }
-  }
-
+  if (req.method !== "POST") return json({ error: "Método no permitido, usa POST" }, 405);
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!supabaseUrl || !serviceKey) return json({ error: "Falta configuración del servidor Supabase." }, 500);
+  const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+  const userId = await getAuthenticatedUserId(req, db);
+  if (!userId) return json({ error: "Inicia sesión en la app para consultar avisos.", code: "UNAUTHORIZED" }, 401);
   try {
+    const body = await req.json().catch(() => ({}));
+    if (body?.user_id && String(body.user_id) !== userId) {
+      return json({ error: "No puedes consultar avisos de otra cuenta.", code: "FORBIDDEN" }, 403);
+    }
+
     const { data: cfgRows } = await db.from("capability_config").select("settings")
       .eq("capability_key", "alerts").eq("enabled", true)
       .or(userId ? `user_id.eq.${userId},user_id.is.null` : "user_id.is.null").limit(1);

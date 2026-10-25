@@ -6,6 +6,7 @@
 // Deploy: supabase functions deploy verify-and-next
 // ============================================================================
 import { createClient } from "@supabase/supabase-js";
+import { getAuthenticatedUserId } from "../_shared/auth.ts";
 import { generateText, resolveLlmConfig, resolveLlmModel, type LlmConfig } from "../_shared/llm.ts";
 
 const CORS = {
@@ -36,6 +37,8 @@ Deno.serve(async (req: Request) => {
   catch (e) { return json({ error: String(e), code: "LLM_CONFIG_MISSING" }, 500); }
   const db = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     { auth: { persistSession: false } });
+  const authenticatedUserId = await getAuthenticatedUserId(req, db);
+  if (!authenticatedUserId) return json({ error: "Inicia sesión en la app para continuar.", code: "UNAUTHORIZED" }, 401);
 
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "Body inválido: se esperaba JSON" }, 400); }
@@ -58,6 +61,7 @@ Deno.serve(async (req: Request) => {
       .select("id,user_id,status,voice_command,autonomy_level,plan,project_id,current_app").eq("id", sessionId).maybeSingle();
     if (sesErr) throw new Error("Error leyendo la sesión: " + sesErr.message);
     if (!session) return json({ error: "Sesión no encontrada", code: "SESSION_NOT_FOUND" }, 404);
+    if (session.user_id !== authenticatedUserId) return json({ error: "La sesión no pertenece a la cuenta autenticada.", code: "FORBIDDEN" }, 403);
     if (session.status === "cancelled" || session.status === "completed") {
       return json({ verified: false, should_stop: true, reason: `La sesión ya está ${session.status}`, next_step: null, correction: null, message: "Sesión cerrada" });
     }

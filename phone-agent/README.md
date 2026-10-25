@@ -105,7 +105,9 @@ No hace falta: al autorizar una app en Driver Manager, la app crea tu fila propi
 
 ### 3.4 Desplegar las Edge Functions + elegir el modelo de IA
 
-**No hace falta pagar Anthropic para probar.** El backend admite Google Gemini y Anthropic; con `AI_PROVIDER=auto` (valor por defecto) elige Gemini si está configurada `GEMINI_API_KEY`, y si no, usa Anthropic. La clave se guarda una sola vez en los secretos de Supabase; nunca se incluye en el APK ni se pide a cada usuario.
+La app queda preconfigurada con la URL del proyecto compartido y su clave pública `publishable`; cada persona crea su cuenta en la app, sin crear un proyecto ni copiar claves. Esa clave pública no es un secreto: el acceso a datos se limita con RLS y las funciones exigen JWT de una cuenta autenticada y verifican la propiedad de cada sesión.
+
+**No hace falta pagar Anthropic para probar.** El backend admite Google Gemini y Anthropic; con `AI_PROVIDER=auto` (valor por defecto) elige Gemini si está configurada `GEMINI_API_KEY`, y si no, usa Anthropic. La clave del proveedor IA se guarda una sola vez en los secretos de Supabase; nunca se incluye en el APK ni se pide a cada usuario.
 
 Para una prueba económica: crea una clave de Gemini API en [Google AI Studio](https://aistudio.google.com/apikey) y configúrala como secreto del servidor. El modelo predeterminado es `gemini-3.1-flash-lite`, compatible con texto e imágenes.
 
