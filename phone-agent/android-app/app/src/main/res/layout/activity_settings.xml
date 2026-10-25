@@ -5,10 +5,24 @@
         android:orientation="vertical">
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:text="Ajustes" android:textSize="22sp" android:textStyle="bold" />
+        <!-- La conexión se configura aquí desde el móvil; no hay que recompilar ni editar archivos. -->
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:textStyle="bold"
+            android:text="1. Conexión de Supabase" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="4dp" android:textSize="12sp"
+            android:text="Pega la URL del proyecto y la clave pública (anon/publishable). Nunca uses la service_role." />
+        <EditText android:id="@+id/etSupabaseUrl" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="8dp"
+            android:hint="https://tu-proyecto.supabase.co" android:inputType="textUri"
+            android:importantForAutofill="no" />
+        <EditText android:id="@+id/etSupabaseAnonKey" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="Clave pública anon / publishable"
+            android:inputType="textPassword" android:importantForAutofill="no" />
         <!-- ── Cuenta de Supabase (imprescindible: sin sesión, RLS bloquea todo) ── -->
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="20dp" android:textStyle="bold"
-            android:text="1. Cuenta de Supabase" />
+            android:text="2. Cuenta de Supabase" />
         <TextView android:id="@+id/tvAuthState" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="4dp"
             android:textSize="13sp" android:text="Sin sesión iniciada" />

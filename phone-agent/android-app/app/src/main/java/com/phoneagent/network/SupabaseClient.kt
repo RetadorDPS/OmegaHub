@@ -52,29 +52,48 @@ data class PlanTaskResponse(
  *  - REST fino con OkHttp contra PostgREST y las Edge Functions: control
  *    total de timeouts (el LLM puede tardar 30-60 s) y de mensajes de error.
  *
- * Credenciales: BuildConfig desde local.properties (ver README §4). Nada
- * hardcodeado. Si el usuario inicia sesión en Auth, su JWT (guardado cifrado)
- * sustituye a la anon key en las llamadas.
+ * Credenciales: se configuran en la propia app y se guardan cifradas. BuildConfig
+ * queda como fallback solo para desarrollo local. Si el usuario inicia sesión en
+ * Auth, su JWT (guardado cifrado) sustituye a la clave pública en las llamadas.
  */
 class SupabaseClient(private val context: Context) {
     companion object { private const val TAG = "[PhoneAgent].[SupabaseClient]" }
 
-    val supabaseUrl: String = BuildConfig.SUPABASE_URL.trim().removeSuffix("/")
-    val anonKey: String = BuildConfig.SUPABASE_ANON_KEY.trim()
+    // Se leen en cada acceso para que el usuario pueda configurar el proyecto
+    // desde el teléfono sin generar un APK distinto por cada clave.
+    val supabaseUrl: String
+        get() = (SecurePrefs.get(context, SecurePrefs.KEY_SUPABASE_URL)
+            ?: BuildConfig.SUPABASE_URL).trim().removeSuffix("/")
+    val anonKey: String
+        get() = (SecurePrefs.get(context, SecurePrefs.KEY_SUPABASE_ANON_KEY)
+            ?: BuildConfig.SUPABASE_ANON_KEY).trim()
 
     fun isConfigured(): Boolean = supabaseUrl.startsWith("https://") && anonKey.length > 20 &&
-        !supabaseUrl.contains("TU-PROYECTO")
+        !supabaseUrl.contains("TU-PROYECTO") && !supabaseUrl.contains(".invalid")
 
-    /** Cliente del SDK oficial. Perezoso: solo se crea si está configurado. */
-    val sdkClient: io.github.jan.supabase.SupabaseClient by lazy {
-        check(isConfigured()) { "Supabase no configurado: revisa SUPABASE_URL y SUPABASE_ANON_KEY en local.properties" }
-        createSupabaseClient(supabaseUrl = supabaseUrl, supabaseKey = anonKey) {
-            install(Postgrest)
-            install(Auth)
-            install(Functions)
-            install(Storage)
+    /** Cliente del SDK oficial, recreado si el usuario cambia el proyecto desde Ajustes. */
+    @Volatile private var sdkConfigKey: String? = null
+    @Volatile private var sdkClientCache: io.github.jan.supabase.SupabaseClient? = null
+
+    val sdkClient: io.github.jan.supabase.SupabaseClient
+        get() {
+            check(isConfigured()) { "Configura la URL y la clave pública de Supabase en Ajustes." }
+            val url = supabaseUrl
+            val key = anonKey
+            val fingerprint = "$url\n$key"
+            return synchronized(this) {
+                if (sdkConfigKey != fingerprint || sdkClientCache == null) {
+                    sdkClientCache = createSupabaseClient(supabaseUrl = url, supabaseKey = key) {
+                        install(Postgrest)
+                        install(Auth)
+                        install(Functions)
+                        install(Storage)
+                    }
+                    sdkConfigKey = fingerprint
+                }
+                checkNotNull(sdkClientCache)
+            }
         }
-    }
 
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -94,7 +113,7 @@ class SupabaseClient(private val context: Context) {
      * Persiste user_id y token cifrados para reutilizarlos mientras duren.
      */
     suspend fun signIn(email: String, password: String): AuthResult {
-        if (!isConfigured()) throw SupabaseException("Supabase no configurado (local.properties)", "NOT_CONFIGURED")
+        if (!isConfigured()) throw SupabaseException("Supabase no configurado. Abre Ajustes y completa la conexión de Supabase.", "NOT_CONFIGURED")
         if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
         return try {
             val session = sdkClient.auth.signInWith(Email) {
@@ -111,7 +130,7 @@ class SupabaseClient(private val context: Context) {
 
     /** Crea la cuenta. Si el proyecto exige confirmar el email, hay que hacerlo antes de usar la app. */
     suspend fun signUp(email: String, password: String): AuthResult {
-        if (!isConfigured()) throw SupabaseException("Supabase no configurado (local.properties)", "NOT_CONFIGURED")
+        if (!isConfigured()) throw SupabaseException("Supabase no configurado. Abre Ajustes y completa la conexión de Supabase.", "NOT_CONFIGURED")
         if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
         return try {
             val session = sdkClient.auth.signUpWith(Email) {
@@ -197,7 +216,7 @@ class SupabaseClient(private val context: Context) {
 
     private suspend fun invokeFunction(name: String, body: JSONObject): JSONObject {
         if (!isConfigured()) throw SupabaseException(
-            "Supabase no está configurado. Pon SUPABASE_URL y SUPABASE_ANON_KEY en android-app/local.properties y vuelve a compilar.",
+            "Supabase no está configurado. Abre Ajustes y completa la URL y la clave pública del proyecto.",
             "NOT_CONFIGURED")
         Log.d(TAG, "Invocando Edge Function $name (${body.length()} campos)")
         return execute(baseRequest(functionUrl(name))
@@ -260,7 +279,7 @@ class SupabaseClient(private val context: Context) {
     // ── PostgREST (lecturas/escrituras directas con RLS) ───────────────────
 
     suspend fun fetchDrivers(userId: String): List<DriverConfig> {
-        if (!isConfigured()) throw SupabaseException("Supabase no configurado (local.properties)", "NOT_CONFIGURED")
+        if (!isConfigured()) throw SupabaseException("Supabase no configurado. Abre Ajustes y completa la conexión de Supabase.", "NOT_CONFIGURED")
         requireAuth()
         val url = restUrl("app_drivers").newBuilder()
             .addQueryParameter("select", "*")

@@ -29,6 +29,8 @@ import org.json.JSONObject
 object SecurePrefs {
     const val KEY_USER_ID = "user_id"
     const val KEY_USER_JWT = "user_jwt"
+    const val KEY_SUPABASE_URL = "supabase_url"
+    const val KEY_SUPABASE_ANON_KEY = "supabase_anon_key"
     const val KEY_ANTHROPIC_API_KEY = "anthropic_api_key"
     const val KEY_USER_EMAIL = "user_email"
     const val KEY_WAKE_WORD = "wake_word"

@@ -1,16 +1,20 @@
 package com.phoneagent.ui
 
+import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.phoneagent.BuildConfig
 import com.phoneagent.PhoneAgentApp
 import com.phoneagent.core.SecurePrefs
 import com.phoneagent.databinding.ActivitySettingsBinding
 import com.phoneagent.models.AutonomyLevel
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
  * Ajustes del agente.
@@ -61,6 +65,10 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun loadCurrentValues() {
+        val compiledUrl = BuildConfig.SUPABASE_URL.takeUnless { it.contains(".invalid") }.orEmpty()
+        val compiledKey = BuildConfig.SUPABASE_ANON_KEY.takeUnless { it.startsWith("ci-placeholder") }.orEmpty()
+        binding.etSupabaseUrl.setText(SecurePrefs.get(this, SecurePrefs.KEY_SUPABASE_URL) ?: compiledUrl)
+        binding.etSupabaseAnonKey.setText(SecurePrefs.get(this, SecurePrefs.KEY_SUPABASE_ANON_KEY) ?: compiledKey)
         binding.etUserId.setText(SecurePrefs.get(this, SecurePrefs.KEY_USER_ID).orEmpty())
         binding.etEmail.setText(SecurePrefs.get(this, SecurePrefs.KEY_USER_EMAIL).orEmpty())
         binding.etWakeWord.setText(SecurePrefs.get(this, SecurePrefs.KEY_WAKE_WORD) ?: "oye agente")
@@ -107,6 +115,11 @@ class SettingsActivity : AppCompatActivity() {
             toast("Escribe tu email y tu contraseña")
             return
         }
+        if (!saveSupabaseConnectionFromFields()) return
+        if (!container.supabase.isConfigured()) {
+            toast("Completa primero la URL y la clave pública de Supabase")
+            return
+        }
         setBusy(true)
         lifecycleScope.launch {
             try {
@@ -149,6 +162,7 @@ class SettingsActivity : AppCompatActivity() {
             toast("El User ID no parece un UUID válido de Supabase Auth")
             return
         }
+        if (!saveSupabaseConnectionFromFields()) return
         SecurePrefs.put(this, SecurePrefs.KEY_USER_ID, userId)
         SecurePrefs.put(this, SecurePrefs.KEY_WAKE_WORD,
             binding.etWakeWord.text.toString().trim().ifBlank { "oye agente" })
@@ -172,6 +186,43 @@ class SettingsActivity : AppCompatActivity() {
 
         toast("Ajustes guardados (cifrados en el teléfono)")
         finish()
+    }
+
+    /** Guarda la conexión cifrada para no depender de local.properties ni de un APK personalizado. */
+    private fun saveSupabaseConnectionFromFields(): Boolean {
+        val url = binding.etSupabaseUrl.text.toString().trim().removeSuffix("/")
+        val key = binding.etSupabaseAnonKey.text.toString().trim()
+        if (url.isBlank() && key.isBlank()) return true
+        if (url.isBlank() || key.isBlank()) {
+            toast("Para conectar Supabase hacen falta la URL y la clave pública")
+            return false
+        }
+        val parsed = runCatching { Uri.parse(url) }.getOrNull()
+        if (parsed == null || parsed.scheme != "https" || parsed.host.isNullOrBlank()) {
+            toast("La URL debe empezar por https:// y ser la URL del proyecto Supabase")
+            return false
+        }
+        if (key.length < 20) {
+            toast("La clave parece incompleta. Usa la clave pública anon o publishable")
+            return false
+        }
+        if (isServiceRoleKey(key)) {
+            toast("Esa es una clave secreta de administrador. No la pongas en el teléfono; usa la clave pública anon/publishable")
+            return false
+        }
+        SecurePrefs.put(this, SecurePrefs.KEY_SUPABASE_URL, url)
+        SecurePrefs.put(this, SecurePrefs.KEY_SUPABASE_ANON_KEY, key)
+        return true
+    }
+
+    /** Impide guardar accidentalmente una clave capaz de saltarse las políticas RLS. */
+    private fun isServiceRoleKey(key: String): Boolean {
+        if (key.startsWith("sb_secret_", ignoreCase = true)) return true
+        val payload = key.split('.').getOrNull(1) ?: return false
+        val decoded = runCatching {
+            String(Base64.decode(payload, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING), Charsets.UTF_8)
+        }.getOrNull() ?: return false
+        return runCatching { JSONObject(decoded).optString("role") == "service_role" }.getOrDefault(false)
     }
 
     private fun isUuid(value: String): Boolean =

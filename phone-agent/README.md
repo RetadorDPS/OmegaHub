@@ -57,15 +57,18 @@ Un agente de IA que opera un teléfono Android **por voz**: le das una instrucci
 
 ---
 
-## 2. Requisitos previos
+## 2. Requisitos para probar desde el teléfono (sin PC)
 
 | Qué | Para qué | Dónde |
 |---|---|---|
-| Android Studio (Koala o superior) | Compilar e instalar la app | https://developer.android.com/studio |
-| Un teléfono Android 10+ (API 29+) real | Accessibility + MediaProjection no van bien en emulador | — |
-| Cuenta de Supabase (gratis vale) | DB + Edge Functions + Storage | https://supabase.com |
-| Cuenta de Anthropic + API key | Claude con visión | https://console.anthropic.com |
-| Supabase CLI (opcional, recomendado) | Desplegar funciones desde terminal | `npm i -g supabase` |
+| Un teléfono Android 10+ (API 29+) real | Voz, accesibilidad y captura de pantalla | — |
+| Cuenta y proyecto de Supabase | Base de datos, funciones y almacenamiento | https://supabase.com |
+| Clave de API de Anthropic | Claude como motor de planificación/visión; el consumo de API puede facturarse aparte | https://console.anthropic.com |
+| Cuenta de GitHub con acceso al repositorio | Descargar el APK que genera GitHub Actions | https://github.com/RetadorDPS/OmegaHub/actions |
+
+**No necesitas Android Studio, ordenador ni cable USB para instalar la versión de prueba.** GitHub compila el APK en la nube y lo deja como archivo descargable. Android Studio y Supabase CLI solo hacen falta para desarrollo avanzado; no para instalar el APK.
+
+> La suscripción a Claude Code no equivale a una clave de API de Anthropic para esta app. No pegues claves en el chat. La app permite guardarlas cifradas en Ajustes; nunca uses la clave `service_role` de Supabase en el teléfono.
 
 ---
 
@@ -127,33 +130,35 @@ En **Edge Functions → check-alerts → Schedule** crea un trigger cada 30-60 m
 
 ---
 
-## 4. Montar la app Android (5 minutos)
+## 4. Descargar e instalar desde el teléfono (sin ordenador)
 
-1. Android Studio → **Open** → selecciona la carpeta `android-app/`.
-2. Espera el *Gradle Sync*. Si te pide el SDK, acepta instalar Android 15 (API 35). Si no tienes `gradle-wrapper.jar` (este repo incluye `gradle-wrapper.properties`), Android Studio lo regenera solo al abrir el proyecto; en terminal sería `gradle wrapper --gradle-version 8.7` dentro de `android-app/`.
-3. Crea el archivo de credenciales (paso siguiente, §5).
-4. Conecta el teléfono por USB con **Depuración USB** activada (Ajustes del teléfono → Opciones de desarrollador) y pulsa **Run ▶**.
-5. La primera vez: **Ajustes → Cuenta → Iniciar sesión** y luego los permisos (§6).
+GitHub Actions construye un APK de prueba en cada cambio del proyecto. Para instalarlo:
+
+1. En el teléfono abre [Phone Agent CI](https://github.com/RetadorDPS/OmegaHub/actions/workflows/phone-agent-ci.yml).
+2. Abre la ejecución más reciente de la rama `arena/95f82923-omegahub`.
+3. Baja hasta **Artifacts** y descarga `phone-agent-debug-apk`.
+4. Abre el ZIP descargado, extrae `app-debug.apk` y tócalo para instalar. Si Android pregunta, permite a Firefox (o a la aplicación de Archivos) instalar apps para esta vez.
+5. Abre Phone Agent, configura Supabase en **Ajustes → Conexión de Supabase**, inicia sesión y concede los permisos de la §6.
+
+El artefacto es un **APK debug de prueba**, no una versión de Play Store. Se compila sin credenciales; la URL y clave pública se introducen desde el teléfono en Ajustes, cifradas en el almacenamiento privado de la app. Los artefactos de Actions caducan a los 14 días: si el enlace expiró, abre la ejecución más reciente.
+
+Android Studio/USB siguen siendo útiles para quien desarrolla en un ordenador, pero no son pasos que tú tengas que hacer.
 
 ---
 
 ## 5. COSAS QUE EL USUARIO DEBE CONECTAR (la lista exacta)
 
-### 5.1 Supabase URL → `android-app/local.properties`
-### 5.2 Supabase Anon Key → el mismo archivo
-Copia `android-app/local.properties.example` como `android-app/local.properties` y rellena:
-```properties
-SUPABASE_URL=https://TU-PROYECTO.supabase.co
-SUPABASE_ANON_KEY=eyJ...tu-anon-key
-```
-> `local.properties` está en `.gitignore` y **no se sube a git**. Android Studio puede añadir su `sdk.dir` la primera vez que abras el proyecto: conserva las dos líneas de Supabase al final. Alternativa: variables de entorno `SUPABASE_URL`/`SUPABASE_ANON_KEY` al compilar.
+### 5.1 URL y clave pública de Supabase → Ajustes de la app
+En **Ajustes → 1. Conexión de Supabase**, pega la **Project URL** y la clave **anon/publicable** de `Project Settings → API` en Supabase. Pulsa **Iniciar sesión** o **Crear cuenta** para guardar la conexión cifrada y autenticarte.
+
+> No pegues la clave `service_role` ni una clave `sb_secret_`: dan acceso de administrador y no deben estar en una app de teléfono. La app la rechaza. `local.properties` sigue disponible para desarrollo, pero no lo necesitas para el APK de prueba.
 
 ### 5.3 Anthropic API Key → secreto de Supabase (recomendado) o Ajustes de la app
 - **Recomendado (backend):** `supabase secrets set ANTHROPIC_API_KEY='sk-ant-...'` (paso 3.4). La app jamás ve la clave.
-- **Alternativa MVP (sin desplegar funciones):** en la app, **Ajustes → Anthropic API Key**. Se guarda con `EncryptedSharedPreferences` y el `LLMRouter` llama a Claude directamente desde el teléfono cuando las Edge Functions fallan. Las sesiones en este modo son locales (sin filas en DB).
+- **Alternativa para probar sin desplegar las funciones de IA:** en la app, **Ajustes → Anthropic API Key**. Se guarda cifrada y el `LLMRouter` llama a Claude directamente desde el teléfono. **Aun así necesitas el proyecto y la base de datos de Supabase** para iniciar sesión y cargar las apps autorizadas; las sesiones creadas en modo directo no se guardan en la tabla remota.
 
 ### 5.4 Sesión de Supabase Auth → Ajustes de la app
-En **Ajustes → 1. Cuenta de Supabase** pon tu email y contraseña y pulsa **Iniciar sesión** (o **Crear cuenta** la primera vez). La app guarda el token cifrado en `EncryptedSharedPreferences` y lo usa en todas las llamadas, así `auth.uid()` existe en el servidor y el RLS te deja leer y guardar tus datos. El **User ID** se rellena automáticamente.
+En **Ajustes → 2. Cuenta de Supabase** pon tu email y contraseña y pulsa **Iniciar sesión** (o **Crear cuenta** la primera vez). La app guarda el token cifrado en `EncryptedSharedPreferences` y lo usa en todas las llamadas, así `auth.uid()` existe en el servidor y el RLS te deja leer y guardar tus datos. El **User ID** se rellena automáticamente.
 
 > ¿Por qué no basta con pegar el UUID? Porque el UUID solo identifica; no autentica. Sin token, PostgREST te trata como anónimo y las 11 políticas `auth.uid() = user_id` devuelven cero filas. Por eso la app lo comprueba antes de cada operación y te avisa con un mensaje claro en vez de fallar en silencio.
 
@@ -223,9 +228,9 @@ La pantalla principal muestra una lista ✅/❌ con el estado de cada uno. Hazlo
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| La app dice "Supabase no está configurado" | Falta `local.properties` o se compiló antes de crearlo | Crea `android-app/local.properties` (§5.1) y vuelve a compilar (Build → Rebuild) |
+| La app dice "Supabase no está configurado" | Aún no has introducido URL y clave pública | Ajustes → Conexión de Supabase; pega ambas y vuelve a iniciar sesión |
 | `USER_NOT_FOUND` al hablar | El User ID de Ajustes no existe en Supabase Auth | Crea el usuario (§3.3) y pega su UUID exacto |
-| "No has iniciado sesión en Supabase" | Falta el login (o el token caducó) | Ajustes → Cuenta → **Iniciar sesión**. Sin sesión, el RLS oculta tus apps autorizadas |
+| "No has iniciado sesión en Supabase" | Falta el login (o el token caducó) | Ajustes → **2. Cuenta de Supabase** → **Iniciar sesión**. Sin sesión, el RLS oculta tus apps autorizadas |
 | "No hay ninguna app autorizada" pese a haberlas marcado | Sesión caducada, o no se llegó a guardar | Inicia sesión otra vez y vuelve a **Guardar en Supabase**; ejecuta el SQL 001 si aún no lo hiciste |
 | `new row violates row-level security` al guardar | Estás escribiendo sin sesión válida | Inicia sesión; el botón Guardar usa tu token |
 | Las Edge Functions devuelven 404 | No desplegadas o nombre distinto | Despliega con los nombres exactos: `plan-task`, `verify-and-next`, `complete-session`, `check-alerts` |
@@ -328,7 +333,7 @@ phone-agent/
 - **Autonomía por niveles:** `read` (solo lee), `draft` (escribe pero todo envío pide confirmación humana), `act` (ejecuta lo permitido). Se configura en Ajustes o en `capability_config`.
 - **La API key de Anthropic vive en el servidor** (secreto de Supabase). La app solo conoce la *anon key* pública de Supabase + RLS. El modo local con clave en el teléfono es opcional y la guarda cifrada.
 - **Screenshots:** bucket privado, políticas por usuario y **auto-borrado a las 24 h** (`delete_old_screenshots()` + `check-alerts`).
-- **Sin hardcodeos:** URL/claves en `local.properties`, ajustes sensibles en `EncryptedSharedPreferences`, secretos en Supabase.
+- **Sin hardcodeos:** URL y clave pública en `EncryptedSharedPreferences` (o `local.properties` solo para desarrollo); claves privadas de API en el secreto de Supabase o, para pruebas, en las preferencias cifradas del teléfono.
 - **Trazabilidad total:** cada sesión, paso, verificación y evento queda en PostgreSQL (`agent_sessions`, `session_steps`, `event_log`).
 
 ---

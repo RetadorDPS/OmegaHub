@@ -81,18 +81,30 @@ jobs:
             echo "SUPABASE_ANON_KEY=ci-placeholder-key"
           } > local.properties
 
-      - name: Tests unitarios (lógica de seguridad, macros, modelos)
-        run: gradle --no-daemon --stacktrace testDebugUnitTest
-
-      - name: Compilar APK de debug
+      - name: Compilar APK de debug para probar en el teléfono
         run: gradle --no-daemon --stacktrace assembleDebug
 
-      - name: Resultados de los tests
+      # APK sin credenciales ni firma de publicación. El proyecto se configura
+      # desde Ajustes al instalarlo; el artefacto sirve para pruebas personales.
+      - name: Descargar APK de prueba
+        uses: actions/upload-artifact@v4
+        with:
+          name: phone-agent-debug-apk
+          path: phone-agent/android-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Tests unitarios (lógica de seguridad, macros, modelos)
+        run: gradle --no-daemon --stacktrace testDebugUnitTest 2>&1 | tee gradle-tests.log
+
+      - name: Resultados y diagnóstico de los tests
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: android-test-reports
-          path: phone-agent/android-app/app/build/reports/tests/
+          path: |
+            phone-agent/android-app/app/build/reports/tests/
+            phone-agent/android-app/gradle-tests.log
           if-no-files-found: ignore
 
   # ── Edge Functions: Deno ──────────────────────────────────────────────────
