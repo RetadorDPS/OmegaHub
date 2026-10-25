@@ -16,12 +16,10 @@ on:
       - 'scripts/build-pages.mjs'
       - '.github/workflows/phone-agent-ci.yml'
   workflow_dispatch:
-  release:
-    types: [published]
 
-# Dos pushes seguidos en la misma rama: el primero ya no interesa.
+# Separa ejecuciones por ref y evento para evitar cancelaciones cruzadas.
 concurrency:
-  group: phone-agent-${{ github.ref }}
+  group: phone-agent-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -126,11 +124,11 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Adjuntar APK al release para descarga directa
-        if: github.event_name == 'release' && steps.assemble.outcome == 'success'
+      - name: Publicar APK descargable directamente
+        if: github.ref == 'refs/heads/arena/95f82923-omegahub' && steps.assemble.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" app/build/outputs/apk/debug/app-debug.apk --repo "$GITHUB_REPOSITORY" --clobber
+        run: gh release upload phone-agent-test-2026-10-25 app/build/outputs/apk/debug/app-debug.apk --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Tests unitarios (lógica de seguridad, macros, modelos)
         if: steps.assemble.outcome == 'success'
