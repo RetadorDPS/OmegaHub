@@ -12,7 +12,7 @@ import com.phoneagent.models.VerificationResult
 import io.github.jan.supabase.gotrue.Auth
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.currentSessionOrNull
-import io.github.jan.supabase.gotrue.providers.Email
+import io.github.jan.supabase.gotrue.providers.builtin.Email
 import io.github.jan.supabase.gotrue.signInWith
 import io.github.jan.supabase.gotrue.signOut
 import io.github.jan.supabase.gotrue.signUpWith
@@ -116,12 +116,16 @@ class SupabaseClient(private val context: Context) {
         if (!isConfigured()) throw SupabaseException("Supabase no configurado. Abre Ajustes y completa la conexión de Supabase.", "NOT_CONFIGURED")
         if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
         return try {
-            val session = sdkClient.auth.signInWith(Email) {
+            sdkClient.auth.signInWith(Email) {
                 this.email = email
                 this.password = password
             }
-            persistSession(session.user?.id, session.accessToken, session.user?.email ?: email)
-            AuthResult(session.user?.id.orEmpty(), session.user?.email ?: email, false)
+            val session = sdkClient.auth.currentSessionOrNull()
+                ?: throw SupabaseException("Supabase no devolvió una sesión tras iniciar sesión.", "AUTH_NO_SESSION")
+            val userId = session.user?.id.orEmpty()
+            val userEmail = session.user?.email ?: email
+            persistSession(userId, session.accessToken, userEmail)
+            AuthResult(userId, userEmail, false)
         } catch (e: Exception) {
             throw SupabaseException("No se pudo iniciar sesión: ${e.message ?: e::class.java.simpleName}. " +
                 "Revisa email/contraseña y que el usuario exista en Supabase > Authentication.", "AUTH_FAILED")
@@ -133,13 +137,15 @@ class SupabaseClient(private val context: Context) {
         if (!isConfigured()) throw SupabaseException("Supabase no configurado. Abre Ajustes y completa la conexión de Supabase.", "NOT_CONFIGURED")
         if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
         return try {
-            val session = sdkClient.auth.signUpWith(Email) {
+            val createdUser = sdkClient.auth.signUpWith(Email) {
                 this.email = email
                 this.password = password
             }
-            val id = session.user?.id.orEmpty()
-            persistSession(id.ifBlank { null }, session.accessToken, email)
-            AuthResult(id, email, session.accessToken.isNullOrBlank())
+            val session = sdkClient.auth.currentSessionOrNull()
+            val id = session?.user?.id ?: createdUser?.id.orEmpty()
+            val userEmail = session?.user?.email ?: createdUser?.email ?: email
+            persistSession(id.ifBlank { null }, session?.accessToken, userEmail)
+            AuthResult(id, userEmail, session == null)
         } catch (e: Exception) {
             throw SupabaseException("No se pudo crear la cuenta: ${e.message ?: e::class.java.simpleName}", "SIGNUP_FAILED")
         }
