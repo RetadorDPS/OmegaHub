@@ -69,7 +69,8 @@ dependencies {
     // 2.7.0 final no se publicó en Maven Central; beta-1 es la versión 2.7 disponible.
     implementation(platform("io.github.jan-tennert.supabase:bom:2.7.0-beta-1"))
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
-    implementation("io.github.jan-tennert.supabase:auth-kt")
+    // En supabase-kt 2.x el módulo de Auth aún se llamaba gotrue-kt.
+    implementation("io.github.jan-tennert.supabase:gotrue-kt")
     implementation("io.github.jan-tennert.supabase:functions-kt")
     implementation("io.github.jan-tennert.supabase:storage-kt")
     implementation("io.ktor:ktor-client-okhttp:2.3.12")
