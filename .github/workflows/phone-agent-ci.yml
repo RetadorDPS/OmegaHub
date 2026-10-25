@@ -154,7 +154,24 @@ jobs:
       # deno check resuelve los imports de esm.sh y verifica tipos. Es lo mismo
       # que `supabase functions deploy` hace antes de subir.
       - name: Verificar tipos
-        run: deno check --allow-all functions/*/*.ts
+        shell: bash
+        run: |
+          set +e
+          deno check --allow-all functions/*/*.ts > deno-check.log 2>&1
+          result=$?
+          cat deno-check.log
+          if [ "$result" -ne 0 ]; then
+            {
+              echo '### Error en deno check'
+              echo '```text'
+              cat deno-check.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            grep -E 'error:|TS[0-9]+|Cannot |Property |not assignable|No overload|Could not' deno-check.log | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            exit "$result"
+          fi
 
       - name: Lint
         run: deno lint functions/
