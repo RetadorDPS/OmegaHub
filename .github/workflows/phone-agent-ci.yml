@@ -157,7 +157,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          deno check --allow-all functions/*/*.ts > deno-check.log 2>&1
+          deno check functions/*/*.ts > deno-check.log 2>&1
           result=$?
           cat deno-check.log
           if [ "$result" -ne 0 ]; then
