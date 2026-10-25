@@ -29,6 +29,9 @@
         <Button android:id="@+id/btnSettings" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="8dp"
             android:text="Ajustes" />
+        <Button android:id="@+id/btnPermissionSetup" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="20dp"
+            android:text="Configurar permisos del teléfono" />
         <TextView android:id="@+id/tvPermissions" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="24dp"
             android:textSize="13sp" android:text="Comprobando permisos…" />

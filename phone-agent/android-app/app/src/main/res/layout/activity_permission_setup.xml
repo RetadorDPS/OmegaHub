@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:padding="20dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Permisos del teléfono" android:textSize="24sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:textSize="14sp"
+            android:text="Toca cada botón. Phone Agent abrirá el aviso o el lugar exacto de Ajustes y te mostrará para qué sirve. Android no permite aceptar Accesibilidad o la burbuja por ti: debes activarlas tú." />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:text="Necesarios para usar el agente" android:textStyle="bold" android:textSize="17sp" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="Micrófono" android:textStyle="bold" />
+        <TextView android:id="@+id/tvMicrophoneStatus" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Comprobando…" />
+        <Button android:id="@+id/btnMicrophone" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Permitir micrófono" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="Accesibilidad" android:textStyle="bold" />
+        <TextView android:id="@+id/tvAccessibilityStatus" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Comprobando…" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="12sp" android:text="En la pantalla que se abre: busca Phone Agent, entra y activa «Usar el servicio». Es necesario para leer y tocar únicamente las apps que autorices." />
+        <Button android:id="@+id/btnAccessibility" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Abrir Accesibilidad" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="Compartir pantalla" android:textStyle="bold" />
+        <TextView android:id="@+id/tvCaptureStatus" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Comprobando…" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textSize="12sp" android:text="No tienes que buscarlo: Android te preguntará automáticamente al empezar una tarea. La app necesita ver la pantalla durante esa sesión para entender lo que pides." />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" android:text="Opcionales" android:textStyle="bold" android:textSize="17sp" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="Burbuja flotante" android:textStyle="bold" />
+        <TextView android:id="@+id/tvOverlayStatus" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Comprobando…" />
+        <Button android:id="@+id/btnOverlay" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Permitir burbuja flotante" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="Avisos de tareas" android:textStyle="bold" />
+        <TextView android:id="@+id/tvNotificationsStatus" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Comprobando…" />
+        <Button android:id="@+id/btnNotifications" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Permitir notificaciones" />
+
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="Alarmas exactas" android:textStyle="bold" />
+        <TextView android:id="@+id/tvExactAlarmStatus" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Comprobando…" />
+        <Button android:id="@+id/btnExactAlarm" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="Permitir alarmas exactas" />
+
+        <Button android:id="@+id/btnDone" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="24dp"
+            android:text="Volver a Phone Agent" />
+    </LinearLayout>
+</ScrollView>

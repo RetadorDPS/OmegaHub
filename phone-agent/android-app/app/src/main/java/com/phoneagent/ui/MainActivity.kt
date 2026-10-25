@@ -91,6 +91,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+        binding.btnPermissionSetup.setOnClickListener { openPermissionSetup() }
         binding.btnMacros.setOnClickListener {
             startActivity(Intent(this, MacroActivity::class.java))
         }
@@ -143,12 +144,7 @@ class MainActivity : AppCompatActivity() {
             if (!container.accessibility.isConnected()) {
                 val mensaje = "Falta activar el servicio de accesibilidad. Sin ese permiso no puedo controlar las apps."
                 binding.tvLastResult.text = mensaje
-                MaterialAlertDialogBuilder(this@MainActivity)
-                    .setTitle("Falta un permiso necesario")
-                    .setMessage("Phone Agent necesita Accesibilidad para leer la app autorizada y ejecutar los toques que tú pidas. No lo actives si no confías en esta compilación. Puedes hacerlo después en Ajustes del teléfono → Accesibilidad → Phone Agent.")
-                    .setPositiveButton("Abrir Ajustes") { _, _ -> container.intentLauncher.openAccessibilitySettings() }
-                    .setNegativeButton("Ahora no", null)
-                    .show()
+                openPermissionSetup()
                 return@launch
             }
             if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO)
@@ -329,18 +325,20 @@ class MainActivity : AppCompatActivity() {
                 appendLine("${mark(overlay)} Burbuja flotante (overlay)")
                 append(when {
                     !authOk -> "Empieza creando o iniciando sesión en tu cuenta desde Ajustes."
-                    else -> "Toca «Apps autorizadas» para autorizar Claude / ChatGPT / WhatsApp."
+                    !mic || !accSettings || !accConnected || !capture -> "Toca «Configurar permisos»; te llevaré a cada ajuste necesario."
+                    else -> "Toca «Apps autorizadas» para elegir qué apps puede usar el agente."
                 })
             }
+            binding.btnPermissionSetup.visibility = View.VISIBLE
             binding.tvPermissions.setOnClickListener {
-                when {
-                    !supabaseOk || !authOk -> startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-                    !accSettings -> container.intentLauncher.openAccessibilitySettings()
-                    !mic -> requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
-                    else -> startActivity(Intent(this@MainActivity, DriverManagerActivity::class.java))
-                }
+                if (!supabaseOk || !authOk) startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                else openPermissionSetup()
             }
         }
+    }
+
+    private fun openPermissionSetup() {
+        startActivity(Intent(this, PermissionSetupActivity::class.java))
     }
 
     private fun mark(ok: Boolean): String = if (ok) "✅" else "❌"

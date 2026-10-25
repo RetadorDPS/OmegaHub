@@ -169,29 +169,17 @@ Guía completa en la §6. Resumen: micrófono, servicio de accesibilidad, captur
 
 ---
 
-## 6. Permisos del teléfono, paso a paso
+## 6. Permisos del teléfono, guiados desde la app
 
-La pantalla principal muestra una lista ✅/❌ con el estado de cada uno. Hazlos en este orden:
+En la pantalla principal toca **Configurar permisos del teléfono**. La app muestra qué está concedido, para qué sirve cada permiso y abre el aviso o la pantalla correspondiente de Android. Al volver, actualiza el estado automáticamente.
 
-### 6.1 Micrófono
-1. Toca el botón grande **🎤 HABLAR** → Android pide el permiso → **Permitir**. (O: Ajustes del teléfono → Apps → Phone Agent → Permisos → Micrófono → Permitir.)
+- **Micrófono:** pulsa **Permitir micrófono** y luego **Permitir** en el diálogo de Android.
+- **Accesibilidad (necesario):** pulsa **Abrir Accesibilidad**, busca **Phone Agent** en la lista que abre y activa **Usar el servicio**. Android exige que lo actives tú en Ajustes; ninguna app puede aceptar este permiso por ti. Permite leer y controlar la pantalla, pero `PermissionGate` limita las acciones a las apps que autorices en la lista.
+- **Captura de pantalla:** no hace falta buscarla en Ajustes. Al iniciar una tarea, Android pregunta si permites compartir la pantalla para esa sesión.
+- **Burbuja flotante:** opcional; pulsa el botón para abrir directamente su ajuste. Sin ella el agente sigue funcionando.
+- **Avisos y alarmas exactas:** opcionales y solo para avisos de tareas programadas. La guía los muestra únicamente cuando tu versión de Android los requiere.
 
-### 6.2 Servicio de accesibilidad (los "ojos y manos")
-1. Ajustes del teléfono → **Accesibilidad → Aplicaciones instaladas** (en Samsung: "Servicios instalados").
-2. Toca **Phone Agent — control por voz** → activa el interruptor.
-3. Android muestra un aviso genérico de seguridad ("Phone Agent puede ver tu pantalla…"): es exactamente para esto. Pulsa **Permitir** (en algunos fabricantes hay que esperar 10 s).
-4. Vuelve a la app: la línea "Servicio de accesibilidad" debe estar en ✅.
-
-> Esto solo permite leer/tocar. Qué apps puede tocar lo sigue decidiendo `PermissionGate` con tu whitelist. Sin este permiso el agente se niega a trabajar y te lo dice.
-
-### 6.3 Captura de pantalla (MediaProjection, los "ojos" de visión)
-1. Di tu primer comando con el micrófono: la app pedirá **"Phone Agent quiere grabar tu pantalla"** → **Iniciar ahora / Permitir una sola app**.
-2. Elige "Una sola app" si tu Android lo ofrece y selecciona la app destino cuando estés en ella, o pantalla completa para que el agente pueda cambiar de app.
-3. Este permiso se concede **por sesión de captura**: si reinicias el teléfono o detienes el servicio, la app lo vuelve a pedir recordando tu comando.
-
-### 6.4 Burbuja flotante (overlay)
-1. Ajustes del teléfono → **Apps → Acceso especial → Mostrar sobre otras apps** → Phone Agent → **Permitir**.
-2. Sin este permiso el agente trabaja igual (solo pierdes la burbuja de estado sobre las demás apps).
+No existe un botón para aceptar todos estos permisos de golpe: Android reserva Accesibilidad, captura de pantalla y “mostrar sobre otras apps” para una aprobación explícita. La guía evita que tengas que buscarlos por los menús.
 
 ### 6.5 Autorizar las apps (whitelist)
 1. En la app: **Apps autorizadas**. Se cruzan los drivers de Supabase con lo instalado en tu teléfono.
