@@ -62,19 +62,21 @@ Un agente de IA que opera un teléfono Android **por voz**: le das una instrucci
 | Qué | Para qué | Dónde |
 |---|---|---|
 | Un teléfono Android 10+ (API 29+) real | Voz, accesibilidad y captura de pantalla | — |
-| Cuenta y proyecto de Supabase | Base de datos, funciones y almacenamiento | https://supabase.com |
-| Clave de API de Anthropic | Claude como motor de planificación/visión; el consumo de API puede facturarse aparte | https://console.anthropic.com |
+| Backend Supabase compartido | Ya está configurado para la app; los usuarios solo crean su cuenta dentro de Phone Agent | https://supabase.com |
+| Clave Gemini API (solo responsable del backend) | Necesaria para habilitar planificación y visión; el nivel gratuito tiene cuotas y condiciones de datos | https://aistudio.google.com/apikey |
 | Cuenta de GitHub con acceso al repositorio | Descargar el APK que genera GitHub Actions | https://github.com/RetadorDPS/OmegaHub/actions |
 
 **No necesitas Android Studio, ordenador ni cable USB para instalar la versión de prueba.** GitHub compila el APK en la nube y lo deja como archivo descargable. Android Studio y Supabase CLI solo hacen falta para desarrollo avanzado; no para instalar el APK.
 
-> La suscripción a Claude Code no equivale a una clave de API de Anthropic para esta app. No pegues claves en el chat. La app permite guardarlas cifradas en Ajustes; nunca uses la clave `service_role` de Supabase en el teléfono.
+> La suscripción a Claude Code no equivale a una clave de API de Anthropic. Los usuarios de Phone Agent no tienen que configurar claves de IA. La clave Gemini se añade una sola vez como secreto del backend; nunca la pegues en el chat ni en Ajustes del teléfono. Tampoco uses la clave `service_role` en la app.
 
 ---
 
-## 3. Montar Supabase (10 minutos)
+## 3. Backend de Phone Agent
 
-### 3.1 Crear el proyecto
+**El backend compartido `Phone Agent` ya está creado en Supabase (región UE), con esquema, seed y las cuatro Edge Functions protegidas con JWT.** Los pasos 3.1 y 3.2 siguientes son solo para quien quiera reproducir la infraestructura en otro proyecto; no son necesarios para instalar ni usar la app.
+
+### 3.1 Crear otro proyecto (solo desarrollo)
 1. Entra en https://supabase.com → **New project**. Nombre: `phone-agent`. Guarda la contraseña de la DB.
 2. Espera a que el proyecto esté activo y entra en **Project Settings → API**. Apunta dos valores (los necesitarás en la §5):
    - **Project URL** → `https://xxxxx.supabase.co`
@@ -103,7 +105,9 @@ select public.seed_initial_data('TU-UUID-DE-USUARIO');
 ```
 No hace falta: al autorizar una app en Driver Manager, la app crea tu fila propia y deja el seed global intacto.
 
-### 3.4 Desplegar las Edge Functions + elegir el modelo de IA
+### 3.4 Funciones y modelo de IA
+
+Las cuatro Edge Functions ya están desplegadas en el proyecto compartido y requieren JWT de una cuenta autenticada. Los comandos de más abajo son para volver a desplegarlas tras cambiar el código.
 
 La app queda preconfigurada con la URL del proyecto compartido y su clave pública `publishable`; cada persona crea su cuenta en la app, sin crear un proyecto ni copiar claves. Esa clave pública no es un secreto: el acceso a datos se limita con RLS y las funciones exigen JWT de una cuenta autenticada y verifican la propiedad de cada sesión.
 
@@ -140,9 +144,9 @@ GitHub Actions construye un APK de prueba en cada cambio del proyecto. Para inst
 2. Abre la ejecución más reciente de la rama `arena/95f82923-omegahub`.
 3. Baja hasta **Artifacts** y descarga `phone-agent-debug-apk`.
 4. Abre el ZIP descargado, extrae `app-debug.apk` y tócalo para instalar. Si Android pregunta, permite a Firefox (o a la aplicación de Archivos) instalar apps para esta vez.
-5. Abre Phone Agent, configura Supabase en **Ajustes → Conexión de Supabase**, inicia sesión y concede los permisos de la §6.
+5. Abre Phone Agent, crea tu cuenta e inicia sesión. La conexión al proyecto compartido ya viene configurada; después concede los permisos de la §6.
 
-El artefacto es un **APK debug de prueba**, no una versión de Play Store. Se compila sin credenciales; la URL y clave pública se introducen desde el teléfono en Ajustes, cifradas en el almacenamiento privado de la app. Los artefactos de Actions caducan a los 90 días: si el enlace expiró, abre la ejecución más reciente.
+El artefacto es un **APK debug de prueba**, no una versión de Play Store. Incluye únicamente la URL y la clave pública `publishable` del proyecto compartido (no son secretos); nunca contiene la clave de servicio ni la clave de Gemini. Los artefactos de Actions caducan a los 90 días: si el enlace expiró, abre la ejecución más reciente.
 
 Android Studio/USB siguen siendo útiles para quien desarrolla en un ordenador, pero no son pasos que tú tengas que hacer.
 
@@ -150,10 +154,10 @@ Android Studio/USB siguen siendo útiles para quien desarrolla en un ordenador, 
 
 ## 5. COSAS QUE EL USUARIO DEBE CONECTAR (la lista exacta)
 
-### 5.1 URL y clave pública de Supabase → Ajustes de la app
-En **Ajustes → 1. Conexión de Supabase**, pega la **Project URL** y la clave **anon/publicable** de `Project Settings → API` en Supabase. Pulsa **Iniciar sesión** o **Crear cuenta** para guardar la conexión cifrada y autenticarte.
+### 5.1 Conexión con Supabase → ya configurada
+El APK de esta rama viene conectado al proyecto compartido. No crees otro proyecto ni copies una URL o clave. Si abres **Ajustes → Conexión de Supabase**, los campos ya aparecen rellenados.
 
-> No pegues la clave `service_role` ni una clave `sb_secret_`: dan acceso de administrador y no deben estar en una app de teléfono. La app la rechaza. `local.properties` sigue disponible para desarrollo, pero no lo necesitas para el APK de prueba.
+> La clave que lleva la app es la pública `publishable`, protegida por RLS; no contiene permisos de administrador. Nunca pegues en el teléfono ni compartas `service_role`, `sb_secret_` ni la clave de Gemini. `local.properties` queda solo para desarrolladores.
 
 ### 5.3 Proveedor de IA (solo el responsable del backend)
 
