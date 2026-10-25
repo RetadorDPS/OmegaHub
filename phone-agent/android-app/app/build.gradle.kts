@@ -70,21 +70,11 @@ dependencies {
     // Red: OkHttp (REST de Supabase PostgREST + Edge Functions + Claude directo)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    // Supabase Kotlin SDK (cliente/Auth/Storage; el transporte fino va por OkHttp
-    // para controlar timeouts y errores de las Edge Functions byte a byte)
-    // 2.7.0 final no se publicó en Maven Central; beta-1 es la versión 2.7 disponible.
-    implementation(platform("io.github.jan-tennert.supabase:bom:2.7.0-beta-1"))
-    implementation("io.github.jan-tennert.supabase:postgrest-kt")
-    // En supabase-kt 2.x el módulo de Auth aún se llamaba gotrue-kt.
-    implementation("io.github.jan-tennert.supabase:gotrue-kt")
-    implementation("io.github.jan-tennert.supabase:functions-kt")
-    implementation("io.github.jan-tennert.supabase:storage-kt")
-    implementation("io.ktor:ktor-client-okhttp:2.3.12")
-    // Persistencia local: Room (caché de drivers/config) + prefs cifradas
+    // Supabase Auth/PostgREST/Functions se consumen por REST con OkHttp.
+    // Persistencia local: Room + Android Keystore para cifrar tokens
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Tests de JVM. org.json es necesario porque en Android viene del framework
     // y en un test local el stub lanza "not mocked" en cuanto se usa.

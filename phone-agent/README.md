@@ -162,7 +162,7 @@ La clave pública del backend va integrada en el APK y no es una clave administr
 La persona que publica Phone Agent configura Gemini o Anthropic una sola vez como secreto en Supabase (§3.4). Cada usuario no necesita su propia cuenta de API ni pegar una clave. Para una prueba gratis, Gemini requiere una clave de Google AI Studio; el nivel gratuito tiene cuotas y condiciones de uso de datos, así que evita capturas con información privada.
 
 ### 5.4 Cuenta personal → Ajustes
-En **Ajustes**, escribe tu correo y contraseña y pulsa **Crear cuenta** la primera vez. La sesión se inicia automáticamente y la app guarda su token de forma cifrada. Para volver a entrar en otro momento, usa **Iniciar sesión**. No tienes que conocer ni copiar el User ID.
+En **Ajustes**, escribe tu correo y contraseña y pulsa **Crear cuenta** la primera vez. La sesión se inicia automáticamente y la app guarda los tokens de sesión cifrados con Android Keystore. Para volver a entrar en otro momento, usa **Iniciar sesión**. No tienes que conocer ni copiar el User ID.
 
 ### 5.5 Permisos del teléfono
 Guía completa en la §6. Resumen: micrófono, servicio de accesibilidad, captura de pantalla, burbuja flotante y las apps autorizadas marcadas en Driver Manager.
@@ -398,7 +398,7 @@ El valor es que **la tarea no se olvida**: llega a la hora y arrancarla cuesta u
 - `AlarmManager.setExactAndAllowWhileIdle`, que dispara aunque el móvil esté en Doze.
 - En Android 12+ la alarma exacta requiere permiso del usuario; si no está concedido se degrada a `setAndAllowWhileIdle` (inexacta) **en vez de reventar**, y se registra el aviso.
 - Las alarmas no sobreviven a un reinicio: `BootCompletedReceiver` las rearma, y `PhoneAgentApp.onCreate()` las rearma otra vez al abrir la app, porque varios fabricantes filtran el broadcast de arranque.
-- Las tareas se guardan cifradas en `EncryptedSharedPreferences`, no en una tabla nueva: el esquema se queda en las 8 tablas del diseño.
+- Las tareas se guardan cifradas en `Android Keystore`, no en una tabla nueva: el esquema se queda en las 8 tablas del diseño.
 - Posponer mueve el disparo real y rearma (y desactiva la repetición diaria: si la posones, no quieres que además te salte mañana sin avisar).
 
 ---

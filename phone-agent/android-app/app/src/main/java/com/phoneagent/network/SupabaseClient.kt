@@ -9,13 +9,6 @@ import com.phoneagent.models.DriverConfig
 import com.phoneagent.models.Macro
 import com.phoneagent.models.Project
 import com.phoneagent.models.VerificationResult
-import io.github.jan.supabase.gotrue.Auth
-import io.github.jan.supabase.gotrue.auth
-import io.github.jan.supabase.gotrue.providers.builtin.Email
-import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.functions.Functions
-import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.storage.Storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -42,11 +35,8 @@ data class PlanTaskResponse(
 /**
  * Cliente de Supabase de Phone Agent.
  *
- * Dos vías, un solo sitio:
- *  - SDK oficial (createSupabaseClient) inicializado con Postgrest/Auth/
- *    Functions/Storage: sesión de Auth y acceso tipado futuro.
- *  - REST fino con OkHttp contra PostgREST y las Edge Functions: control
- *    total de timeouts (el LLM puede tardar 30-60 s) y de mensajes de error.
+ * Una sola vía REST con OkHttp para Auth, PostgREST y Edge Functions: así la
+ * respuesta de registro y la persistencia de tokens quedan bajo control directo.
  *
  * El APK de distribución apunta al backend compartido con la configuración
  * pública de BuildConfig. El usuario no configura proyectos ni claves. Su JWT
@@ -62,113 +52,188 @@ class SupabaseClient(private val context: Context) {
     fun isConfigured(): Boolean = supabaseUrl.startsWith("https://") && anonKey.length > 20 &&
         !supabaseUrl.contains("TU-PROYECTO") && !supabaseUrl.contains(".invalid")
 
-    /** Cliente del SDK oficial, recreado si el usuario cambia el proyecto desde Ajustes. */
-    @Volatile private var sdkConfigKey: String? = null
-    @Volatile private var sdkClientCache: io.github.jan.supabase.SupabaseClient? = null
-
-    val sdkClient: io.github.jan.supabase.SupabaseClient
-        get() {
-            check(isConfigured()) { "La conexión del backend compartido no está incluida en esta versión." }
-            val url = supabaseUrl
-            val key = anonKey
-            val fingerprint = "$url\n$key"
-            return synchronized(this) {
-                if (sdkConfigKey != fingerprint || sdkClientCache == null) {
-                    sdkClientCache = createSupabaseClient(supabaseUrl = url, supabaseKey = key) {
-                        install(Postgrest)
-                        install(Auth)
-                        install(Functions)
-                        install(Storage)
-                    }
-                    sdkConfigKey = fingerprint
-                }
-                checkNotNull(sdkClientCache)
-            }
-        }
-
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)   // el LLM con visión puede tardar
         .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
-    // ── Autenticación real (imprescindible: sin JWT, auth.uid() es NULL en el
-    //    servidor y RLS bloquea TODAS las filas del usuario) ─────────────────
+    // ── Autenticación persistente por REST ─────────────────────────────────
 
     /** Resultado de login/registro. */
     data class AuthResult(val userId: String, val email: String, val needsEmailConfirmation: Boolean)
 
-    /**
-     * Inicia sesión con email+password. Al terminar hay un JWT real, así que
-     * auth.uid() existe en el servidor y las policies RLS funcionan.
-     * Persiste user_id y token cifrados para reutilizarlos mientras duren.
-     */
-    suspend fun signIn(email: String, password: String): AuthResult {
-        if (!isConfigured()) throw SupabaseException("La conexión del servicio no está incluida en esta versión de Phone Agent.", "NOT_CONFIGURED")
-        if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
-        return try {
-            sdkClient.auth.signInWith(Email) {
-                this.email = email
-                this.password = password
-            }
-            val session = sdkClient.auth.currentSessionOrNull()
-                ?: throw SupabaseException("Supabase no devolvió una sesión tras iniciar sesión.", "AUTH_NO_SESSION")
-            val userId = session.user?.id.orEmpty()
-            val userEmail = session.user?.email ?: email
-            persistSession(userId, session.accessToken, userEmail)
-            AuthResult(userId, userEmail, false)
-        } catch (e: Exception) {
-            throw SupabaseException("No se pudo iniciar sesión: ${e.message ?: e::class.java.simpleName}. " +
-                "Comprueba el correo y la contraseña; si aún no tienes cuenta, pulsa Crear cuenta.", "AUTH_FAILED")
-        }
+    private fun authUrl(path: String, query: Map<String, String> = emptyMap()): okhttp3.HttpUrl {
+        val builder = "$supabaseUrl/auth/v1/$path".toHttpUrl().newBuilder()
+        query.forEach { (name, value) -> builder.addQueryParameter(name, value) }
+        return builder.build()
     }
 
-    /** Crea la cuenta. Si el proyecto exige confirmar el email, hay que hacerlo antes de usar la app. */
+    private fun authPost(
+        path: String,
+        payload: JSONObject,
+        query: Map<String, String> = emptyMap(),
+        bearerToken: String = anonKey,
+    ): Request = Request.Builder()
+        .url(authUrl(path, query))
+        .header("apikey", anonKey)
+        .header("Authorization", "Bearer $bearerToken")
+        .header("Content-Type", "application/json")
+        .post(payload.toString().toRequestBody("application/json".toMediaType()))
+        .build()
+
+    /**
+     * Registra la cuenta directamente en Supabase Auth y persiste el JWT y el
+     * refresh token cifrados. No depende de la sesión en memoria de un SDK.
+     */
     suspend fun signUp(email: String, password: String): AuthResult {
         if (!isConfigured()) throw SupabaseException("La conexión del servicio no está incluida en esta versión de Phone Agent.", "NOT_CONFIGURED")
-        if (email.isBlank() || password.isBlank()) throw SupabaseException("Email y contraseña son obligatorios", "BAD_INPUT")
+        if (email.isBlank() || password.isBlank()) throw SupabaseException("Escribe tu correo y contraseña", "BAD_INPUT")
+        if (password.length < 6) throw SupabaseException("La contraseña debe tener al menos 6 caracteres", "WEAK_PASSWORD")
         return try {
-            val createdUser = sdkClient.auth.signUpWith(Email) {
-                this.email = email
-                this.password = password
+            val response = execute(authPost("signup", JSONObject().put("email", email).put("password", password)))
+            val user = response.optJSONObject("user") ?: response
+            val accessToken = response.optString("access_token").ifBlank { null }
+            val userId = user.optString("id").ifBlank { null }
+            val userEmail = user.optString("email").ifBlank { email }
+            if (accessToken != null && userId != null) {
+                try {
+                    persistSession(
+                        userId = userId,
+                        accessToken = accessToken,
+                        refreshToken = response.optString("refresh_token").ifBlank { null },
+                        expiresInSeconds = response.optLong("expires_in", 3600L),
+                        email = userEmail,
+                    )
+                } catch (e: Exception) {
+                    runCatching { clearAuthTokens() }
+                    throw SupabaseException(
+                        "La cuenta se creó en el servidor, pero Android no pudo guardar la sesión. Pulsa Iniciar sesión. (${e.message})",
+                        "SESSION_STORAGE",
+                    )
+                }
+                AuthResult(userId, userEmail, needsEmailConfirmation = false)
+            } else {
+                // Si la confirmación estuviera activada, no fingimos que ya hay sesión.
+                clearAuthTokens()
+                SecurePrefs.put(context, SecurePrefs.KEY_USER_EMAIL, userEmail)
+                AuthResult(userId.orEmpty(), userEmail, needsEmailConfirmation = true)
             }
-            val session = sdkClient.auth.currentSessionOrNull()
-            val id = session?.user?.id ?: createdUser?.id.orEmpty()
-            val userEmail = session?.user?.email ?: createdUser?.email ?: email
-            persistSession(id.ifBlank { null }, session?.accessToken, userEmail)
-            AuthResult(id, userEmail, session == null)
+        } catch (e: SupabaseException) {
+            throw e
         } catch (e: Exception) {
             throw SupabaseException("No se pudo crear la cuenta: ${e.message ?: e::class.java.simpleName}", "SIGNUP_FAILED")
         }
     }
 
-    suspend fun signOut() {
-        runCatching { sdkClient.auth.signOut() }
-        SecurePrefs.put(context, SecurePrefs.KEY_USER_JWT, null)
-        SecurePrefs.put(context, SecurePrefs.KEY_USER_ID, null)
+    /** Inicia sesión y guarda la sesión para que sobreviva al cierre de la app. */
+    suspend fun signIn(email: String, password: String): AuthResult {
+        if (!isConfigured()) throw SupabaseException("La conexión del servicio no está incluida en esta versión de Phone Agent.", "NOT_CONFIGURED")
+        if (email.isBlank() || password.isBlank()) throw SupabaseException("Escribe tu correo y contraseña", "BAD_INPUT")
+        return try {
+            val response = execute(authPost(
+                path = "token",
+                query = mapOf("grant_type" to "password"),
+                payload = JSONObject().put("email", email).put("password", password),
+            ))
+            val user = response.optJSONObject("user") ?: JSONObject()
+            val userId = user.optString("id").ifBlank { null }
+                ?: throw SupabaseException("El servidor no devolvió la cuenta. Prueba otra vez.", "AUTH_NO_USER")
+            val accessToken = response.optString("access_token").ifBlank { null }
+                ?: throw SupabaseException("El servidor no abrió la sesión. Comprueba el correo y la contraseña.", "AUTH_NO_SESSION")
+            val userEmail = user.optString("email").ifBlank { email }
+            try {
+                persistSession(
+                    userId = userId,
+                    accessToken = accessToken,
+                    refreshToken = response.optString("refresh_token").ifBlank { null },
+                    expiresInSeconds = response.optLong("expires_in", 3600L),
+                    email = userEmail,
+                )
+            } catch (e: Exception) {
+                runCatching { clearAuthTokens() }
+                throw SupabaseException(
+                    "El inicio de sesión funcionó, pero Android no pudo guardar la sesión. Inténtalo de nuevo. (${e.message})",
+                    "SESSION_STORAGE",
+                )
+            }
+            AuthResult(userId, userEmail, needsEmailConfirmation = false)
+        } catch (e: SupabaseException) {
+            throw e
+        } catch (e: Exception) {
+            throw SupabaseException("No se pudo iniciar sesión: ${e.message ?: e::class.java.simpleName}", "AUTH_FAILED")
+        }
     }
 
-    /** ¿Hay sesión utilizable (token del SDK o token persistido no caducado)? */
-    suspend fun isAuthenticated(): Boolean = resolveToken() != anonKey
+    /** Cierra la sesión en servidor si es posible y siempre limpia el teléfono. */
+    suspend fun signOut() {
+        val accessToken = SecurePrefs.get(context, SecurePrefs.KEY_USER_JWT).orEmpty()
+        if (accessToken.isNotBlank() && isConfigured()) {
+            runCatching { execute(authPost("logout", JSONObject(), bearerToken = accessToken)) }
+        }
+        clearAuthTokens()
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_EMAIL, null)
+    }
 
-    private fun persistSession(userId: String?, token: String?, email: String) {
-        userId?.ifBlank { null }?.let { SecurePrefs.put(context, SecurePrefs.KEY_USER_ID, it) }
-        token?.ifBlank { null }?.let { SecurePrefs.put(context, SecurePrefs.KEY_USER_JWT, it) }
-        email.let { SecurePrefs.put(context, SecurePrefs.KEY_USER_EMAIL, it) }
-        Log.i(TAG, "Sesión de Supabase Auth iniciada para $email")
+    /** ¿Hay una sesión vigente o se pudo renovar con el refresh token guardado? */
+    suspend fun isAuthenticated(): Boolean =
+        runCatching { resolveToken() != anonKey }.getOrDefault(false)
+
+    private fun persistSession(
+        userId: String,
+        accessToken: String,
+        refreshToken: String?,
+        expiresInSeconds: Long,
+        email: String,
+    ) {
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_ID, userId)
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_JWT, accessToken)
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_REFRESH_TOKEN, refreshToken)
+        val expiresAt = System.currentTimeMillis() + expiresInSeconds.coerceAtLeast(60L) * 1000L
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_TOKEN_EXPIRES_AT, expiresAt.toString())
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_EMAIL, email)
+        Log.i(TAG, "Sesión de Phone Agent guardada para $email")
+    }
+
+    private fun clearAuthTokens() {
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_ID, null)
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_JWT, null)
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_REFRESH_TOKEN, null)
+        SecurePrefs.put(context, SecurePrefs.KEY_USER_TOKEN_EXPIRES_AT, null)
     }
 
     /**
-     * Token para las llamadas. Prioridad:
-     *   1. Sesión viva del SDK (la refresca él solo).
-     *   2. Token persistido cifrado (mismo proceso o reinicio rápido).
-     *   3. anon key (solo sirve para leer filas globales y llamar funciones).
+     * Obtiene el JWT guardado y lo renueva antes de que caduque. Si la red falla,
+     * conserva el refresh token para poder volver a intentar más tarde.
      */
     private suspend fun resolveToken(): String {
-        runCatching { sdkClient.auth.currentSessionOrNull()?.accessToken?.ifBlank { null } }
-            .getOrNull()?.let { return it }
-        SecurePrefs.get(context, SecurePrefs.KEY_USER_JWT)?.ifBlank { null }?.let { return it }
-        return anonKey
+        val accessToken = SecurePrefs.get(context, SecurePrefs.KEY_USER_JWT)?.ifBlank { null }
+            ?: return anonKey
+        val expiresAt = SecurePrefs.get(context, SecurePrefs.KEY_USER_TOKEN_EXPIRES_AT)?.toLongOrNull()
+        if (expiresAt == null || expiresAt > System.currentTimeMillis() + 60_000L) return accessToken
+        val refreshToken = SecurePrefs.get(context, SecurePrefs.KEY_USER_REFRESH_TOKEN)?.ifBlank { null }
+            ?: run {
+                clearAuthTokens()
+                return anonKey
+            }
+        val response = execute(authPost(
+            path = "token",
+            query = mapOf("grant_type" to "refresh_token"),
+            payload = JSONObject().put("refresh_token", refreshToken),
+        ))
+        val renewedAccess = response.optString("access_token").ifBlank { null }
+            ?: throw SupabaseException("No se pudo renovar la sesión. Inicia sesión otra vez.", "REFRESH_NO_TOKEN")
+        val user = response.optJSONObject("user")
+        persistSession(
+            userId = user?.optString("id")?.ifBlank { null }
+                ?: SecurePrefs.get(context, SecurePrefs.KEY_USER_ID).orEmpty(),
+            accessToken = renewedAccess,
+            refreshToken = response.optString("refresh_token").ifBlank { refreshToken },
+            expiresInSeconds = response.optLong("expires_in", 3600L),
+            email = user?.optString("email")?.ifBlank { null }
+                ?: SecurePrefs.get(context, SecurePrefs.KEY_USER_EMAIL).orEmpty(),
+        )
+        return renewedAccess
     }
 
     private suspend fun baseRequest(url: okhttp3.HttpUrl): Request.Builder = Request.Builder()
@@ -182,9 +247,14 @@ class SupabaseClient(private val context: Context) {
             http.newCall(request).execute().use { res ->
                 val text = res.body?.string().orEmpty()
                 if (!res.isSuccessful) {
-                    val msg = runCatching { JSONObject(text).optString("error") }.getOrNull()
-                        ?.ifBlank { null } ?: text.take(300)
-                    val code = runCatching { JSONObject(text).optString("code") }.getOrNull()?.ifBlank { null }
+                    val errorBody = runCatching { JSONObject(text) }.getOrNull()
+                    val msg = errorBody?.optString("message")?.ifBlank { null }
+                        ?: errorBody?.optString("msg")?.ifBlank { null }
+                        ?: errorBody?.optString("error_description")?.ifBlank { null }
+                        ?: errorBody?.optString("error")?.ifBlank { null }
+                        ?: text.take(300)
+                    val code = errorBody?.optString("code")?.ifBlank { null }
+                        ?: errorBody?.optString("error_code")?.ifBlank { null }
                     throw SupabaseException("Supabase ${res.code}: $msg", code ?: "HTTP_${res.code}", res.code)
                 }
                 if (text.isBlank()) JSONObject() else runCatching { JSONObject(text) }

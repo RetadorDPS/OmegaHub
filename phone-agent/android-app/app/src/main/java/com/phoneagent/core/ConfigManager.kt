@@ -2,7 +2,10 @@ package com.phoneagent.core
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Base64
 import android.util.Log
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -12,8 +15,11 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import java.security.KeyStore
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import com.phoneagent.models.AutonomyLevel
 import com.phoneagent.models.DriverConfig
 import com.phoneagent.network.SupabaseClient
@@ -22,13 +28,14 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 /**
- * Preferencias CIFRADAS (EncryptedSharedPreferences): User ID, JWT opcional,
- * Anthropic API Key y ajustes de voz/autonomía. Las credenciales jamás van en
- * código ni en prefs normales.
+ * Preferencias locales. Los tokens y claves privadas se cifran con AES-GCM y
+ * una clave del Android Keystore; el resto son ajustes no secretos.
  */
 object SecurePrefs {
     const val KEY_USER_ID = "user_id"
     const val KEY_USER_JWT = "user_jwt"
+    const val KEY_USER_REFRESH_TOKEN = "user_refresh_token"
+    const val KEY_USER_TOKEN_EXPIRES_AT = "user_token_expires_at"
     const val KEY_SUPABASE_URL = "supabase_url"
     const val KEY_SUPABASE_ANON_KEY = "supabase_anon_key"
     const val KEY_ANTHROPIC_API_KEY = "anthropic_api_key"
@@ -38,32 +45,85 @@ object SecurePrefs {
     const val KEY_AUTONOMY = "autonomy"
     const val KEY_WAKE_ENABLED = "wake_enabled"
 
-    private const val FILE = "phoneagent_secure_prefs"
+    private const val FILE = "phoneagent_prefs_v2"
+    private const val KEY_ALIAS = "phoneagent_tokens_aes_gcm_v1"
+    private const val CIPHER_PREFIX = "v1:"
+    private const val IV_BYTES = 12
+    private const val TAG = "[PhoneAgent].[SecurePrefs]"
+    private val keyLock = Any()
+    private val secretKeys = setOf(KEY_USER_JWT, KEY_USER_REFRESH_TOKEN, KEY_ANTHROPIC_API_KEY)
 
-    fun prefs(context: Context): SharedPreferences {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-        return EncryptedSharedPreferences.create(
-            context, FILE, masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
+    fun prefs(context: Context): SharedPreferences =
+        context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+
+    fun get(context: Context, key: String): String? {
+        val value = runCatching { prefs(context).getString(key, null) }.getOrElse {
+            Log.e(TAG, "No se pudo leer la preferencia $key", it)
+            return null
+        } ?: return null
+        if (key !in secretKeys) return value
+        return runCatching { decrypt(value) }.getOrElse {
+            Log.e(TAG, "No se pudo descifrar la preferencia segura $key", it)
+            null
+        }
     }
 
-    fun get(context: Context, key: String): String? =
-        runCatching { prefs(context).getString(key, null) }.getOrNull()
-
+    /** Guarda en disco antes de devolver el control para no perder una sesión recién creada. */
     fun put(context: Context, key: String, value: String?) {
-        runCatching { prefs(context).edit().apply {
-            if (value.isNullOrBlank()) remove(key) else putString(key, value)
-        }.apply() }
+        val editor = prefs(context).edit()
+        if (value.isNullOrBlank()) {
+            editor.remove(key)
+        } else {
+            editor.putString(key, if (key in secretKeys) encrypt(value) else value)
+        }
+        check(editor.commit()) { "Android no pudo guardar la preferencia $key" }
     }
 
     fun getBool(context: Context, key: String, default: Boolean = false): Boolean =
-        runCatching { prefs(context).getBoolean(key, default) }.getOrDefault(default)
+        runCatching { prefs(context).getBoolean(key, default) }.getOrElse {
+            Log.e(TAG, "No se pudo leer la preferencia $key", it)
+            default
+        }
 
     fun putBool(context: Context, key: String, value: Boolean) {
-        runCatching { prefs(context).edit().putBoolean(key, value).apply() }
+        check(prefs(context).edit().putBoolean(key, value).commit()) {
+            "Android no pudo guardar la preferencia $key"
+        }
+    }
+
+    private fun encrypt(value: String): String = synchronized(keyLock) {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key())
+        val encrypted = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
+        val bytes = cipher.iv + encrypted
+        CIPHER_PREFIX + Base64.encodeToString(bytes, Base64.NO_WRAP)
+    }
+
+    private fun decrypt(value: String): String = synchronized(keyLock) {
+        require(value.startsWith(CIPHER_PREFIX)) { "Formato de preferencia segura no reconocido" }
+        val bytes = Base64.decode(value.removePrefix(CIPHER_PREFIX), Base64.NO_WRAP)
+        require(bytes.size > IV_BYTES) { "Preferencia segura incompleta" }
+        val iv = bytes.copyOfRange(0, IV_BYTES)
+        val encrypted = bytes.copyOfRange(IV_BYTES, bytes.size)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
+        String(cipher.doFinal(encrypted), Charsets.UTF_8)
+    }
+
+    private fun key(): SecretKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        val spec = KeyGenParameterSpec.Builder(
+            KEY_ALIAS,
+            KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+        )
+            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setRandomizedEncryptionRequired(true)
+            .build()
+        generator.init(spec)
+        return generator.generateKey()
     }
 }
 

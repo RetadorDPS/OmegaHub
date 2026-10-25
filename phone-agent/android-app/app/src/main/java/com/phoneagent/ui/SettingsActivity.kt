@@ -10,6 +10,7 @@ import com.phoneagent.PhoneAgentApp
 import com.phoneagent.core.SecurePrefs
 import com.phoneagent.databinding.ActivitySettingsBinding
 import com.phoneagent.models.AutonomyLevel
+import com.phoneagent.network.SupabaseException
 import kotlinx.coroutines.launch
 
 /**
@@ -20,7 +21,7 @@ import kotlinx.coroutines.launch
  * tener ninguna app autorizada aunque la hubieras marcado. El backend común
  * viene integrado en el APK: aquí el usuario solo crea/inicia su cuenta.
  *
- * Las preferencias personales se guardan cifradas con EncryptedSharedPreferences.
+ * Los tokens de sesión se guardan cifrados con una clave del Android Keystore.
  */
 class SettingsActivity : AppCompatActivity() {
     private lateinit var binding: ActivitySettingsBinding
@@ -112,12 +113,23 @@ class SettingsActivity : AppCompatActivity() {
                 val result = if (signUp) container.supabase.signUp(email, password)
                              else container.supabase.signIn(email, password)
                 if (result.needsEmailConfirmation) {
-                    toast("La cuenta se creó, pero no se abrió la sesión. Pulsa Iniciar sesión; si vuelve a fallar, avísanos.")
+                    showAuthMessage("La cuenta se guardó. Pulsa Iniciar sesión para continuar.")
+                    toast("Cuenta creada; inicia sesión para continuar")
                 } else {
-                    toast(if (signUp) "Cuenta creada y sesión iniciada" else "Sesión iniciada como ${result.email}")
+                    val mensaje = if (signUp) "✅ Cuenta creada y guardada en este teléfono" else "✅ Sesión iniciada como ${result.email}"
+                    showAuthMessage(mensaje)
+                    toast(if (signUp) "Cuenta creada y sesión guardada" else "Sesión iniciada")
                 }
             } catch (e: Exception) {
-                toast(e.message ?: "No se pudo completar la operación")
+                val errorAuth = e as? SupabaseException
+                val cuentaExistente = signUp && (errorAuth?.code == "user_already_exists" || errorAuth?.code == "email_exists")
+                val mensaje = if (cuentaExistente) {
+                    "Ya existe una cuenta con ese correo. Pulsa Iniciar sesión."
+                } else {
+                    e.message ?: "No se pudo completar la operación"
+                }
+                showAuthMessage(mensaje)
+                toast(mensaje)
             } finally {
                 setBusy(false)
                 refreshAuthState()
@@ -127,11 +139,23 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun signOut() {
         lifecycleScope.launch {
-            container.supabase.signOut()
-            binding.etPassword.setText("")
-            toast("Sesión cerrada")
+            try {
+                container.supabase.signOut()
+                binding.etPassword.setText("")
+                showAuthMessage("Sesión cerrada en este teléfono")
+                toast("Sesión cerrada")
+            } catch (e: Exception) {
+                showAuthMessage("No se pudo cerrar la sesión: ${e.message ?: "error desconocido"}")
+            }
             refreshAuthState()
         }
+    }
+
+    private fun showAuthMessage(message: String) {
+        binding.tvAuthMessage.text = message
+        val success = message.startsWith("✅") || message.startsWith("La cuenta se guardó")
+        binding.tvAuthMessage.setTextColor(if (success) 0xFF18794E.toInt() else 0xFFB3261E.toInt())
+        binding.tvAuthMessage.visibility = View.VISIBLE
     }
 
     private fun setBusy(busy: Boolean) {
