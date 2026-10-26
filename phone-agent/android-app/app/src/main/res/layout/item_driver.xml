@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp" android:background="@drawable/bg_result_card"
+    android:orientation="vertical" android:padding="16dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:id="@+id/tvDriverName" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1"
+            android:text="Claude" android:textColor="#22243A" android:textSize="17sp"
+            android:textStyle="bold" />
+        <Switch android:id="@+id/switchAuthorized" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="Permitir" />
+    </LinearLayout>
+    <TextView android:id="@+id/tvDriverDetail" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+        android:text="com.anthropic.claude · instalada" android:textColor="#65697E"
+        android:textSize="13sp" />
+    <CheckBox android:id="@+id/checkDual" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+        android:text="Esta es la versión dual o clonada" />
+</LinearLayout>
