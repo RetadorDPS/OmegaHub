@@ -141,10 +141,16 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                 return@launch
             }
-            if (!container.accessibility.isConnected()) {
-                val mensaje = "Falta activar el servicio de accesibilidad. Sin ese permiso no puedo controlar las apps."
+            if (!AccessibilityController.isServiceEnabledInSettings(this@MainActivity)) {
+                val mensaje = "Falta activar Accesibilidad. Pulsa Configurar permisos y activa Phone Agent."
                 binding.tvLastResult.text = mensaje
                 openPermissionSetup()
+                return@launch
+            }
+            if (!container.accessibility.awaitConnection()) {
+                val mensaje = "Android muestra el permiso como activado, pero el servicio aún no se conectó. Espera unos segundos o apágalo y vuelve a activarlo en Accesibilidad."
+                binding.tvLastResult.text = mensaje
+                toast(mensaje)
                 return@launch
             }
             if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO)
@@ -325,7 +331,9 @@ class MainActivity : AppCompatActivity() {
                 appendLine("${mark(overlay)} Burbuja flotante (overlay)")
                 append(when {
                     !authOk -> "Empieza creando o iniciando sesión en tu cuenta desde Ajustes."
-                    !mic || !accSettings || !accConnected || !capture -> "Toca «Configurar permisos»; te llevaré a cada ajuste necesario."
+                    !mic || !accSettings -> "Toca «Configurar permisos»; te llevaré a cada ajuste necesario."
+                    accSettings && !accConnected -> "Accesibilidad está activada; Android aún está conectando el servicio. Espera unos segundos."
+                    !capture -> "La captura se pedirá automáticamente al iniciar una tarea."
                     else -> "Toca «Apps autorizadas» para elegir qué apps puede usar el agente."
                 })
             }

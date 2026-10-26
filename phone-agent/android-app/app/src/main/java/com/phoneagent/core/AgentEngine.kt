@@ -83,8 +83,8 @@ class AgentEngine(
         if (!supabase.isAuthenticated()) {
             return failBeforeStart("No has iniciado sesión en Supabase. Ve a Ajustes e inicia sesión: sin eso la base de datos no deja leer tus apps autorizadas.")
         }
-        if (!accessibility.isConnected()) {
-            return failBeforeStart("El servicio de accesibilidad no está activo. Ve a Ajustes del teléfono > Accesibilidad > Phone Agent y actívalo.")
+        if (!accessibility.awaitConnection()) {
+            return failBeforeStart("Android no terminó de conectar Accesibilidad. Espera unos segundos; si persiste, apaga y vuelve a activar Phone Agent en Ajustes > Accesibilidad.")
         }
 
         sessions.start(AgentSession(id = "", userId = userId, projectId = projectId,

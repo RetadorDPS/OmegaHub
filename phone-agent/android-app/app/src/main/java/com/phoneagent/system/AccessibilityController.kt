@@ -1,15 +1,18 @@
 package com.phoneagent.system
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Context
 import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -43,14 +46,39 @@ class AccessibilityController {
 
         /** ¿Activó el usuario el servicio en Ajustes > Accesibilidad? */
         fun isServiceEnabledInSettings(context: Context): Boolean {
-            val expected = "${context.packageName}/${PhoneAccessibilityService::class.java.name}"
+            val expected = ComponentName(context, PhoneAccessibilityService::class.java)
+            val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager
+            val reportedByAndroid = runCatching {
+                manager?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+                    ?.any { info ->
+                        val service = info.resolveInfo?.serviceInfo ?: return@any false
+                        ComponentName(service.packageName, service.name) == expected
+                    } == true
+            }.getOrDefault(false)
+            if (reportedByAndroid) return true
+
+            // Algunos fabricantes actualizan el listado de AccessibilityManager con retraso.
             val enabled = Settings.Secure.getString(
                 context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
-            return enabled.split(':').any { it.equals(expected, ignoreCase = true) }
+            return enabled.split(':').any { flattened ->
+                ComponentName.unflattenFromString(flattened) == expected ||
+                    flattened.equals(expected.flattenToString(), ignoreCase = true) ||
+                    flattened.equals(expected.flattenToShortString(), ignoreCase = true)
+            }
         }
     }
 
     fun isConnected(): Boolean = service != null
+
+    /** Espera a que Android vuelva a enlazar el servicio tras cerrar sus diálogos. */
+    suspend fun awaitConnection(timeoutMs: Long = 5_000L): Boolean {
+        var waited = 0L
+        while (!isConnected() && waited < timeoutMs) {
+            delay(200L)
+            waited += 200L
+        }
+        return isConnected()
+    }
     fun displayWidth(): Int = service?.resources?.displayMetrics?.widthPixels ?: 1080
     fun displayHeight(): Int = service?.resources?.displayMetrics?.heightPixels ?: 2400
 

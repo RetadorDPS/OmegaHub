@@ -62,7 +62,9 @@ class PermissionSetupActivity : AppCompatActivity() {
 
     private fun refreshStatuses() {
         val mic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val accessibility = AccessibilityController.isServiceEnabledInSettings(this) && container.accessibility.isConnected()
+        val accessibilityEnabled = AccessibilityController.isServiceEnabledInSettings(this)
+        val accessibilityConnected = container.accessibility.isConnected()
+        val accessibility = accessibilityEnabled && accessibilityConnected
         val capture = ScreenCaptureManager.isReady()
         val overlay = Settings.canDrawOverlays(this)
         val notifications = Build.VERSION.SDK_INT < 33 ||
@@ -71,14 +73,23 @@ class PermissionSetupActivity : AppCompatActivity() {
             getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
         status(binding.tvMicrophoneStatus, mic, if (mic) "Listo" else "Necesario para hablar")
-        status(binding.tvAccessibilityStatus, accessibility, if (accessibility) "Listo" else "Necesario para controlar las apps que autorices")
+        val accessibilityDetail = when {
+            accessibility -> "Listo"
+            !accessibilityEnabled -> "Necesario: activa Phone Agent en la pantalla de Ajustes"
+            else -> "Activado; Android está conectando el servicio. Espera unos segundos."
+        }
+        status(binding.tvAccessibilityStatus, accessibility, accessibilityDetail)
         status(binding.tvCaptureStatus, capture, if (capture) "Activo en esta sesión" else "Android lo preguntará al empezar una tarea")
         status(binding.tvOverlayStatus, overlay, if (overlay) "Activada" else "Opcional: muestra la burbuja flotante")
         status(binding.tvNotificationsStatus, notifications, if (Build.VERSION.SDK_INT < 33) "No se necesita en esta versión de Android" else if (notifications) "Activadas" else "Opcional: avisos de tareas programadas")
         status(binding.tvExactAlarmStatus, exactAlarm, if (Build.VERSION.SDK_INT < 31) "No se necesita en esta versión de Android" else if (exactAlarm) "Permitidas" else "Opcional: puntualidad de tareas programadas")
 
         binding.btnMicrophone.text = if (mic) "Micrófono listo" else "Permitir micrófono"
-        binding.btnAccessibility.text = if (accessibility) "Accesibilidad lista" else "Abrir Accesibilidad"
+        binding.btnAccessibility.text = when {
+            accessibility -> "Accesibilidad lista"
+            accessibilityEnabled -> "Volver a Accesibilidad"
+            else -> "Abrir Accesibilidad"
+        }
         binding.btnMicrophone.isEnabled = !mic
         binding.btnAccessibility.isEnabled = !accessibility
         binding.btnOverlay.text = if (overlay) "Burbuja flotante activada" else "Permitir burbuja flotante"
