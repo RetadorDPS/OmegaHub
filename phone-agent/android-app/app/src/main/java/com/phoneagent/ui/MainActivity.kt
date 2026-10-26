@@ -1,6 +1,8 @@
 package com.phoneagent.ui
 
 import android.Manifest
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -9,6 +11,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -45,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private var voiceFlowJob: Job? = null
     private var awaitingCapture = false
     private var awaitingMicPermission = false
+    private var micPulseAnimator: AnimatorSet? = null
     private var pendingCommand: String? = null
     private var lastConfirmation: AgentEvent.ConfirmationRequired? = null
 
@@ -124,8 +128,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        setListeningAnimation(false)
         container.voice.stopWakeWord()
         super.onPause()
+    }
+
+    override fun onDestroy() {
+        setListeningAnimation(false)
+        super.onDestroy()
     }
 
     // ── Flujo de voz ───────────────────────────────────────────────────────
@@ -374,6 +384,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         showStatus(title, hint)
+        setListeningAnimation(state == AgentState.LISTENING)
         if (state == AgentState.ERROR || state == AgentState.DONE) {
             if (detail.isNotBlank()) binding.tvLastResult.text = detail
         }
@@ -388,6 +399,40 @@ class MainActivity : AppCompatActivity() {
     private fun showStatus(title: String, hint: String) {
         binding.tvStatus.text = title
         binding.tvStatusHint.text = hint
+        val color = when {
+            title.startsWith("🔴") -> getColor(com.phoneagent.R.color.phone_agent_error)
+            title.startsWith("✅") || title.startsWith("🟢") -> 0xFF18794E.toInt()
+            title.startsWith("🟡") || title.startsWith("📱") -> 0xFF8A6500.toInt()
+            title.startsWith("🎙") || title.startsWith("⏳") || title.startsWith("🟣") ->
+                getColor(com.phoneagent.R.color.phone_agent_primary)
+            else -> getColor(com.phoneagent.R.color.phone_agent_text)
+        }
+        binding.tvStatus.setTextColor(color)
+    }
+
+    private fun setListeningAnimation(listening: Boolean) {
+        if (listening && micPulseAnimator == null && ::binding.isInitialized) {
+            val pulseX = ObjectAnimator.ofFloat(binding.btnMic, View.SCALE_X, 1f, 1.045f, 1f).apply {
+                duration = 1100
+                repeatCount = ObjectAnimator.INFINITE
+            }
+            val pulseY = ObjectAnimator.ofFloat(binding.btnMic, View.SCALE_Y, 1f, 1.045f, 1f).apply {
+                duration = 1100
+                repeatCount = ObjectAnimator.INFINITE
+            }
+            micPulseAnimator = AnimatorSet().apply {
+                playTogether(pulseX, pulseY)
+                interpolator = AccelerateDecelerateInterpolator()
+                start()
+            }
+        } else if (!listening) {
+            micPulseAnimator?.cancel()
+            micPulseAnimator = null
+            if (::binding.isInitialized) {
+                binding.btnMic.scaleX = 1f
+                binding.btnMic.scaleY = 1f
+            }
+        }
     }
 
     private fun refreshMicButton() {
@@ -401,7 +446,14 @@ class MainActivity : AppCompatActivity() {
             taskJob?.isActive == true -> "⏳\nEN MARCHA"
             else -> "🎙\nHABLAR"
         }
-        binding.btnMic.alpha = if (busy) 0.72f else 1f
+        binding.btnMic.alpha = if (busy) 0.88f else 1f
+        binding.btnMic.contentDescription = when {
+            awaitingCapture -> "Esperando permiso para compartir pantalla"
+            awaitingMicPermission -> "Esperando permiso de micrófono"
+            voiceFlowJob?.isActive == true -> "Phone Agent está escuchando"
+            taskJob?.isActive == true -> "Phone Agent está trabajando; puedes cancelar la tarea"
+            else -> "Pulsa para hablar con Phone Agent"
+        }
     }
 
 

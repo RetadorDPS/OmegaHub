@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="phone_agent_primary">#5143C8</color>
+    <color name="phone_agent_primary_variant">#3F329F</color>
+    <color name="phone_agent_secondary">#0E8A74</color>
+    <color name="phone_agent_background">#F6F7FC</color>
+    <color name="phone_agent_surface">#FFFFFF</color>
+    <color name="phone_agent_text">#22243A</color>
+    <color name="phone_agent_muted">#65697E</color>
+    <color name="phone_agent_error">#A83A3A</color>
+</resources>

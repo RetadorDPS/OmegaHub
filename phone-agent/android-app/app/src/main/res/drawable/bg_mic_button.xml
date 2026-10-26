@@ -2,8 +2,8 @@
 <ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#66FFFFFF">
     <item>
         <shape android:shape="oval">
-            <solid android:color="#6658D8" />
-            <stroke android:width="4dp" android:color="#DDD9FF" />
+            <gradient android:angle="135" android:startColor="#7568F0" android:endColor="#5041C7" />
+            <stroke android:width="4dp" android:color="#E3E0FF" />
         </shape>
     </item>
 </ripple>

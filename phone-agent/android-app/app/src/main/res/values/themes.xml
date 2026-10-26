@@ -1,9 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.PhoneAgent" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <item name="colorPrimary">#6C63FF</item>
-        <item name="colorPrimaryVariant">#4A42C4</item>
+        <item name="colorPrimary">@color/phone_agent_primary</item>
+        <item name="colorPrimaryVariant">@color/phone_agent_primary_variant</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">#00C2A8</item>
+        <item name="colorSecondary">@color/phone_agent_secondary</item>
+        <item name="android:fontFamily">sans</item>
+    </style>
+
+    <style name="Theme.PhoneAgent.Main" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/phone_agent_primary</item>
+        <item name="colorPrimaryVariant">@color/phone_agent_primary_variant</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">@color/phone_agent_secondary</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowBackground">@color/phone_agent_background</item>
+        <item name="android:statusBarColor">@color/phone_agent_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/phone_agent_background</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+
+    <style name="Widget.PhoneAgent.OutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/phone_agent_primary</item>
+        <item name="strokeColor">#DDDDED</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:minHeight">50dp</item>
+    </style>
+
+    <style name="Widget.PhoneAgent.PrimaryButton" parent="Widget.MaterialComponents.Button">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="backgroundTint">@color/phone_agent_primary</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:minHeight">52dp</item>
+    </style>
+
+    <style name="Widget.PhoneAgent.DangerButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">@color/phone_agent_error</item>
+        <item name="strokeColor">#E5CACA</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:minHeight">50dp</item>
     </style>
 </resources>
