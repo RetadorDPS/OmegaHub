@@ -42,30 +42,47 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val container by lazy { (application as PhoneAgentApp).container }
     private var taskJob: Job? = null
+    private var voiceFlowJob: Job? = null
+    private var awaitingCapture = false
+    private var awaitingMicPermission = false
     private var pendingCommand: String? = null
     private var lastConfirmation: AgentEvent.ConfirmationRequired? = null
 
     private val requestMicPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()) { granted ->
+        awaitingMicPermission = false
+        refreshMicButton()
         if (granted) startListening()
-        else toast("Sin permiso de micrófono no puedo escucharte. Actívalo en Ajustes > Apps > Phone Agent.")
+        else {
+            val message = "Necesito permiso de micrófono para escuchar órdenes. Puedes activarlo en Configurar permisos."
+            showStatus("🔴 Falta el micrófono", message)
+            binding.tvLastResult.text = message
+            toast(message)
+        }
     }
 
     private val requestProjection = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()) { result ->
         val command = pendingCommand
         pendingCommand = null
-        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+        val captureGranted = result.resultCode == Activity.RESULT_OK && result.data != null
+        awaitingCapture = captureGranted && command != null
+        refreshMicButton()
+        if (captureGranted) {
             ScreenCaptureManager.start(this, result.resultCode, result.data!!)
             if (command != null) {
                 lifecycleScope.launch {
                     // Dar tiempo al primer frame antes de planificar.
                     kotlinx.coroutines.delay(900)
+                    awaitingCapture = false
                     executeCommand(command)
                 }
             } else toast("Captura de pantalla activada")
         } else {
-            toast("Sin captura de pantalla el agente no puede ver. La tarea no se ejecutó.")
+            val message = "No se compartió la pantalla. La tarea no se ejecutó; pulsa HABLAR para intentarlo de nuevo."
+            binding.tvLastResult.text = message
+            showStatus("🔴 Tarea no iniciada", message)
+            toast(message)
         }
     }
 
@@ -102,16 +119,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         updatePermissionStatus()
         handleScheduledTaskIntent()
-        // Wake word en segundo plano solo si el usuario lo activó en Ajustes.
-        if (SecurePrefs.getBool(this, SecurePrefs.KEY_WAKE_ENABLED) && taskJob?.isActive != true) {
-            container.voice.wakeWord = container.configManager.wakeWord()
-            container.voice.startWakeWord {
-                runOnUiThread {
-                    toast("Te escucho…")
-                    onMicPressed()
-                }
-            }
-        }
+        startWakeWordIfIdle()
     }
 
     override fun onPause() {
@@ -122,12 +130,18 @@ class MainActivity : AppCompatActivity() {
     // ── Flujo de voz ───────────────────────────────────────────────────────
 
     private fun onMicPressed() {
-        if (taskJob?.isActive == true) { toast("Ya estoy trabajando en una tarea. Cancélala antes de pedir otra."); return }
-        lifecycleScope.launch {
+        if (taskJob?.isActive == true) {
+            toast("Ya estoy trabajando en una tarea. Cancélala antes de pedir otra.")
+            return
+        }
+        if (voiceFlowJob?.isActive == true || awaitingCapture) return
+        showStatus("⏳ Preparando", "Comprobando la cuenta y los permisos…")
+        voiceFlowJob = lifecycleScope.launch {
             // No pedir permisos de voz ni captura si todavía falta el backend y la sesión.
             if (!container.supabase.isConfigured()) {
                 val mensaje = "No se pudo cargar la conexión del servicio de Phone Agent. Instala la versión oficial más reciente."
                 binding.tvLastResult.text = mensaje
+                showStatus("🔴 Servicio no disponible", mensaje)
                 toast(mensaje)
                 startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                 return@launch
@@ -135,8 +149,9 @@ class MainActivity : AppCompatActivity() {
             val userId = SecurePrefs.get(this@MainActivity, SecurePrefs.KEY_USER_ID).orEmpty()
             val sesionActiva = runCatching { container.supabase.isAuthenticated() }.getOrDefault(false)
             if (userId.isBlank() || !sesionActiva) {
-                val mensaje = "Primero crea o inicia sesión en tu cuenta desde Ajustes para cargar las apps autorizadas."
+                val mensaje = "Primero inicia sesión en tu cuenta desde Ajustes."
                 binding.tvLastResult.text = mensaje
+                showStatus("🔴 Inicia sesión", mensaje)
                 toast(mensaje)
                 startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                 return@launch
@@ -144,36 +159,57 @@ class MainActivity : AppCompatActivity() {
             if (!AccessibilityController.isServiceEnabledInSettings(this@MainActivity)) {
                 val mensaje = "Falta activar Accesibilidad. Pulsa Configurar permisos y activa Phone Agent."
                 binding.tvLastResult.text = mensaje
+                showStatus("🔴 Falta Accesibilidad", mensaje)
                 openPermissionSetup()
                 return@launch
             }
             if (!container.accessibility.awaitConnection()) {
-                val mensaje = "Android muestra el permiso como activado, pero el servicio aún no se conectó. Espera unos segundos o apágalo y vuelve a activarlo en Accesibilidad."
+                val mensaje = "Android aún no conectó Accesibilidad. Espera unos segundos y vuelve a probar."
                 binding.tvLastResult.text = mensaje
+                showStatus("🔴 Accesibilidad no conectada", mensaje)
                 toast(mensaje)
                 return@launch
             }
             if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED) {
+                awaitingMicPermission = true
+                showStatus("🎙️ Permiso de micrófono", "Acepta la solicitud de Android para que pueda escucharte.")
+                refreshMicButton()
                 requestMicPermission.launch(Manifest.permission.RECORD_AUDIO)
                 return@launch
             }
-            startListening()
+            listenForCommand()
         }
+        voiceFlowJob?.invokeOnCompletion { binding.root.post { refreshMicButton(); startWakeWordIfIdle() } }
+        refreshMicButton()
     }
 
+    /** La misma sesión de voz continúa tras conceder el permiso de micrófono. */
     private fun startListening() {
-        lifecycleScope.launch {
-            EventBus.emit(AgentEvent.StateChanged(AgentState.LISTENING))
-            try {
-                val command = container.voice.listenOnce()
-                binding.tvLastResult.text = "Has dicho: «$command»"
-                ensureCaptureThenExecute(command)
-            } catch (e: Exception) {
-                Log.w(TAG, "STT falló: ${e.message}")
-                toast(e.message ?: "No se pudo escuchar")
-                EventBus.emit(AgentEvent.StateChanged(AgentState.ERROR, e.message.orEmpty()))
+        if (voiceFlowJob?.isActive == true) return
+        voiceFlowJob = lifecycleScope.launch { listenForCommand() }
+        voiceFlowJob?.invokeOnCompletion { binding.root.post { refreshMicButton(); startWakeWordIfIdle() } }
+        refreshMicButton()
+    }
+
+    private suspend fun listenForCommand() {
+        container.voice.stopWakeWord()
+        EventBus.emit(AgentEvent.StateChanged(AgentState.LISTENING, "Preparando el reconocimiento de voz…"))
+        try {
+            val command = container.voice.listenOnce { progress ->
+                EventBus.tryEmit(AgentEvent.StateChanged(AgentState.LISTENING, progress))
             }
+            binding.tvLastResult.text = "He entendido: «$command»"
+            showStatus("🎙️ Frase recibida", "Ahora prepararé la tarea. Si Android lo pide, toca «Compartir pantalla».")
+            ensureCaptureThenExecute(command)
+        } catch (e: Exception) {
+            val message = e.message ?: "No se pudo escuchar. Comprueba el servicio de reconocimiento de voz del teléfono."
+            Log.w(TAG, "STT falló: $message", e)
+            binding.tvLastResult.text = message
+            EventBus.emit(AgentEvent.StateChanged(AgentState.ERROR, message))
+            toast(message)
+        } finally {
+            refreshMicButton()
         }
     }
 
@@ -203,6 +239,9 @@ class MainActivity : AppCompatActivity() {
     private fun ensureCaptureThenExecute(command: String) {
         if (ScreenCaptureManager.isReady()) { executeCommand(command); return }
         pendingCommand = command
+        awaitingCapture = true
+        showStatus("📱 Esperando permiso", "En la ventana de Android, toca «Compartir pantalla» para que pueda ver la app.")
+        refreshMicButton()
         val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         requestProjection.launch(mpm.createScreenCaptureIntent())
     }
@@ -210,9 +249,20 @@ class MainActivity : AppCompatActivity() {
     private fun executeCommand(command: String) {
         FloatingOverlay.start(this)
         taskJob = lifecycleScope.launch {
-            val result = container.agentEngine.run(command)
-            binding.tvLastResult.text = result.summary
-            Log.i(TAG, "Resultado: ${result.status} · ${result.summary}")
+            refreshMicButton()
+            try {
+                val result = container.agentEngine.run(command)
+                binding.tvLastResult.text = result.summary
+                Log.i(TAG, "Resultado: ${result.status} · ${result.summary}")
+            } catch (e: Exception) {
+                val message = e.message ?: "No se pudo completar la tarea."
+                Log.e(TAG, "Falló la tarea", e)
+                binding.tvLastResult.text = message
+                EventBus.emit(AgentEvent.StateChanged(AgentState.ERROR, message))
+            } finally {
+                refreshMicButton()
+                binding.root.post { refreshMicButton(); startWakeWordIfIdle() }
+            }
         }
     }
 
@@ -299,15 +349,60 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderState(state: AgentState, detail: String) {
-        val icon = when (state) {
-            AgentState.IDLE -> "⚪"; AgentState.LISTENING -> "🎙️"
-            AgentState.WORKING -> "🟣"; AgentState.WAITING_CONFIRMATION -> "🟡"
-            AgentState.DONE -> "🟢"; AgentState.ERROR -> "🔴"
+        val title = when (state) {
+            AgentState.IDLE -> "⚪ Listo para hablar"
+            AgentState.LISTENING -> "🎙️ Escuchando"
+            AgentState.WORKING -> "🟣 Estoy trabajando"
+            AgentState.WAITING_CONFIRMATION -> "🟡 Necesito tu confirmación"
+            AgentState.DONE -> "✅ Tarea terminada"
+            AgentState.ERROR -> "🔴 No se pudo continuar"
         }
-        binding.tvStatus.text = "$icon ${state.label}"
-        if (detail.isNotBlank() && state != AgentState.WORKING) binding.tvLastResult.text = detail
+        val hint = detail.ifBlank {
+            when (state) {
+                AgentState.IDLE -> "Pulsa HABLAR y dime qué necesitas."
+                AgentState.LISTENING -> "Te escucho. Habla ahora."
+                AgentState.WORKING -> "Estoy siguiendo los pasos en la pantalla."
+                AgentState.WAITING_CONFIRMATION -> "Revisa la pantalla y confirma o cancela."
+                AgentState.DONE -> "Ya terminé. Puedes pedirme otra cosa."
+                AgentState.ERROR -> "Lee el mensaje de abajo y vuelve a intentarlo."
+            }
+        }
+        showStatus(title, hint)
         if (state != AgentState.WAITING_CONFIRMATION && state != AgentState.WORKING) {
             binding.btnConfirm.visibility = View.GONE
+        }
+        refreshMicButton()
+    }
+
+    private fun showStatus(title: String, hint: String) {
+        binding.tvStatus.text = title
+        binding.tvStatusHint.text = hint
+    }
+
+    private fun refreshMicButton() {
+        if (!::binding.isInitialized) return
+        val busy = voiceFlowJob?.isActive == true || taskJob?.isActive == true || awaitingCapture || awaitingMicPermission
+        binding.btnMic.isEnabled = !busy
+        binding.btnMic.text = when {
+            awaitingCapture -> "📱\nESPERANDO"
+            awaitingMicPermission -> "🎙️\nPERMISO"
+            voiceFlowJob?.isActive == true -> "🎙️\nESCUCHANDO…"
+            taskJob?.isActive == true -> "⏳\nEN MARCHA"
+            else -> "🎙\nHABLAR"
+        }
+        binding.btnMic.alpha = if (busy) 0.72f else 1f
+    }
+
+
+    private fun startWakeWordIfIdle() {
+        if (isFinishing || isDestroyed || !SecurePrefs.getBool(this, SecurePrefs.KEY_WAKE_ENABLED)) return
+        if (voiceFlowJob?.isActive == true || taskJob?.isActive == true || awaitingCapture || awaitingMicPermission) return
+        container.voice.wakeWord = container.configManager.wakeWord()
+        container.voice.startWakeWord {
+            runOnUiThread {
+                toast("Te escucho…")
+                onMicPressed()
+            }
         }
     }
 

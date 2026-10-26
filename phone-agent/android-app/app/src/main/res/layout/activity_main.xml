@@ -1,39 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:padding="24dp">
+    android:background="#F5F6FB" android:fillViewport="true">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:gravity="center_horizontal">
+        android:orientation="vertical" android:paddingStart="22dp" android:paddingEnd="22dp"
+        android:paddingTop="24dp" android:paddingBottom="28dp">
+
         <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:text="Phone Agent" android:textSize="28sp" android:textStyle="bold" />
-        <TextView android:id="@+id/tvStatus" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:layout_marginTop="8dp"
-            android:text="● Inactivo" android:textSize="18sp" />
+            android:text="PHONE AGENT" android:textColor="#6659D9" android:textSize="13sp"
+            android:letterSpacing="0.12" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="5dp" android:text="¿Qué necesitas hacer?"
+            android:textColor="#202238" android:textSize="27sp" android:textStyle="bold" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_marginTop="5dp" android:text="Pulsa el botón y dímelo en voz alta."
+            android:textColor="#66697D" android:textSize="15sp" />
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="24dp" android:background="@drawable/bg_status_card"
+            android:elevation="2dp" android:orientation="vertical" android:padding="18dp">
+            <TextView android:id="@+id/tvStatus" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:text="⚪ Listo para hablar"
+                android:textColor="#292A40" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:id="@+id/tvStatusHint" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                android:text="Pulsa el micrófono. La pantalla te irá indicando qué está pasando."
+                android:textColor="#626579" android:textSize="14sp" />
+        </LinearLayout>
+
         <TextView android:id="@+id/tvLastResult" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="12dp"
-            android:gravity="center" android:text="Pulsa el micrófono y di qué quieres hacer." android:textSize="15sp" />
-        <Button android:id="@+id/btnMic" android:layout_width="180dp" android:layout_height="180dp"
-            android:layout_marginTop="24dp" android:text="🎤\nHABLAR" android:textSize="20sp" />
+            android:layout_height="wrap_content" android:layout_marginTop="18dp"
+            android:background="@drawable/bg_result_card" android:gravity="center_vertical"
+            android:minHeight="62dp" android:padding="16dp"
+            android:text="Tu frase aparecerá aquí antes de empezar."
+            android:textColor="#3D4055" android:textSize="15sp" />
+
+        <Button android:id="@+id/btnMic" android:layout_width="156dp" android:layout_height="156dp"
+            android:layout_gravity="center_horizontal" android:layout_marginTop="24dp"
+            android:background="@drawable/bg_mic_button" android:contentDescription="Hablar con Phone Agent"
+            android:elevation="4dp" android:gravity="center" android:minHeight="0dp"
+            android:minWidth="0dp" android:padding="12dp" android:text="🎙\nHABLAR"
+            android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="19sp"
+            android:textStyle="bold" />
+
         <Button android:id="@+id/btnConfirm" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="16dp"
+            android:layout_height="wrap_content" android:layout_marginTop="18dp"
             android:text="✅ Confirmar envío" android:visibility="gone" />
         <Button android:id="@+id/btnCancel" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:layout_marginTop="8dp"
             android:text="⛔ Cancelar tarea" />
-        <Button android:id="@+id/btnDrivers" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="24dp"
-            android:text="Apps autorizadas" />
-        <Button android:id="@+id/btnMacros" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="8dp"
-            android:text="Macros grabadas" />
-        <Button android:id="@+id/btnSettings" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="8dp"
-            android:text="Ajustes" />
-        <Button android:id="@+id/btnPermissionSetup" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="20dp"
-            android:text="Configurar permisos del teléfono" />
-        <TextView android:id="@+id/tvPermissions" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:layout_marginTop="24dp"
-            android:textSize="13sp" android:text="Comprobando permisos…" />
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="22dp" android:background="@drawable/bg_result_card"
+            android:orientation="vertical" android:padding="14dp">
+            <Button android:id="@+id/btnDrivers" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:text="Apps autorizadas" />
+            <Button android:id="@+id/btnMacros" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                android:text="Macros grabadas" />
+            <Button android:id="@+id/btnSettings" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                android:text="Ajustes" />
+            <Button android:id="@+id/btnPermissionSetup" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                android:text="Configurar permisos del teléfono" />
+            <TextView android:id="@+id/tvPermissions" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                android:lineSpacingExtra="3dp" android:text="Comprobando permisos…"
+                android:textColor="#626579" android:textSize="13sp" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

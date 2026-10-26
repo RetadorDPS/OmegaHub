@@ -85,14 +85,20 @@ class VoiceCapability(
      * Escucha UNA frase y devuelve la transcripción. Lanza VoiceException con
      * la causa (sin micrófono, sin red de reconocimiento, silencio…).
      */
-    suspend fun listenOnce(): String = suspendCancellableCoroutine { cont ->
+    suspend fun listenOnce(onStatus: (String) -> Unit = {}): String = suspendCancellableCoroutine { cont ->
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             cont.resumeWithException(VoiceException(
                 "Este teléfono no tiene reconocimiento de voz disponible. Instala la app de Google y su paquete de español."))
             return@suspendCancellableCoroutine
         }
         mainHandler.post {
-            val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+            val recognizer = try {
+                SpeechRecognizer.createSpeechRecognizer(context)
+            } catch (e: Exception) {
+                if (cont.isActive) cont.resumeWithException(VoiceException(
+                    "Android no pudo iniciar el servicio de reconocimiento de voz. Comprueba que Speech Services by Google esté habilitado."))
+                return@post
+            }
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
@@ -119,23 +125,47 @@ class VoiceCapability(
                         SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No se detectó voz (timeout). Pulsa el micrófono y habla."
                         SpeechRecognizer.ERROR_AUDIO -> "Error de audio: revisa el micrófono y el permiso de grabación."
                         SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
-                            "El reconocimiento de voz necesita red en este teléfono y falló. Revisa tu conexión."
+                            "Falló la conexión del reconocimiento de voz. Comprueba internet y vuelve a probar."
+                        SpeechRecognizer.ERROR_SERVER ->
+                            "El servicio de voz del teléfono tuvo un problema. Espera un momento y vuelve a intentarlo."
+                        SpeechRecognizer.ERROR_SERVER_DISCONNECTED ->
+                            "Se desconectó el servicio de voz de Android. Comprueba que «Speech Services by Google» esté habilitado y vuelve a probar."
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY ->
+                            "El micrófono está ocupado por otro reconocimiento. Espera unos segundos y vuelve a pulsar HABLAR."
+                        SpeechRecognizer.ERROR_TOO_MANY_REQUESTS ->
+                            "El servicio de voz recibió demasiadas solicitudes. Espera unos segundos y vuelve a probar."
                         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
-                            "Falta el permiso de micrófono. Actívalo en Ajustes > Apps > Phone Agent."
-                        else -> "Error de reconocimiento de voz (código $error)."
+                            "Falta el permiso de micrófono. Pulsa Configurar permisos y actívalo."
+                        SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ->
+                            "El teléfono no tiene disponible el reconocimiento en español. En Ajustes de Google, activa o descarga el paquete de voz en español."
+                        SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT ->
+                            "Android no pudo comprobar el reconocimiento en español. Comprueba internet y el servicio de voz del teléfono."
+                        else -> "Falló el reconocimiento de voz (error $error). Comprueba el servicio de voz del teléfono e inténtalo otra vez."
                     }))
                 }
 
-                override fun onReadyForSpeech(params: Bundle?) {}
-                override fun onBeginningOfSpeech() {}
+                override fun onReadyForSpeech(params: Bundle?) {
+                    onStatus("Te escucho ahora. Di una orden con claridad.")
+                }
+                override fun onBeginningOfSpeech() {
+                    onStatus("Te estoy escuchando…")
+                }
                 override fun onRmsChanged(rmsdB: Float) {}
                 override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {}
+                override fun onEndOfSpeech() {
+                    onStatus("He dejado de oírte. Estoy entendiendo la frase…")
+                }
                 override fun onPartialResults(partialResults: Bundle?) {}
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
             cont.invokeOnCancellation { mainHandler.post { recognizer.destroy() } }
-            recognizer.startListening(intent)
+            try {
+                recognizer.startListening(intent)
+            } catch (e: Exception) {
+                recognizer.destroy()
+                if (cont.isActive) cont.resumeWithException(VoiceException(
+                    "Android no pudo empezar a escuchar. Comprueba el permiso de micrófono e inténtalo otra vez."))
+            }
         }
     }
 
