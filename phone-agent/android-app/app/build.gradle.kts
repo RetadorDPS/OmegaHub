@@ -18,6 +18,11 @@ fun cfg(name: String): String =
         .replace("\\", "\\\\").replace("\"", "\\\"")
 val sharedSupabaseUrl = "https://ccapdpiqawpnqlyumgqh.supabase.co"
 val sharedSupabasePublishableKey = "sb_publishable_yCmJG7zj4RGP_NL0SaQcyA_253KH9z3"
+// CI incrementa versionCode en cada build para que Android reconozca las actualizaciones.
+val ciBuildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()?.takeIf { it > 0 } ?: 1
+val stableSigningPath = System.getenv("PHONE_AGENT_SIGNING_KEYSTORE_PATH").orEmpty()
+val stableSigningPassword = System.getenv("PHONE_AGENT_SIGNING_KEYSTORE_PASSWORD").orEmpty()
+val hasStableSigning = stableSigningPath.isNotBlank() && stableSigningPassword.isNotBlank()
 
 android {
     namespace = "com.phoneagent"
@@ -27,8 +32,8 @@ android {
         applicationId = "com.phoneagent"
         minSdk = 29          // Android 10+
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = ciBuildNumber
+        versionName = "1.0.$ciBuildNumber"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val supabaseUrl = cfg("SUPABASE_URL").ifBlank { sharedSupabaseUrl }
         val supabasePublicKey = cfg("SUPABASE_ANON_KEY").ifBlank { sharedSupabasePublishableKey }
@@ -36,7 +41,24 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabasePublicKey\"")
     }
 
+    signingConfigs {
+        if (hasStableSigning) {
+            create("stableTest") {
+                storeFile = file(stableSigningPath)
+                storeType = "PKCS12"
+                storePassword = stableSigningPassword
+                keyAlias = "phoneagent"
+                keyPassword = stableSigningPassword
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            // Mantener la misma firma entre descargas del APK de prueba permite
+            // actualizarlo sin desinstalar ni perder permisos o sesión local.
+            if (hasStableSigning) signingConfig = signingConfigs.getByName("stableTest")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

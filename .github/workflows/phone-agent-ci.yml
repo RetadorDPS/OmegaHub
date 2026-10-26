@@ -73,6 +73,29 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Preparar firma estable del APK actualizable
+        id: stable_signing
+        shell: bash
+        env:
+          SIGNING_KEYSTORE_BASE64: ${{ secrets.PHONE_AGENT_KEYSTORE_BASE64 }}
+          SIGNING_KEYSTORE_PASSWORD: ${{ secrets.PHONE_AGENT_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SIGNING_KEYSTORE_BASE64" ] || [ -z "$SIGNING_KEYSTORE_PASSWORD" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No hay firma persistente. Se compilará para pruebas, pero no se reemplazará el APK directo porque Android no permitiría actualizarlo sobre la instalación actual."
+            echo "Este build no publica app-debug.apk: falta configurar la firma estable en Secrets de GitHub Actions." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          signing_file="$RUNNER_TEMP/phone-agent-test-signing.p12"
+          printf '%s' "$SIGNING_KEYSTORE_BASE64" | base64 --decode > "$signing_file"
+          chmod 600 "$signing_file"
+          {
+            echo "PHONE_AGENT_SIGNING_KEYSTORE_PATH=$signing_file"
+            echo "PHONE_AGENT_SIGNING_KEYSTORE_PASSWORD=$SIGNING_KEYSTORE_PASSWORD"
+          } >> "$GITHUB_ENV"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
       # El APK de prueba usa los valores públicos del backend compartido
       # definidos como fallback en app/build.gradle.kts. No inyectar placeholders.
 
@@ -118,7 +141,7 @@ jobs:
           retention-days: 90
 
       - name: Publicar APK descargable directamente
-        if: github.ref == 'refs/heads/arena/95f82923-omegahub' && steps.assemble.outcome == 'success'
+        if: github.ref == 'refs/heads/arena/95f82923-omegahub' && steps.assemble.outcome == 'success' && steps.stable_signing.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload phone-agent-test-2026-10-25 app/build/outputs/apk/debug/app-debug.apk --repo "$GITHUB_REPOSITORY" --clobber
