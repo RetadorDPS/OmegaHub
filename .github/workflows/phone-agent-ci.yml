@@ -140,11 +140,11 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      # Los pushes normales solo reemplazan el asset si está configurada la firma estable.
-      # Una ejecución manual puede publicar una APK de prueba con la firma debug temporal,
-      # para probarla tras desinstalar la versión anterior si Android detecta otra firma.
+      # Un push normal solo publica con firma estable. Una ejecución manual, o un único
+      # push cuyo mensaje incluya [publish-test-apk], permite publicar una build de prueba
+      # firmada con la clave debug temporal para instalarla desde un enlace directo.
       - name: Publicar APK de prueba con enlace directo
-        if: github.ref == 'refs/heads/arena/95f82923-omegahub' && steps.assemble.outcome == 'success' && (steps.stable_signing.outputs.ready == 'true' || github.event_name == 'workflow_dispatch')
+        if: github.ref == 'refs/heads/arena/95f82923-omegahub' && steps.assemble.outcome == 'success' && (steps.stable_signing.outputs.ready == 'true' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[publish-test-apk]')))
         env:
           GH_TOKEN: ${{ github.token }}
           STABLE_SIGNING_READY: ${{ steps.stable_signing.outputs.ready }}
@@ -159,8 +159,10 @@ jobs:
             echo "APK de prueba publicada con firma debug temporal. Si Android rechaza la actualización, desinstala primero Phone Agent; la sesión de cuenta se conserva en el backend, pero permisos y datos locales pueden requerir configuración de nuevo." >> "$GITHUB_STEP_SUMMARY"
           fi
           notes="APK de prueba compilada desde ${GITHUB_SHA}. ${signing_note}. Para instalarla, descarga app-debug.apk; si Android dice que el paquete entra en conflicto, desinstala la versión anterior y vuelve a instalarla."
-          gh release create "$release_tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Phone Agent 1.0.${GITHUB_RUN_NUMBER} — APK de prueba" --notes "$notes"
-          gh release upload "$release_tag" app/build/outputs/apk/debug/app-debug.apk --repo "$GITHUB_REPOSITORY"
+          if ! gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$release_tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Phone Agent 1.0.${GITHUB_RUN_NUMBER} — APK de prueba" --notes "$notes"
+          fi
+          gh release upload "$release_tag" app/build/outputs/apk/debug/app-debug.apk --repo "$GITHUB_REPOSITORY" --clobber
 
       - name: Tests unitarios (lógica de seguridad, macros, modelos)
         if: steps.assemble.outcome == 'success'
