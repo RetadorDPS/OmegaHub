@@ -152,6 +152,15 @@ class AgentEngine(
                 currentApp = accessibility.currentPackage() ?: "desconocida",
                 projectId = projectId, autonomyWire = autonomy.wire,
                 uiTree = vision.uiTreeText(), authorizedDrivers = registry.authorized(), model = model)
+            // La elección normal/dual sigue la frase de la persona, no una preferencia del modelo.
+            val firstSelection = DriverVariantSelector.select(routed.plan.action, voiceCommand, registry.all())
+            val selectionError = firstSelection.error
+            if (selectionError != null) {
+                if (!routed.isLocal) runCatching {
+                    supabase.completeSession(routed.sessionId, "failed", selectionError)
+                }
+                return failBeforeStart(selectionError)
+            }
             remoteSessionId = routed.sessionId
             isLocalSession = routed.isLocal
             val maxSteps = routed.maxSteps.coerceIn(1, 40)
@@ -162,7 +171,7 @@ class AgentEngine(
 
             macroEngine.startRecording()
             stepVerifier.resetCounters()
-            var step = routed.plan.action
+            var step = firstSelection.step ?: routed.plan.action
             history.add("plan: ${routed.plan.screenAnalysis}")
 
             // ── LOOP ejecutar → verificar ──────────────────────────────────
@@ -316,7 +325,13 @@ class AgentEngine(
                     finalSummary = verification.message.ifBlank { "Tarea completada" }
                     break
                 }
-                step = next
+                val nextSelection = DriverVariantSelector.select(next, voiceCommand, registry.all())
+                if (nextSelection.error != null) {
+                    finalStatus = SessionStatus.FAILED
+                    failureReason = nextSelection.error
+                    break
+                }
+                step = nextSelection.step ?: next
                 stepNumber++
                 if (step.actionType == AgentActionType.DONE) {
                     finalSummary = step.paramString("summary").ifBlank { verification.message }
