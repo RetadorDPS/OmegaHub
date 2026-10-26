@@ -201,8 +201,26 @@ class VoiceCapability(
             }
             override fun onError(error: Int) {
                 recognizer.destroy()
-                // El reconocedor se cansa: reinicio suave con pausa.
-                mainHandler.postDelayed({ listenWakeLoop(onDetected) }, 600)
+                if (!wakeListening.get()) return
+                if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                    // El silencio es normal en modo palabra de activación: se reintenta con pausa.
+                    mainHandler.postDelayed({ listenWakeLoop(onDetected) }, 600)
+                } else {
+                    // No reiniciar ante fallos del servicio: algunos móviles muestran
+                    // un diálogo cada vez que Speech Services se desconecta.
+                    wakeListening.set(false)
+                    val message = when (error) {
+                        SpeechRecognizer.ERROR_SERVER_DISCONNECTED ->
+                            "Se pausó la escucha automática porque se desconectó el servicio de voz de Android. Puedes seguir usando HABLAR."
+                        SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT ->
+                            "Se pausó la escucha automática por un problema de conexión. Puedes seguir usando HABLAR."
+                        SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED, SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ->
+                            "Se pausó la escucha automática porque Android no tiene reconocimiento en español disponible. Puedes usar HABLAR."
+                        else -> "Se pausó la escucha automática por un error del servicio de voz (error $error). Puedes seguir usando HABLAR."
+                    }
+                    Log.e(TAG, "Wake word pausada tras error $error; no se reintentará automáticamente")
+                    EventBus.tryEmit(AgentEvent.StateChanged(com.phoneagent.core.AgentState.ERROR, message))
+                }
             }
             override fun onReadyForSpeech(params: Bundle?) {}
             override fun onBeginningOfSpeech() {}

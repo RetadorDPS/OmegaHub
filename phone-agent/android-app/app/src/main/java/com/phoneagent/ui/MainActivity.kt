@@ -97,6 +97,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch { voice.initialize(); container.vision.initialize() }
 
         binding.btnMic.setOnClickListener { onMicPressed() }
+        binding.btnCancel.visibility = View.GONE
         binding.btnCancel.setOnClickListener {
             container.agentEngine.cancel()
             toast("Cancelando la tarea…")
@@ -135,6 +136,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (voiceFlowJob?.isActive == true || awaitingCapture) return
+        binding.tvLastResult.text = "Cuando la reconozca, tu frase aparecerá aquí."
         showStatus("⏳ Preparando", "Comprobando la cuenta y los permisos…")
         voiceFlowJob = lifecycleScope.launch {
             // No pedir permisos de voz ni captura si todavía falta el backend y la sesión.
@@ -357,17 +359,26 @@ class MainActivity : AppCompatActivity() {
             AgentState.DONE -> "✅ Tarea terminada"
             AgentState.ERROR -> "🔴 No se pudo continuar"
         }
-        val hint = detail.ifBlank {
-            when (state) {
-                AgentState.IDLE -> "Pulsa HABLAR y dime qué necesitas."
-                AgentState.LISTENING -> "Te escucho. Habla ahora."
-                AgentState.WORKING -> "Estoy siguiendo los pasos en la pantalla."
-                AgentState.WAITING_CONFIRMATION -> "Revisa la pantalla y confirma o cancela."
-                AgentState.DONE -> "Ya terminé. Puedes pedirme otra cosa."
-                AgentState.ERROR -> "Lee el mensaje de abajo y vuelve a intentarlo."
+        val hint = when (state) {
+            AgentState.ERROR -> "La tarea se detuvo. El motivo está en el recuadro de abajo."
+            AgentState.DONE -> "La tarea terminó. El resultado está en el recuadro de abajo."
+            else -> detail.ifBlank {
+                when (state) {
+                    AgentState.IDLE -> "Pulsa HABLAR y dime qué necesitas."
+                    AgentState.LISTENING -> "Te escucho. Habla ahora."
+                    AgentState.WORKING -> "Estoy siguiendo los pasos en la pantalla."
+                    AgentState.WAITING_CONFIRMATION -> "Revisa la pantalla y confirma o cancela."
+                    AgentState.DONE -> "Ya terminé. Puedes pedirme otra cosa."
+                    AgentState.ERROR -> "Lee el mensaje de abajo y vuelve a intentarlo."
+                }
             }
         }
         showStatus(title, hint)
+        if (state == AgentState.ERROR || state == AgentState.DONE) {
+            if (detail.isNotBlank()) binding.tvLastResult.text = detail
+        }
+        binding.btnCancel.visibility = if (state == AgentState.WORKING || state == AgentState.WAITING_CONFIRMATION)
+            View.VISIBLE else View.GONE
         if (state != AgentState.WAITING_CONFIRMATION && state != AgentState.WORKING) {
             binding.btnConfirm.visibility = View.GONE
         }
