@@ -13,7 +13,7 @@
 import { World, T, FL, BIOME } from './world.js';
 import { Player } from './player.js';
 import { Griever, Item, Flare } from './entities.js';
-import { Renderer } from './render.js';
+import { Renderer } from './render3d.js';
 import { Minimap } from './minimap.js';
 import { Input } from './input.js';
 import { Sfx } from './audio.js';
@@ -55,6 +55,7 @@ export class Game {
       btnFlare: document.getElementById('btnFlare'),
       btnAction: document.getElementById('btnAction'),
       btnLookBack: document.getElementById('btnLookBack'),
+      btnCam: document.getElementById('btnCam'),
     });
     this.audio = new Sfx();
     this.on = { toast: null, end: null, region: null, sting: null };
@@ -319,6 +320,10 @@ export class Game {
     if (this.input.consume('flash')) { p.flashOn = !p.flashOn; this.audio.click(); }
     if (this.input.consume('flare')) this.throwFlare();
     if (this.input.consume('use')) this.interact();
+    if (this.input.consume('camToggle')) {
+      const mode = this.renderer.toggleCameraMode();
+      this.toast(mode === 'third' ? '🎥 Cámara en tercera persona' : '🎥 Cámara en primera persona', 1.6);
+    }
 
     p.update(dt, this.input, this);
     this.updateCycle(dt);

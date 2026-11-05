@@ -231,18 +231,19 @@ html, body {
   position: absolute;
   right: calc(12px + var(--safe-r)); bottom: calc(12px + var(--safe-b));
   display: grid; grid-template-columns: repeat(2, var(--btn));
-  grid-template-areas: "back back" "act flash" "flare run";
+  grid-template-areas: "back cam" "act flash" "flare run";
   justify-items: center;
   gap: clamp(8px, 1.4vh, 14px);
 }
 #btnLookBack { grid-area: back; }
+#btnCam { grid-area: cam; }
 #btnAction { grid-area: act; }
 #btnFlash { grid-area: flash; }
 #btnFlare { grid-area: flare; }
 #btnRun { grid-area: run; }
 .tbtn.small { width: calc(var(--btn) * 0.68); height: calc(var(--btn) * 0.68); }
 .tbtn.small .ic { font-size: calc(var(--btn) * 0.68 * 0.4); }
-.tbtn.back { border-color: rgba(233,227,214,.35); }
+.tbtn.back, .tbtn.cam { border-color: rgba(233,227,214,.35); }
 .tbtn {
   pointer-events: auto;
   width: var(--btn); height: var(--btn);

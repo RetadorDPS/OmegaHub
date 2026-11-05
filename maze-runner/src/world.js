@@ -241,7 +241,7 @@ export class World {
     this.carveDoorAxis(x, y, axis);
 
     const i = y * this.lw + x;
-    const d = { x, y, open: 1, target: 1, id: this.doors.length };
+    const d = { x, y, axis, open: 1, target: 1, id: this.doors.length };
     this.doors.push(d);
     this.lgrid[FL.SURFACE][i] = T.DOOR;
     this.ldoorIdx[FL.SURFACE][i] = d.id;
