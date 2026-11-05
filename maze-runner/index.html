@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d0f">
+<title>Maze Runner Mobile — El Corredor del Laberinto</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0d0f'/%3E%3Cpath fill='%23e8a33c' d='M4 4h6v6H4zM14 4h6v6h-6zM24 4h4v4h-4zM4 14h6v6H4zM24 14h4v4h-4zM4 24h6v4H4zM14 14h6v6h-6zM14 24h6v4h-6zM24 24h4v4h-4z'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+  <div id="vignette"></div>
+  <div id="damage"></div>
+
+  <!-- ===================== HUD ===================== -->
+  <div id="hud" class="hidden">
+    <div class="hud-tl">
+      <div class="sector-box">
+        <div id="sectorName">El Área</div>
+        <div id="doorState" class="sub">Puertas abiertas</div>
+      </div>
+      <div id="bars">
+        <div class="bar"><span class="lab">VID</span><div class="track"><i id="barHealth" class="health" style="width:100%"></i></div></div>
+        <div class="bar"><span class="lab">RES</span><div class="track"><i id="barStamina" class="stamina" style="width:100%"></i></div></div>
+        <div class="bar"><span class="lab">BAT</span><div class="track"><i id="barBattery" class="battery" style="width:100%"></i></div></div>
+        <div class="bar mini"><span>Bengalas</span><span id="flareCount">x3</span></div>
+      </div>
+    </div>
+
+    <div class="hud-tc">
+      <div id="clock">00:00</div>
+      <div class="chips-mini">
+        <span id="codesChip" class="chip-mini">Códigos 0/3</span>
+        <span id="cycleChip" class="chip-mini dim">☀ Día</span>
+      </div>
+    </div>
+
+    <div class="hud-tr">
+      <div class="sys-row">
+        <button id="btnFull" class="sysbtn" type="button" title="Pantalla completa">⛶</button>
+        <button id="btnPause" class="sysbtn" type="button" title="Pausa">⏸</button>
+      </div>
+      <div id="minimapWrap"><canvas id="minimap" width="200" height="200"></canvas></div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="threat" class="hidden"><div class="arrow">▲</div><div class="lbl">TE PERSIGUE</div></div>
+    <div id="interactHint" class="hidden"></div>
+    <div id="toast"></div>
+  </div>
+
+  <!-- ===================== CONTROLES TÁCTILES ===================== -->
+  <div id="touch" class="hidden">
+    <div id="stickHint"><span>MOVER</span></div>
+    <div id="stick"><div id="stickBase"></div><div id="stickKnob"></div></div>
+    <div id="buttons">
+      <button id="btnAction" class="tbtn act" type="button"><span class="ic">⚡</span><span class="lb">USAR</span></button>
+      <button id="btnFlash" class="tbtn" type="button"><span class="ic">🔦</span><span class="lb">LUZ</span></button>
+      <button id="btnFlare" class="tbtn" type="button"><span class="ic">🔥</span><span class="lb">FUEGO</span></button>
+      <button id="btnRun" class="tbtn run" type="button"><span class="ic">🏃</span><span class="lb">CORRER</span></button>
+    </div>
+  </div>
+
+  <!-- ===================== GIRAR EL MÓVIL ===================== -->
+  <div id="rotate">
+    <div class="rot-box">
+      <div class="rot-phone"></div>
+      <div class="rot-txt">Gira el móvil</div>
+      <div class="rot-sub">Se juega mejor en horizontal</div>
+      <button id="btnRotSkip" class="mini-btn" type="button">Jugar así</button>
+    </div>
+  </div>
+
+  <!-- ===================== MENÚS ===================== -->
+  <div id="menus">
+    <div id="menuBg"></div>
+
+    <section id="panelTitle" class="panel">
+      <div class="p-hero">
+        <div class="logo">
+          <div class="logo-sub">MAZE RUNNER</div>
+          <h1>EL LABERINTO</h1>
+          <div class="logo-line">SUPERVIVENCIA · PRIMERA PERSONA · MÓVIL</div>
+        </div>
+        <div id="titleArt" class="hero-art"></div>
+        <div class="help">
+          Sal de El Área, reúne los 3 códigos CRUEL repartidos por los 8 sectores
+          y el subsuelo, y escapa antes de que los Grievers te atrapen. Al
+          anochecer las puertas se cierran.
+        </div>
+      </div>
+      <div class="p-form">
+        <div class="field">
+          <span>Nombre de corredor</span>
+          <input id="inpName" type="text" maxlength="16" placeholder="Corredor">
+        </div>
+        <div class="field">
+          <span>Semilla del laberinto</span>
+          <div class="chips" id="seedModes">
+            <button type="button" class="chip on" data-mode="daily">Diaria</button>
+            <button type="button" class="chip" data-mode="random">Aleatoria</button>
+            <button type="button" class="chip" data-mode="manual">Manual</button>
+          </div>
+          <input id="inpSeed" type="number" placeholder="Número de semilla" class="hidden">
+        </div>
+        <div class="row">
+          <div class="field half">
+            <span>Calidad gráfica</span>
+            <select id="selQuality">
+              <option value="0.35">Baja</option>
+              <option value="0.5" selected>Media</option>
+              <option value="0.7">Alta</option>
+            </select>
+          </div>
+          <label class="check"><input id="chkSound" type="checkbox" checked> Sonido</label>
+        </div>
+        <button id="btnStart" class="primary" type="button">▶ ENTRAR EN EL LABERINTO</button>
+        <div class="links">
+          <button class="link" id="btnHelp" type="button">Cómo jugar</button>
+          <button class="link" id="btnScores" type="button">Clasificación</button>
+        </div>
+
+        <details class="adv">
+          <summary>Ajustes de cámara y movimiento</summary>
+          <div class="field slider">
+            <span>Sensibilidad <b id="sensVal">1.0</b></span>
+            <input id="rngSens" type="range" min="0.3" max="2.5" step="0.1" value="1">
+          </div>
+          <div class="field slider">
+            <span>Balanceo de cámara <b id="bobVal">50%</b></span>
+            <input id="rngBob" type="range" min="0" max="1" step="0.1" value="0.5">
+          </div>
+          <div class="row wrap">
+            <label class="check"><input id="chkInvert" type="checkbox"> Invertir eje Y</label>
+            <label class="check"><input id="chkAssist" type="checkbox" checked> Asistencia al mover</label>
+          </div>
+          <p class="tiny-note">La asistencia suaviza las esquinas y te centra en los pasillos estrechos.</p>
+        </details>
+
+        <details class="cfg">
+          <summary>Supabase (ranking online, opcional)</summary>
+          <div class="field">
+            <span>Project URL</span>
+            <input id="inpUrl" type="text" placeholder="https://tuproyecto.supabase.co">
+          </div>
+          <div class="field">
+            <span>anon / publishable key</span>
+            <input id="inpKey" type="text" placeholder="eyJ...">
+          </div>
+          <div class="row wrap">
+            <button id="btnSaveCfg" class="mini-btn" type="button">Guardar</button>
+            <button id="btnTestCfg" class="mini-btn" type="button">Probar conexión</button>
+            <span id="cfgStatus" class="status"></span>
+          </div>
+          <p class="tiny-note">Déjalo vacío para jugar sólo con ranking local.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="panelHelp" class="panel hidden">
+      <h2>CÓMO JUGAR</h2>
+      <div class="help">
+        <p>Objetivo: reúne los 3 códigos CRUEL (2 en superficie, 1 en el subsuelo)
+          y llega a la salida — se marca en verde en el minimapa cuando la conoces.</p>
+        <ul>
+          <li>Al anochecer las 12 puertas se cierran: quédate dentro de un sector o en El Área.</li>
+          <li>Los Grievers patrullan, oyen si corres y persiguen si te ven. Una flecha roja
+            avisa cuando te persiguen.</li>
+          <li>Apaga la linterna para ahorrar batería: tus ojos se adaptan a la oscuridad
+            en unos segundos.</li>
+          <li>Las bengalas ahuyentan a los Grievers e iluminan una zona durante un rato.</li>
+        </ul>
+        <h3>Controles</h3>
+        <div class="keys">
+          <div>Móvil</div>
+          <div>Joystick izquierdo para moverte · arrastra en el resto de la pantalla para
+            mirar · ⚡ interactuar · 🔦 linterna · 🔥 bengala · 🏃 correr</div>
+          <div>Escritorio</div>
+          <div>WASD / flechas · ratón para mirar (clic para fijarlo) · Shift correr ·
+            F linterna · G bengala · E / Espacio interactuar · Esc pausa</div>
+        </div>
+      </div>
+      <button class="ghost" data-back type="button">Volver</button>
+    </section>
+
+    <section id="panelScores" class="panel hidden">
+      <h2>CLASIFICACIÓN</h2>
+      <div class="scores" id="scoreList"></div>
+      <div class="row wrap">
+        <button class="mini-btn" id="btnRefreshScores" type="button">Actualizar</button>
+        <button class="mini-btn" id="btnClearScores" type="button">Borrar local</button>
+      </div>
+      <button class="ghost" data-back type="button">Volver</button>
+    </section>
+
+    <section id="panelPause" class="panel hidden">
+      <h2>PAUSA</h2>
+      <div id="pauseStats" class="stats"></div>
+      <button id="btnResume" class="primary" type="button">▶ Continuar</button>
+      <div class="row wrap">
+        <button id="btnRestart" class="ghost" type="button">Reiniciar (misma semilla)</button>
+        <button id="btnQuit" class="ghost" type="button">Salir al menú</button>
+      </div>
+    </section>
+
+    <section id="panelEnd" class="panel hidden">
+      <div id="endArt" class="end-art"></div>
+      <h2 id="endTitle">FIN</h2>
+      <div id="endBody"></div>
+      <div class="scores" id="endScores"></div>
+      <div class="row wrap">
+        <button id="btnAgain" class="ghost" type="button">Repetir semilla</button>
+        <button id="btnNewSeed" class="ghost" type="button">Semilla nueva</button>
+        <button id="btnMenu" class="ghost" type="button">Menú</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+</script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

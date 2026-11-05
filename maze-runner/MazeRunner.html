@@ -1,0 +1,3692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d0f">
+<title>▶ Maze Runner Mobile — El Corredor del Laberinto</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230b0d0f'/%3E%3Cpath fill='%23e8a33c' d='M4 4h6v6H4zM14 4h6v6h-6zM24 4h4v4h-4zM4 14h6v6H4zM24 14h4v4h-4zM4 24h6v4H4zM14 14h6v6h-6zM14 24h6v4h-6zM24 24h4v4h-4z'/%3E%3C/svg%3E">
+<style>
+/* =============================================================
+   Maze Runner Mobile — UI
+   Diseñada para jugar en HORIZONTAL (landscape) en el móvil.
+   ============================================================= */
+
+:root {
+  --amber: #e8a33c;
+  --amber-dim: #b57b28;
+  --cyan: #7df6ff;
+  --red: #ff5a48;
+  --green: #6ce39a;
+  --ink: #0b0d0f;
+  --panel: rgba(14, 16, 19, 0.92);
+  --line: rgba(232, 163, 60, 0.30);
+  --txt: #e9e3d6;
+  --dim: #9b9386;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --mm: clamp(76px, 25vh, 148px);
+  --btn: clamp(50px, 13vh, 74px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: #000; color: var(--txt);
+  font-family: "Segoe UI", Roboto, system-ui, -apple-system, sans-serif;
+  overflow: hidden; overscroll-behavior: none;
+  user-select: none; -webkit-user-select: none;
+  touch-action: none;
+}
+
+#app { position: fixed; inset: 0; overflow: hidden; background: #000; }
+
+#view {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  display: block; background: #05070a;
+  touch-action: none;
+}
+
+.hidden { display: none !important; }
+
+#vignette {
+  position: absolute; inset: 0; pointer-events: none; z-index: 11;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,.58) 100%);
+}
+
+/* ============================ HUD ============================ */
+
+#hud { position: absolute; inset: 0; pointer-events: none; z-index: 12; }
+#hud > * { pointer-events: none; }
+
+.glass {
+  background: linear-gradient(180deg, rgba(12,14,17,.78), rgba(12,14,17,.58));
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  backdrop-filter: blur(3px);
+  box-shadow: 0 4px 16px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+/* --- superior izquierda: sector + barras --- */
+.hud-tl {
+  position: absolute;
+  left: calc(10px + var(--safe-l)); top: calc(8px + var(--safe-t));
+  display: flex; flex-direction: column; gap: 7px; width: min(230px, 30vw);
+}
+.sector-box {
+  background: linear-gradient(180deg, rgba(12,14,17,.80), rgba(12,14,17,.55));
+  border: 1px solid var(--line); border-left: 3px solid var(--amber);
+  border-radius: 8px; padding: 5px 10px;
+}
+#sectorName { font-size: 15px; font-weight: 700; color: var(--amber); letter-spacing: .5px; text-shadow: 0 0 12px rgba(232,163,60,.35); }
+.sub { font-size: 10.5px; color: var(--dim); letter-spacing: .4px; margin-top: 1px; }
+
+#bars { display: flex; flex-direction: column; gap: 4px; }
+.bar { display: flex; align-items: center; gap: 6px; }
+.bar .lab { font-size: 9px; color: var(--dim); width: 24px; letter-spacing: 1px; }
+.bar .track {
+  flex: 1; height: 7px; background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.10); border-radius: 4px; overflow: hidden;
+}
+.bar i { display: block; height: 100%; width: 100%; border-radius: 3px; transition: width .15s linear; }
+.health  { background: linear-gradient(90deg, #ff5a48, #ff8a63); box-shadow: 0 0 8px rgba(255,90,72,.5); }
+.stamina { background: linear-gradient(90deg, #6ce39a, #b6f5c8); box-shadow: 0 0 8px rgba(108,227,154,.4); }
+.battery { background: linear-gradient(90deg, #e8a33c, #ffd489); box-shadow: 0 0 8px rgba(232,163,60,.45); }
+.bar.mini { font-size: 11px; color: var(--dim); }
+.bar.mini span:last-child { color: var(--amber); font-weight: 700; }
+
+/* --- superior centro: reloj + códigos --- */
+.hud-tc {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: calc(6px + var(--safe-t)); text-align: center;
+}
+#clock { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+.chips-mini { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
+.chip-mini {
+  font-size: 10px; letter-spacing: .5px; padding: 2px 8px; border-radius: 10px;
+  background: rgba(12,14,17,.72); border: 1px solid var(--line); color: var(--amber);
+}
+.chip-mini.dim { color: var(--dim); border-color: rgba(255,255,255,.12); }
+
+/* --- superior derecha: sistema + minimapa --- */
+.hud-tr {
+  position: absolute;
+  right: calc(10px + var(--safe-r)); top: calc(8px + var(--safe-t));
+  display: flex; flex-direction: column; align-items: flex-end; gap: 7px;
+}
+.sys-row { display: flex; gap: 6px; }
+.sysbtn {
+  pointer-events: auto; width: 34px; height: 30px; border-radius: 8px;
+  background: rgba(12,14,17,.75); border: 1px solid var(--line); color: var(--txt);
+  font-size: 14px; line-height: 1; cursor: pointer;
+}
+.sysbtn:active { background: rgba(232,163,60,.28); }
+
+#minimapWrap {
+  width: var(--mm); height: var(--mm);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  background: rgba(8,10,12,.72);
+  box-shadow: 0 6px 18px rgba(0,0,0,.5), inset 0 0 24px rgba(0,0,0,.6);
+}
+#minimap { width: 100%; height: 100%; display: block; }
+
+/* --- cruceta --- */
+#crosshair {
+  position: absolute; left: 50%; top: 50%; width: 16px; height: 16px;
+  transform: translate(-50%, -50%); opacity: .75;
+}
+#crosshair::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px;
+  transform: translate(-50%, -50%); background: var(--amber); border-radius: 50%;
+  box-shadow: 0 0 6px rgba(232,163,60,.9);
+}
+#crosshair::after {
+  content: ''; position: absolute; inset: 0; border: 1px solid rgba(232,163,60,.35); border-radius: 50%;
+}
+
+/* --- flecha de amenaza (griever persiguiendo) --- */
+#threat { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; }
+#threat .arrow {
+  position: absolute; left: -13px; top: -72px; width: 26px; height: 26px;
+  transform-origin: 50% 72px; display: flex; align-items: center; justify-content: center;
+  color: var(--red); font-size: 17px; text-shadow: 0 0 10px rgba(255,60,40,.9);
+}
+#threat.near .arrow { animation: pulse .6s infinite; }
+#threat .lbl {
+  position: absolute; left: -46px; top: 34px; width: 92px; text-align: center;
+  font-size: 10px; letter-spacing: 2px; color: var(--red);
+}
+@keyframes pulse { 50% { opacity: .35; transform: scale(1.15); } }
+
+#interactHint {
+  position: absolute; left: 50%; top: 57%; transform: translateX(-50%);
+  padding: 6px 14px; border-radius: 8px; font-size: 12.5px; letter-spacing: .5px;
+  background: rgba(10,12,14,.82); border: 1px solid var(--cyan); color: var(--cyan);
+  box-shadow: 0 0 18px rgba(125,246,255,.25); white-space: nowrap;
+}
+
+#toast {
+  position: absolute; left: 50%; bottom: calc(9% + var(--safe-b));
+  transform: translateX(-50%); max-width: 46%; text-align: center;
+  padding: 7px 14px; border-radius: 8px; font-size: 12.5px; line-height: 1.35;
+  background: rgba(10,12,14,.85); border: 1px solid var(--line); color: var(--txt);
+  opacity: 0; transition: opacity .25s; box-shadow: 0 6px 18px rgba(0,0,0,.5);
+}
+#toast.show { opacity: 1; }
+
+#damage {
+  position: absolute; inset: 0; pointer-events: none; z-index: 14;
+  background: radial-gradient(ellipse at center, rgba(255,40,30,0) 35%, rgba(255,30,20,.85) 100%);
+  opacity: 0; transition: opacity .18s;
+}
+
+/* ============================ CONTROLES ============================ */
+
+#touch { position: absolute; inset: 0; pointer-events: none; z-index: 13; }
+
+/* joystick: zona de la izquierda + stick dinámico */
+#stickHint {
+  position: absolute;
+  left: calc(4% + var(--safe-l)); bottom: calc(12px + var(--safe-b));
+  width: clamp(88px, 15vh, 120px); height: clamp(88px, 15vh, 120px);
+  border-radius: 50%; border: 2px dashed rgba(232,163,60,.20);
+  display: flex; align-items: center; justify-content: center;
+}
+#stickHint span { font-size: 9px; letter-spacing: 3px; color: rgba(232,163,60,.35); }
+
+#stick { position: absolute; width: 118px; height: 118px; display: none; margin: -59px 0 0 -59px; }
+#stickBase {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid rgba(232,163,60,.45);
+  background: radial-gradient(circle, rgba(232,163,60,.10), rgba(10,12,14,.35) 70%);
+  box-shadow: inset 0 0 24px rgba(0,0,0,.5);
+}
+#stickKnob {
+  position: absolute; left: 50%; top: 50%; width: 54px; height: 54px;
+  margin: -27px 0 0 -27px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(255,214,150,.95), rgba(232,163,60,.75) 45%, rgba(120,80,20,.8));
+  box-shadow: 0 4px 14px rgba(0,0,0,.6), 0 0 18px rgba(232,163,60,.35);
+}
+
+/* botones de acción: rejilla 2x2, siempre visibles, sin solaparse */
+#buttons {
+  position: absolute;
+  right: calc(12px + var(--safe-r)); bottom: calc(12px + var(--safe-b));
+  display: grid; grid-template-columns: repeat(2, var(--btn)); gap: clamp(8px, 1.4vh, 14px);
+}
+.tbtn {
+  pointer-events: auto;
+  width: var(--btn); height: var(--btn);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, rgba(60,64,70,.95), rgba(18,20,24,.92));
+  border: 2px solid rgba(232,163,60,.42);
+  color: var(--txt); font-size: 10px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  box-shadow: 0 6px 16px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.10);
+  transition: transform .06s, background .12s, border-color .12s;
+}
+.tbtn .ic { font-size: calc(var(--btn) * 0.34); line-height: 1; }
+.tbtn .lb { font-size: 8.5px; letter-spacing: .8px; color: rgba(233,227,214,.72); }
+.tbtn:active, .tbtn.pressed { transform: scale(.92); background: radial-gradient(circle at 35% 28%, rgba(232,163,60,.55), rgba(90,58,12,.9)); }
+.tbtn.run.on { background: radial-gradient(circle at 35% 28%, rgba(108,227,154,.5), rgba(20,60,38,.92)); border-color: var(--green); }
+.tbtn.act { border-color: var(--cyan); }
+.tbtn.act .lb { color: var(--cyan); }
+.tbtn.flash-on { background: radial-gradient(circle at 35% 28%, rgba(255,220,150,.6), rgba(102,70,16,.92)); border-color: #ffd489; }
+
+/* ============================ GIRAR EL MÓVIL ============================ */
+
+#rotate {
+  position: absolute; inset: 0; z-index: 60; display: none;
+  align-items: center; justify-content: center;
+  background: rgba(5,6,8,.95); text-align: center;
+}
+#rotate.armed { display: flex; }
+.rot-box { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.rot-phone {
+  width: 54px; height: 92px; border: 3px solid var(--amber); border-radius: 8px;
+  animation: rot 1.8s ease-in-out infinite;
+}
+.rot-phone::after {
+  content: ''; display: block; width: 22px; height: 3px; margin: 8px auto 0;
+  background: var(--amber); border-radius: 2px; opacity: .7;
+}
+@keyframes rot { 0%,30% { transform: rotate(0) } 70%,100% { transform: rotate(-90deg) } }
+.rot-txt { font-size: 20px; font-weight: 700; color: var(--amber); letter-spacing: 1px; }
+.rot-sub { font-size: 12px; color: var(--dim); }
+
+/* ============================ MENÚS ============================ */
+
+#menus {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: calc(10px + var(--safe-t)) 12px calc(10px + var(--safe-b));
+  overflow: auto;
+}
+#menuBg {
+  position: absolute; inset: 0; z-index: 0;
+  background-size: cover; background-position: center;
+  opacity: 0; transition: opacity .8s ease;
+}
+#menuBg.on { opacity: .55; }
+#menus::after {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(8,10,12,.35), rgba(5,6,8,.92) 78%),
+    linear-gradient(180deg, rgba(232,163,60,.05), rgba(0,0,0,0) 40%);
+}
+
+.panel {
+  position: relative; z-index: 2;
+  width: min(940px, 96%); max-height: 100%;
+  overflow: auto; overscroll-behavior: contain;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: clamp(12px, 2.4vh, 22px) clamp(14px, 2.4vw, 26px);
+  box-shadow: 0 20px 60px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.05);
+  backdrop-filter: blur(6px);
+}
+
+#panelTitle { display: grid; grid-template-columns: 1.05fr 1fr; gap: clamp(12px, 2.5vw, 28px); align-items: start; }
+.p-hero { display: flex; flex-direction: column; gap: 12px; }
+.p-form { display: flex; flex-direction: column; gap: 9px; }
+
+.logo { text-align: left; }
+.logo-sub { font-size: 10.5px; letter-spacing: 6px; color: var(--amber-dim); margin-bottom: 2px; }
+.logo h1 {
+  margin: 0; font-size: clamp(28px, 6.4vh, 52px); line-height: .95;
+  letter-spacing: 2px; color: var(--amber);
+  text-shadow: 0 0 30px rgba(232,163,60,.35), 0 3px 0 rgba(0,0,0,.5);
+}
+.logo-line { margin-top: 6px; font-size: 10.5px; letter-spacing: 2.5px; color: var(--dim); }
+
+.hero-art {
+  flex: 1; min-height: 110px; border-radius: 10px; border: 1px solid var(--line);
+  background-size: cover; background-position: center;
+  box-shadow: inset 0 0 40px rgba(0,0,0,.6);
+  background-color: rgba(255,255,255,.03);
+}
+
+h2 { margin: 0 0 10px; font-size: clamp(16px, 3vh, 22px); color: var(--amber); letter-spacing: .5px; }
+h3 { margin: 14px 0 6px; font-size: 13px; color: var(--amber-dim); letter-spacing: .5px; }
+
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 2px; }
+.field > span { font-size: 10.5px; letter-spacing: 1.2px; color: var(--dim); text-transform: uppercase; }
+.field.slider > span b { color: var(--amber); }
+input[type=text], input[type=number], input:not([type]), select {
+  background: #0d1012; border: 1px solid rgba(255,255,255,.14); color: var(--txt);
+  border-radius: 8px; padding: 8px 10px; font-size: 14px; font-family: inherit; width: 100%;
+}
+input:focus, select:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px rgba(232,163,60,.18); }
+input[type=range] { width: 100%; accent-color: var(--amber); }
+
+.row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.row.wrap { align-items: center; }
+.row > * { flex: 1; }
+.half { flex: 1 1 120px; }
+.check { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--txt); flex: 0 0 auto; }
+.check input { width: 16px; height: 16px; accent-color: var(--amber); }
+
+.chips { display: flex; gap: 6px; }
+.chip {
+  flex: 1; padding: 7px 4px; font-size: 11.5px; letter-spacing: .5px; cursor: pointer;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14);
+  color: var(--dim); border-radius: 8px; font-family: inherit;
+}
+.chip.on { background: rgba(232,163,60,.20); border-color: var(--amber); color: var(--amber); font-weight: 700; }
+
+button { font-family: inherit; }
+button.primary {
+  margin-top: 4px; padding: 12px 18px; font-size: 14px; font-weight: 800; letter-spacing: 1.5px;
+  color: #1a1206; background: linear-gradient(180deg, #ffc25c, #d98f22);
+  border: none; border-radius: 10px; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(232,163,60,.30), inset 0 1px 0 rgba(255,255,255,.5);
+}
+button.primary:active { transform: translateY(1px); filter: brightness(.94); }
+button.ghost {
+  padding: 10px 16px; font-size: 12.5px; letter-spacing: .8px; cursor: pointer;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.16);
+  color: var(--txt); border-radius: 10px; flex: 1;
+}
+button.ghost:active { background: rgba(255,255,255,.12); }
+.mini-btn {
+  padding: 7px 12px; font-size: 11.5px; cursor: pointer;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.16);
+  color: var(--txt); border-radius: 8px;
+}
+.links { display: flex; gap: 8px; justify-content: center; margin-top: 2px; }
+.link {
+  background: none; border: none; color: var(--dim); font-size: 11.5px; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; padding: 4px;
+}
+.link:hover { color: var(--amber); }
+
+details.adv, details.cfg { margin-top: 2px; }
+details > summary {
+  cursor: pointer; font-size: 11px; letter-spacing: 1px; color: var(--amber-dim);
+  padding: 6px 0; list-style: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: '▸ '; }
+details[open] > summary::before { content: '▾ '; }
+details > div, details > label { margin-top: 6px; }
+.tiny-note { font-size: 10.5px; color: var(--dim); line-height: 1.4; margin: 6px 0 0; }
+.status { font-size: 11px; color: var(--green); align-self: center; }
+
+.help { font-size: 12.5px; line-height: 1.5; color: #cfc8ba; }
+.help ul { margin: 6px 0; padding-left: 18px; }
+.help li { margin-bottom: 4px; }
+.keys { display: grid; grid-template-columns: 1fr; gap: 3px; font-size: 12px; margin-top: 4px; }
+.keys > div:nth-child(odd) { color: var(--amber); margin-top: 6px; }
+
+.scores { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; max-height: 34vh; overflow: auto; }
+.score-row {
+  display: grid; grid-template-columns: 26px 1fr auto auto; gap: 10px; align-items: center;
+  padding: 7px 10px; background: rgba(255,255,255,.04); border-radius: 8px; font-size: 12.5px;
+  border-left: 3px solid var(--amber-dim);
+}
+.score-row.me { border-left-color: var(--amber); background: rgba(232,163,60,.12); }
+.score-row .pos { color: var(--amber); font-weight: 700; }
+.score-row .t { font-variant-numeric: tabular-nums; font-weight: 700; }
+.score-row .d { color: var(--dim); font-size: 10.5px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 8px 0; }
+.stat { background: rgba(255,255,255,.04); border-radius: 8px; padding: 8px 10px; }
+.stat .k { font-size: 10px; letter-spacing: 1px; color: var(--dim); }
+.stat .v { font-size: 16px; font-weight: 700; color: var(--amber); font-variant-numeric: tabular-nums; }
+
+.end-art {
+  height: clamp(70px, 16vh, 150px); border-radius: 10px; margin-bottom: 10px;
+  background-size: cover; background-position: center 40%;
+  border: 1px solid var(--line); box-shadow: inset 0 -30px 40px rgba(6,7,8,.9);
+  background-color: rgba(255,255,255,.03);
+}
+.end-art.win { box-shadow: inset 0 -30px 40px rgba(6,7,8,.9), 0 0 30px rgba(108,227,154,.25); }
+
+/* ============================ ADAPTACIONES ============================ */
+
+/* móvil en vertical: pedimos girar (el menú sigue usable) */
+@media (orientation: portrait) and (pointer: coarse) {
+  #panelTitle { grid-template-columns: 1fr; }
+  .hero-art { min-height: 80px; }
+  #rotate.armed { display: flex; }
+}
+
+/* pantallas muy bajas en horizontal: compacta el HUD */
+@media (orientation: landscape) and (max-height: 430px) {
+  :root { --mm: clamp(70px, 22vh, 116px); --btn: clamp(44px, 12vh, 62px); }
+  .hud-tl { width: min(190px, 28vw); }
+  #sectorName { font-size: 13px; }
+  #clock { font-size: 17px; }
+  .tbtn .lb { display: none; }
+  .tbtn .ic { font-size: calc(var(--btn) * 0.46); }
+  #toast { bottom: calc(6% + var(--safe-b)); font-size: 11.5px; }
+}
+
+/* escritorio: sin controles táctiles */
+@media (pointer: fine) {
+  #touch { display: none !important; }
+  #stickHint, #stick { display: none !important; }
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+  <div id="vignette"></div>
+  <div id="damage"></div>
+
+  <!-- ===================== HUD ===================== -->
+  <div id="hud" class="hidden">
+    <div class="hud-tl">
+      <div class="sector-box">
+        <div id="sectorName">El Área</div>
+        <div id="doorState" class="sub">Puertas abiertas</div>
+      </div>
+      <div id="bars">
+        <div class="bar"><span class="lab">VID</span><div class="track"><i id="barHealth" class="health" style="width:100%"></i></div></div>
+        <div class="bar"><span class="lab">RES</span><div class="track"><i id="barStamina" class="stamina" style="width:100%"></i></div></div>
+        <div class="bar"><span class="lab">BAT</span><div class="track"><i id="barBattery" class="battery" style="width:100%"></i></div></div>
+        <div class="bar mini"><span>Bengalas</span><span id="flareCount">x3</span></div>
+      </div>
+    </div>
+
+    <div class="hud-tc">
+      <div id="clock">00:00</div>
+      <div class="chips-mini">
+        <span id="codesChip" class="chip-mini">Códigos 0/3</span>
+        <span id="cycleChip" class="chip-mini dim">☀ Día</span>
+      </div>
+    </div>
+
+    <div class="hud-tr">
+      <div class="sys-row">
+        <button id="btnFull" class="sysbtn" type="button" title="Pantalla completa">⛶</button>
+        <button id="btnPause" class="sysbtn" type="button" title="Pausa">⏸</button>
+      </div>
+      <div id="minimapWrap"><canvas id="minimap" width="200" height="200"></canvas></div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="threat" class="hidden"><div class="arrow">▲</div><div class="lbl">TE PERSIGUE</div></div>
+    <div id="interactHint" class="hidden"></div>
+    <div id="toast"></div>
+  </div>
+
+  <!-- ===================== CONTROLES TÁCTILES ===================== -->
+  <div id="touch" class="hidden">
+    <div id="stickHint"><span>MOVER</span></div>
+    <div id="stick"><div id="stickBase"></div><div id="stickKnob"></div></div>
+    <div id="buttons">
+      <button id="btnAction" class="tbtn act" type="button"><span class="ic">⚡</span><span class="lb">USAR</span></button>
+      <button id="btnFlash" class="tbtn" type="button"><span class="ic">🔦</span><span class="lb">LUZ</span></button>
+      <button id="btnFlare" class="tbtn" type="button"><span class="ic">🔥</span><span class="lb">FUEGO</span></button>
+      <button id="btnRun" class="tbtn run" type="button"><span class="ic">🏃</span><span class="lb">CORRER</span></button>
+    </div>
+  </div>
+
+  <!-- ===================== GIRAR EL MÓVIL ===================== -->
+  <div id="rotate">
+    <div class="rot-box">
+      <div class="rot-phone"></div>
+      <div class="rot-txt">Gira el móvil</div>
+      <div class="rot-sub">Se juega mejor en horizontal</div>
+      <button id="btnRotSkip" class="mini-btn" type="button">Jugar así</button>
+    </div>
+  </div>
+
+  <!-- ===================== MENÚS ===================== -->
+  <div id="menus">
+    <div id="menuBg"></div>
+
+    <section id="panelTitle" class="panel">
+      <div class="p-hero">
+        <div class="logo">
+          <div class="logo-sub">MAZE RUNNER</div>
+          <h1>EL LABERINTO</h1>
+          <div class="logo-line">SUPERVIVENCIA · PRIMERA PERSONA · MÓVIL</div>
+        </div>
+        <div id="titleArt" class="hero-art"></div>
+        <div class="help">
+          Sal de El Área, reúne los 3 códigos CRUEL repartidos por los 8 sectores
+          y el subsuelo, y escapa antes de que los Grievers te atrapen. Al
+          anochecer las puertas se cierran.
+        </div>
+      </div>
+      <div class="p-form">
+        <div class="field">
+          <span>Nombre de corredor</span>
+          <input id="inpName" type="text" maxlength="16" placeholder="Corredor">
+        </div>
+        <div class="field">
+          <span>Semilla del laberinto</span>
+          <div class="chips" id="seedModes">
+            <button type="button" class="chip on" data-mode="daily">Diaria</button>
+            <button type="button" class="chip" data-mode="random">Aleatoria</button>
+            <button type="button" class="chip" data-mode="manual">Manual</button>
+          </div>
+          <input id="inpSeed" type="number" placeholder="Número de semilla" class="hidden">
+        </div>
+        <div class="row">
+          <div class="field half">
+            <span>Calidad gráfica</span>
+            <select id="selQuality">
+              <option value="0.35">Baja</option>
+              <option value="0.5" selected>Media</option>
+              <option value="0.7">Alta</option>
+            </select>
+          </div>
+          <label class="check"><input id="chkSound" type="checkbox" checked> Sonido</label>
+        </div>
+        <button id="btnStart" class="primary" type="button">▶ ENTRAR EN EL LABERINTO</button>
+        <div class="links">
+          <button class="link" id="btnHelp" type="button">Cómo jugar</button>
+          <button class="link" id="btnScores" type="button">Clasificación</button>
+        </div>
+
+        <details class="adv">
+          <summary>Ajustes de cámara y movimiento</summary>
+          <div class="field slider">
+            <span>Sensibilidad <b id="sensVal">1.0</b></span>
+            <input id="rngSens" type="range" min="0.3" max="2.5" step="0.1" value="1">
+          </div>
+          <div class="field slider">
+            <span>Balanceo de cámara <b id="bobVal">50%</b></span>
+            <input id="rngBob" type="range" min="0" max="1" step="0.1" value="0.5">
+          </div>
+          <div class="row wrap">
+            <label class="check"><input id="chkInvert" type="checkbox"> Invertir eje Y</label>
+            <label class="check"><input id="chkAssist" type="checkbox" checked> Asistencia al mover</label>
+          </div>
+          <p class="tiny-note">La asistencia suaviza las esquinas y te centra en los pasillos estrechos.</p>
+        </details>
+
+        <details class="cfg">
+          <summary>Supabase (ranking online, opcional)</summary>
+          <div class="field">
+            <span>Project URL</span>
+            <input id="inpUrl" type="text" placeholder="https://tuproyecto.supabase.co">
+          </div>
+          <div class="field">
+            <span>anon / publishable key</span>
+            <input id="inpKey" type="text" placeholder="eyJ...">
+          </div>
+          <div class="row wrap">
+            <button id="btnSaveCfg" class="mini-btn" type="button">Guardar</button>
+            <button id="btnTestCfg" class="mini-btn" type="button">Probar conexión</button>
+            <span id="cfgStatus" class="status"></span>
+          </div>
+          <p class="tiny-note">Déjalo vacío para jugar sólo con ranking local.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="panelHelp" class="panel hidden">
+      <h2>CÓMO JUGAR</h2>
+      <div class="help">
+        <p>Objetivo: reúne los 3 códigos CRUEL (2 en superficie, 1 en el subsuelo)
+          y llega a la salida — se marca en verde en el minimapa cuando la conoces.</p>
+        <ul>
+          <li>Al anochecer las 12 puertas se cierran: quédate dentro de un sector o en El Área.</li>
+          <li>Los Grievers patrullan, oyen si corres y persiguen si te ven. Una flecha roja
+            avisa cuando te persiguen.</li>
+          <li>Apaga la linterna para ahorrar batería: tus ojos se adaptan a la oscuridad
+            en unos segundos.</li>
+          <li>Las bengalas ahuyentan a los Grievers e iluminan una zona durante un rato.</li>
+        </ul>
+        <h3>Controles</h3>
+        <div class="keys">
+          <div>Móvil</div>
+          <div>Joystick izquierdo para moverte · arrastra en el resto de la pantalla para
+            mirar · ⚡ interactuar · 🔦 linterna · 🔥 bengala · 🏃 correr</div>
+          <div>Escritorio</div>
+          <div>WASD / flechas · ratón para mirar (clic para fijarlo) · Shift correr ·
+            F linterna · G bengala · E / Espacio interactuar · Esc pausa</div>
+        </div>
+      </div>
+      <button class="ghost" data-back type="button">Volver</button>
+    </section>
+
+    <section id="panelScores" class="panel hidden">
+      <h2>CLASIFICACIÓN</h2>
+      <div class="scores" id="scoreList"></div>
+      <div class="row wrap">
+        <button class="mini-btn" id="btnRefreshScores" type="button">Actualizar</button>
+        <button class="mini-btn" id="btnClearScores" type="button">Borrar local</button>
+      </div>
+      <button class="ghost" data-back type="button">Volver</button>
+    </section>
+
+    <section id="panelPause" class="panel hidden">
+      <h2>PAUSA</h2>
+      <div id="pauseStats" class="stats"></div>
+      <button id="btnResume" class="primary" type="button">▶ Continuar</button>
+      <div class="row wrap">
+        <button id="btnRestart" class="ghost" type="button">Reiniciar (misma semilla)</button>
+        <button id="btnQuit" class="ghost" type="button">Salir al menú</button>
+      </div>
+    </section>
+
+    <section id="panelEnd" class="panel hidden">
+      <div id="endArt" class="end-art"></div>
+      <h2 id="endTitle">FIN</h2>
+      <div id="endBody"></div>
+      <div class="scores" id="endScores"></div>
+      <div class="row wrap">
+        <button id="btnAgain" class="ghost" type="button">Repetir semilla</button>
+        <button id="btnNewSeed" class="ghost" type="button">Semilla nueva</button>
+        <button id="btnMenu" class="ghost" type="button">Menú</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+/* ==================== rng.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Núcleo determinista
+   Misma semilla => mismo laberinto (semilla diaria / manual)
+   ============================================================= */
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashString(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+function makeRng(seed) {
+  const f = mulberry32(seed >>> 0);
+  return {
+    next: f,
+    int: (n) => Math.floor(f() * n),
+    range: (a, b) => a + f() * (b - a),
+    pick: (arr) => arr[Math.floor(f() * arr.length)],
+    chance: (p) => f() < p,
+    shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(f() * (i + 1));
+        const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+      }
+      return arr;
+    },
+  };
+}
+
+/** Semilla diaria estable a partir de la fecha UTC (YYYYMMDD). */
+function dailySeed(d = new Date()) {
+  const s = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  return parseInt(s, 10) >>> 0;
+}
+
+function randomSeed() {
+  return (Math.random() * 0xffffffff) >>> 0;
+}
+
+function seedLabel(seed) {
+  return String(seed).padStart(6, '0').slice(-6);
+}
+
+
+/* ==================== config.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — backend por defecto
+   La anon/publishable key está pensada para usarse en el cliente
+   (la seguridad la definen las políticas RLS del esquema SQL).
+   Se puede sobrescribir desde el menú Supabase del juego o
+   desactivando el backend (guardando los dos campos vacíos).
+   ============================================================= */
+
+const DEFAULT_BACKEND = {
+  url: 'https://ccapdpiqawpnqlyumgqh.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjYXBkcGlxYXdwbnFseXVtZ3FoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NTEwMzcsImV4cCI6MjEwODUyNzAzN30.aSczrFf4IDT-vqnxG-nAlfL5jOfmdr0FiWTSWN72eKQ',
+};
+
+
+/* ==================== assets.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — assets opcionales (ilustraciones extra)
+   En esta reconstrucción no se incluyen imágenes generadas por IA.
+   El juego funciona 100% con arte procedural; este módulo es un
+   cargador seguro que no rompe nada si no hay nada que cargar.
+   ============================================================= */
+
+const ASSET_DATA = {
+  // title: 'data:image/jpeg;base64,...',
+  // grieverScene: 'data:image/jpeg;base64,...',
+};
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('no se pudo cargar el asset'));
+    img.src = src;
+  });
+}
+
+/** Carga todos los assets; si falla o no hay ninguno, devuelve {} y el juego sigue con arte procedural. */
+async function loadAssets() {
+  const out = {};
+  for (const k of Object.keys(ASSET_DATA)) {
+    try { out[k] = await loadImage(ASSET_DATA[k]); } catch { /* fallback procedural */ }
+  }
+  return out;
+}
+
+
+/* ==================== storage.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Persistencia
+   Ranking local (localStorage) + ajustes + sincronización
+   opcional con Supabase vía REST (nunca bloquea: timeout + fallback).
+   ============================================================= */
+
+
+const LS_SCORES = 'mazerunner.scores.v1';
+const LS_NAME = 'mazerunner.name';
+const LS_CFG = 'mazerunner.cfg.v1';
+const LS_SETTINGS = 'mazerunner.settings.v1';
+
+function safeGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function safeSet(key, val) { try { localStorage.setItem(key, val); } catch { /* almacenamiento no disponible (file://, privado…) */ } }
+function safeRemove(key) { try { localStorage.removeItem(key); } catch { /* ignorar */ } }
+
+/* ------------------------------ ranking local ------------------------------ */
+
+function getScores() {
+  try { return JSON.parse(safeGet(LS_SCORES) || '[]'); } catch { return []; }
+}
+
+function addScore(entry) {
+  const s = getScores();
+  s.push(entry);
+  s.sort((a, b) => a.time - b.time);
+  const top = s.slice(0, 25);
+  safeSet(LS_SCORES, JSON.stringify(top));
+  return top;
+}
+
+function clearScores() { safeRemove(LS_SCORES); }
+
+function getName() { return safeGet(LS_NAME) || ''; }
+function setName(n) { safeSet(LS_NAME, n); }
+
+/* ------------------------------ configuración backend ------------------------------ */
+
+function getConfigSaved() {
+  try { return JSON.parse(safeGet(LS_CFG) || '{}'); } catch { return {}; }
+}
+
+/** Config efectiva: lo guardado por el usuario, o el backend por defecto, o {} si se desactivó. */
+function getConfig() {
+  const c = getConfigSaved();
+  if (c && c.disabled) return {};
+  if (c && c.url && c.key) return c;
+  return DEFAULT_BACKEND;
+}
+
+function setConfig(c) {
+  if (!c || (!c.url && !c.key)) { safeSet(LS_CFG, JSON.stringify({ disabled: true })); return; }
+  safeSet(LS_CFG, JSON.stringify(c));
+}
+
+/* ------------------------------ ajustes ------------------------------ */
+
+function getSettings() {
+  let s = {};
+  try { s = JSON.parse(safeGet(LS_SETTINGS) || '{}'); } catch { s = {}; }
+  return { sens: 1.0, invertY: false, bob: 0.5, assist: true, bloom: true, sound: true, ...s };
+}
+
+function saveSettings(s) { safeSet(LS_SETTINGS, JSON.stringify(s || {})); }
+
+/* ------------------------------ Supabase ------------------------------ */
+
+function restUrl(cfg, path) { return `${cfg.url.replace(/\/$/, '')}/rest/v1/${path}`; }
+function headers(cfg) {
+  return { apikey: cfg.key, Authorization: `Bearer ${cfg.key}`, 'Content-Type': 'application/json' };
+}
+
+/** fetch con tope de tiempo: la red nunca bloquea el arranque del juego. */
+async function fetchT(url, opts, ms = 4000) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+  finally { clearTimeout(id); }
+}
+
+async function sbTop(cfg, limit = 10) {
+  if (!cfg || !cfg.url || !cfg.key) return null;
+  try {
+    const r = await fetchT(
+      `${restUrl(cfg, 'leaderboard')}?select=username,escape_time_seconds,sector_reached,completed_at&order=escape_time_seconds.asc&limit=${limit}`,
+      { headers: headers(cfg) },
+    );
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+async function sbSubmit(cfg, entry) {
+  if (!cfg || !cfg.url || !cfg.key) return false;
+  try {
+    const r = await fetchT(restUrl(cfg, 'leaderboard'), {
+      method: 'POST',
+      headers: { ...headers(cfg), Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        username: entry.name,
+        escape_time_seconds: entry.time,
+        sector_reached: entry.sector || 1,
+      }),
+    });
+    return r.ok || r.status === 201;
+  } catch { return false; }
+}
+
+/** Semilla diaria vía RPC (la crea si no existe). Tope corto: no debe retrasar el arranque. */
+async function sbDailySeedRpc(cfg) {
+  if (!cfg || !cfg.url || !cfg.key) return null;
+  try {
+    const r = await fetchT(restUrl(cfg, 'rpc/get_daily_seed'), {
+      method: 'POST', headers: headers(cfg), body: '{}',
+    }, 2000);
+    if (!r.ok) return null;
+    const v = parseInt((await r.text()).trim(), 10);
+    return Number.isFinite(v) ? v : null;
+  } catch { return null; }
+}
+
+async function sbDailySeed(cfg) {
+  if (!cfg || !cfg.url || !cfg.key) return null;
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const r = await fetchT(`${restUrl(cfg, 'daily_mazes')}?select=seed_value&maze_date=eq.${today}&limit=1`, { headers: headers(cfg) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j && j.length ? j[0].seed_value : null;
+  } catch { return null; }
+}
+
+/** Inserta la semilla del día si no existe (requiere permisos de escritura). */
+async function sbEnsureDaily(cfg, seed) {
+  if (!cfg || !cfg.url || !cfg.key) return false;
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const r = await fetchT(restUrl(cfg, 'daily_mazes'), {
+      method: 'POST',
+      headers: { ...headers(cfg), Prefer: 'return=minimal' },
+      body: JSON.stringify({ maze_date: today, seed_value: seed, active_sectors: 8, underground_unlocked: true }),
+    });
+    return r.ok || r.status === 201 || r.status === 409;
+  } catch { return false; }
+}
+
+
+/* ==================== audio.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Audio procedural (WebAudio, sin assets)
+   ============================================================= */
+
+class Sfx {
+  constructor() {
+    this.ctx = null;
+    this.enabled = true;
+    this.master = null;
+    this.lastGrowl = 0;
+    this.lastStep = 0;
+  }
+
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    this.ctx = new AC();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.55;
+    this.master.connect(this.ctx.destination);
+    const n = this.ctx.sampleRate * 1.2;
+    this.noiseBuf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+    const d = this.noiseBuf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  }
+
+  setEnabled(v) {
+    this.enabled = v;
+    if (this.master) this.master.gain.value = v ? 0.55 : 0;
+  }
+
+  get t() { return this.ctx ? this.ctx.currentTime : 0; }
+
+  tone(freq, dur, type = 'sine', gain = 0.2, slideTo = null, delay = 0) {
+    if (!this.ctx || !this.enabled) return;
+    const t0 = this.t + delay;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + Math.min(0.02, dur * 0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(this.master);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+
+  noise(dur, freq = 800, gain = 0.15, q = 1, sweepTo = null, delay = 0) {
+    if (!this.ctx || !this.enabled) return;
+    const t0 = this.t + delay;
+    const s = this.ctx.createBufferSource();
+    s.buffer = this.noiseBuf;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.setValueAtTime(freq, t0); f.Q.value = q;
+    if (sweepTo) f.frequency.exponentialRampToValueAtTime(Math.max(40, sweepTo), t0 + dur);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    s.connect(f); f.connect(g); g.connect(this.master);
+    s.start(t0); s.stop(t0 + dur + 0.02);
+  }
+
+  step(running) {
+    const now = performance.now();
+    const gap = running ? 300 : 470;
+    if (now - this.lastStep < gap) return;
+    this.lastStep = now;
+    this.noise(0.09, running ? 340 : 240, running ? 0.10 : 0.06, 1.4, 120);
+  }
+
+  growl(vol) {
+    const now = performance.now();
+    if (now - this.lastGrowl < 1400 || vol <= 0.02) return;
+    this.lastGrowl = now;
+    this.tone(58 + Math.random() * 18, 0.75, 'sawtooth', 0.10 * vol, 38);
+    this.noise(0.7, 220, 0.09 * vol, 0.8, 90);
+  }
+
+  door(closing) {
+    this.noise(1.1, closing ? 260 : 180, 0.16, 0.7, closing ? 70 : 420);
+    this.tone(closing ? 70 : 52, 1.0, 'square', 0.06, closing ? 40 : 90);
+  }
+
+  pickup() { this.tone(660, 0.10, 'triangle', 0.16); this.tone(990, 0.12, 'triangle', 0.12, null, 0.07); }
+  code() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.14, null, i * 0.09)); }
+  hurt() { this.noise(0.35, 900, 0.22, 0.6, 120); this.tone(140, 0.32, 'sawtooth', 0.14, 60); }
+  heart() { this.tone(52, 0.16, 'sine', 0.22, 34); this.tone(46, 0.18, 'sine', 0.16, 30, 0.20); }
+  flare() { this.noise(0.5, 1800, 0.12, 0.5, 500); this.tone(880, 0.25, 'triangle', 0.08, 1600); }
+  descend() { this.tone(300, 0.9, 'sine', 0.12, 70); this.noise(0.9, 500, 0.10, 0.6, 90); }
+  win() { [392, 523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.5, 'triangle', 0.16, null, i * 0.14)); }
+  lose() { [330, 262, 220, 165].forEach((f, i) => this.tone(f, 0.6, 'sawtooth', 0.14, null, i * 0.20)); }
+  click() { this.tone(520, 0.05, 'square', 0.08); }
+}
+
+
+/* ==================== textures.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Texturas y sprites procedurales (128 px)
+   Ruido multi-octava determinista, suciedad, óxido, musgo,
+   grietas y sombreado de aristas. Cero assets externos.
+   ============================================================= */
+
+const TS = 128;
+
+/* ------------------------------ ruido ------------------------------ */
+
+function texRand32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Ruido de valor enrejado P×P (enrollable => textura sin costuras). */
+function noiseGrid(seed, P) {
+  const r = texRand32(seed);
+  const g = new Float32Array(P * P);
+  for (let i = 0; i < g.length; i++) g[i] = r();
+  const w = (a) => ((a % P) + P) % P;
+  return (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const x0 = w(xi), x1 = w(xi + 1), y0 = w(yi), y1 = w(yi + 1);
+    const a = g[y0 * P + x0], b = g[y0 * P + x1], c = g[y1 * P + x0], d = g[y1 * P + x1];
+    return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+  };
+}
+
+function fbm(n, x, y, oct, gain = 0.5) {
+  let s = 0, amp = 1, f = 1, tot = 0;
+  for (let i = 0; i < oct; i++) { s += amp * n(x * f, y * f); tot += amp; amp *= gain; f *= 2; }
+  return s / tot;
+}
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (e0, e1, x) => { const t = clamp01((x - e0) / (e1 - e0)); return t * t * (3 - 2 * t); };
+
+/* --------------------------- utilidades --------------------------- */
+
+function cv(size) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  return c;
+}
+
+/** Textura por píxel: fn(x, y, u, v, n) -> [r,g,b,a?] en 0..255 */
+function pixTex(fn, size = TS) {
+  const c = cv(size);
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  const img = ctx.createImageData(size, size);
+  const d = img.data;
+  const P = 8, P2 = 16, P3 = 32;
+  const n1 = noiseGrid(1, P), n2 = noiseGrid(2, P2), n3 = noiseGrid(3, P3), n4 = noiseGrid(4, P2);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const u = x / size, v = y / size;
+      const g = (hash2(x, y) + 0.0);
+      const c4 = fn(x, y, u, v, {
+        n1: fbm(n1, u * P, v * P, 4),
+        n2: fbm(n2, u * P2, v * P2, 3),
+        n3: fbm(n3, u * P3, v * P3, 2),
+        n4: fbm(n4, u * P2, v * P2, 4),
+        g,
+      });
+      const i = (y * size + x) * 4;
+      d[i] = c4[0]; d[i + 1] = c4[1]; d[i + 2] = c4[2]; d[i + 3] = c4.length > 3 ? c4[3] : 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return { w: size, h: size, data: new Uint8ClampedArray(ctx.getImageData(0, 0, size, size).data.buffer), ctx, canvas: c };
+}
+
+/** Detalles vectoriales dibujados sobre una textura ya generada. */
+function detail(tex, draw) {
+  draw(tex.ctx, tex.w, tex.h);
+  tex.data = new Uint8ClampedArray(tex.ctx.getImageData(0, 0, tex.w, tex.h).data.buffer);
+  return tex;
+}
+
+function finish(tex) { return { w: tex.w, h: tex.h, data: tex.data }; }
+
+function hash2(x, y) {
+  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/* ============================== MUROS ============================== */
+
+function brickMask(u, v, bw, bh, mortar) {
+  const row = Math.floor(v / bh);
+  const off = (row % 2) * bw * 0.5;
+  const lx = (u + off) % bw;
+  const ly = v % bh;
+  const mx = Math.min(lx, bw - lx), my = Math.min(ly, bh - ly);
+  const edge = Math.min(mx / bw, my / bh);
+  return {
+    mortar: edge < mortar,
+    ao: smooth(0, mortar * 2.6, edge),
+    row, id: hash2(Math.floor((u + off) / bw), row),
+  };
+}
+
+const wallGlade = () => pixTex((x, y, u, v, n) => {
+  const b = brickMask(u, v, 0.25, 0.125, 0.012);
+  let r = 104, g = 110, bl = 92;
+  const tone = 0.82 + b.id * 0.30 + n.n1 * 0.22 + (n.g - 0.5) * 0.10;
+  r *= tone; g *= tone; bl *= tone * 0.96;
+  if (b.mortar) { const m = 0.42; r *= m; g *= m; bl *= m; }
+  r *= b.ao * 0.35 + 0.65; g *= b.ao * 0.35 + 0.65; bl *= b.ao * 0.35 + 0.65;
+  const moss = smooth(0.52, 0.86, n.n2 * (0.5 + v * 0.9));
+  r = lerp(r, 62, moss * 0.75); g = lerp(g, 104, moss * 0.75); bl = lerp(bl, 48, moss * 0.75);
+  const damp = smooth(0.62, 0.95, n.n4) * (0.25 + 0.75 * v);
+  r *= 1 - damp * 0.35; g *= 1 - damp * 0.30; bl *= 1 - damp * 0.22;
+  return [r, g, bl];
+});
+
+const wallMoss = () => pixTex((x, y, u, v, n) => {
+  const b = brickMask(u, v, 0.25, 0.125, 0.014);
+  let r = 96, g = 88, bl = 74;
+  const tone = 0.80 + b.id * 0.34 + n.n1 * 0.20 + (n.g - 0.5) * 0.10;
+  r *= tone; g *= tone; bl *= tone * 0.95;
+  if (b.mortar) { const m = 0.38; r *= m; g *= m; bl *= m; }
+  r *= b.ao * 0.4 + 0.6; g *= b.ao * 0.4 + 0.6; bl *= b.ao * 0.4 + 0.6;
+  const moss = smooth(0.46, 0.80, n.n2 * (0.55 + v * 0.8));
+  r = lerp(r, 58, moss * 0.8); g = lerp(g, 98, moss * 0.8); bl = lerp(bl, 46, moss * 0.8);
+  const dark = smooth(0.58, 0.92, n.n4) * (0.2 + 0.8 * v);
+  r *= 1 - dark * 0.4; g *= 1 - dark * 0.36; bl *= 1 - dark * 0.3;
+  return [r, g, bl];
+});
+
+const wallMetal = () => pixTex((x, y, u, v, n) => {
+  const pw = 0.5, ph = 0.5;
+  const px = u % pw, py = v % ph;
+  const ex = Math.min(px, pw - px), ey = Math.min(py, ph - py);
+  const bevel = smooth(0, 0.02, Math.min(ex, ey));
+  let r = 74, g = 80, bl = 88;
+  const tone = 0.86 + n.n1 * 0.24 + bevel * 0.22 + (n.g - 0.5) * 0.08;
+  r *= tone; g *= tone; bl *= tone;
+  const seam = 1 - smooth(0.004, 0.014, Math.min(ex, ey));
+  r *= 1 - seam * 0.55; g *= 1 - seam * 0.55; bl *= 1 - seam * 0.5;
+  const rust = smooth(0.56, 0.86, n.n2 * (0.55 + v * 0.7));
+  r = lerp(r, 116, rust * 0.8); g = lerp(g, 62, rust * 0.8); bl = lerp(bl, 34, rust * 0.8);
+  r *= 1 - smooth(0.5, 1, n.n3) * 0.22; g *= 1 - smooth(0.5, 1, n.n3) * 0.22; bl *= 1 - smooth(0.5, 1, n.n3) * 0.2;
+  return [r, g, bl];
+});
+
+const wallConcrete = () => pixTex((x, y, u, v, n) => {
+  const b = brickMask(u, v, 0.5, 0.25, 0.010);
+  let r = 152, g = 140, bl = 112;
+  const tone = 0.84 + b.id * 0.26 + n.n1 * 0.26 + (n.g - 0.5) * 0.10;
+  r *= tone; g *= tone; bl *= tone;
+  if (b.mortar) { const m = 0.55; r *= m; g *= m; bl *= m * 1.05; }
+  r *= b.ao * 0.3 + 0.7; g *= b.ao * 0.3 + 0.7; bl *= b.ao * 0.3 + 0.7;
+  const sand = smooth(0.55, 1.0, v) * 0.35;
+  r = lerp(r, 186, sand); g = lerp(g, 168, sand); bl = lerp(bl, 124, sand);
+  const stain = smooth(0.55, 0.95, n.n4);
+  r *= 1 - stain * 0.18; g *= 1 - stain * 0.2; bl *= 1 - stain * 0.22;
+  return [r, g, bl];
+});
+
+const wallCruel = () => pixTex((x, y, u, v, n) => {
+  const gx = u % 0.125, gy = v % 0.125;
+  const bar = (gx < 0.055 && gy < 0.055) ? 1 : 0;
+  let r = 62, g = 68, bl = 76;
+  const tone = 0.85 + n.n1 * 0.3 + (n.g - 0.5) * 0.08;
+  r *= tone; g *= tone; bl *= tone;
+  if (!bar) { const d = 0.22; r *= d; g *= d; bl *= d * 1.1; }
+  else {
+    const hi = smooth(0.03, 0.052, Math.min(gx, gy)) * 0.3;
+    r *= 1 + hi; g *= 1 + hi; bl *= 1 + hi;
+  }
+  const rust = smooth(0.62, 0.92, n.n2);
+  r = lerp(r, 104, rust * 0.6); g = lerp(g, 52, rust * 0.6); bl = lerp(bl, 30, rust * 0.6);
+  return [r, g, bl];
+});
+
+const wallDoor = () => pixTex((x, y, u, v) => {
+  // rastrillo: barrotes opacos, huecos transparentes
+  const col = u % (1 / 7);
+  const bar = col < 0.55;
+  if (!bar) return [0, 0, 0, 0];
+  const cx = (col - 0.27) / 0.27;
+  const cyl = 1 - Math.abs(cx) * Math.abs(cx) * 0.8;
+  const cross = (v % 0.25) < 0.06 || v < 0.05 || v > 0.94;
+  let r = 96, g = 102, bl = 110;
+  const t = 0.55 + cyl * 0.7;
+  r *= t; g *= t; bl *= t;
+  if (cross) { r *= 1.15; g *= 1.12; bl *= 1.08; }
+  return [r, g, bl, 255];
+});
+
+/* ============================== SUELOS ============================== */
+
+const floorGlade = () => pixTex((x, y, u, v, n) => {
+  let r = 74, g = 92, bl = 56;
+  const t = 1 + (n.n1 - 0.5) * 0.85 + (n.n2 - 0.5) * 0.35 + (n.g - 0.5) * 0.30;
+  r *= t; g *= t; bl *= t;
+  const dirt = smooth(0.45, 0.85, n.n2);
+  r = lerp(r, 92, dirt * 0.6); g = lerp(g, 78, dirt * 0.6); bl = lerp(bl, 52, dirt * 0.6);
+  const stone = smooth(0.78, 0.97, n.n3);
+  r = lerp(r, 120, stone * 0.5); g = lerp(g, 118, stone * 0.5); bl = lerp(bl, 108, stone * 0.5);
+  return [r, g, bl];
+});
+
+const floorStone = () => pixTex((x, y, u, v, n) => {
+  const b = brickMask(u, v, 0.25, 0.25, 0.014);
+  let r = 84, g = 80, bl = 70;
+  const tone = 0.82 + b.id * 0.3 + n.n1 * 0.24 + (n.g - 0.5) * 0.28;
+  r *= tone; g *= tone; bl *= tone;
+  if (b.mortar) { const m = 0.5; r *= m; g *= m; bl *= m; }
+  r *= b.ao * 0.35 + 0.65; g *= b.ao * 0.35 + 0.65; bl *= b.ao * 0.35 + 0.65;
+  const grime = smooth(0.5, 0.95, n.n4) * 0.35;
+  r *= 1 - grime; g *= 1 - grime; bl *= 1 - grime * 0.9;
+  return [r, g, bl];
+});
+
+const floorGrate = () => pixTex((x, y, u, v, n) => {
+  const gx = u % 0.0625, gy = v % 0.25;
+  const bar = gx < 0.7;
+  let r = 74, g = 78, bl = 84;
+  const t = 0.82 + n.n1 * 0.3 + (n.g - 0.5) * 0.26;
+  r *= t; g *= t; bl *= t;
+  if (!bar) { const d = 0.18; r *= d; g *= d; bl *= d; }
+  else {
+    const hi = smooth(0.35, 0.7, gx / 0.7) * 0.25;
+    r *= 1 + hi; g *= 1 + hi; bl *= 1 + hi;
+  }
+  const rust = smooth(0.6, 0.9, n.n2);
+  r = lerp(r, 108, rust * 0.55); g = lerp(g, 56, rust * 0.55); bl = lerp(bl, 32, rust * 0.55);
+  return [r, g, bl];
+});
+
+const floorSand = () => pixTex((x, y, u, v, n) => {
+  let r = 178, g = 158, bl = 116;
+  const ripple = Math.sin((u * 26 + n.n1 * 5) + Math.sin(v * 18) * 1.6) * 0.5 + 0.5;
+  const t = 0.82 + ripple * 0.2 + n.n2 * 0.16 + (n.g - 0.5) * 0.22;
+  r *= t; g *= t; bl *= t;
+  const pebble = smooth(0.86, 0.99, n.n3);
+  r = lerp(r, 128, pebble * 0.7); g = lerp(g, 120, pebble * 0.7); bl = lerp(bl, 104, pebble * 0.7);
+  return [r, g, bl];
+});
+
+const floorCruel = () => pixTex((x, y, u, v, n) => {
+  const b = brickMask(u, v, 0.5, 0.5, 0.012);
+  let r = 58, g = 62, bl = 68;
+  const tone = 0.84 + b.id * 0.24 + n.n1 * 0.22 + (n.g - 0.5) * 0.2;
+  r *= tone; g *= tone; bl *= tone;
+  if (b.mortar) { const m = 0.42; r *= m; g *= m; bl *= m; }
+  const rust = smooth(0.66, 0.95, n.n2);
+  r = lerp(r, 96, rust * 0.5); g = lerp(g, 50, rust * 0.5); bl = lerp(bl, 28, rust * 0.5);
+  const drain = smooth(0.02, 0.0, Math.abs(v - 0.5));
+  r *= 1 - drain * 0.5; g *= 1 - drain * 0.5; bl *= 1 - drain * 0.45;
+  return [r, g, bl];
+});
+
+/* ============================== TECHOS ============================== */
+
+function ceilTex(base, tint, kind) {
+  return () => pixTex((x, y, u, v, n) => {
+    let [r, g, bl] = base;
+    const t = 0.75 + n.n1 * 0.42 + (n.g - 0.5) * 0.26;
+    r *= t; g *= t; bl *= t;
+    if (kind === 'panels') {
+      const ex = Math.min(u % 0.5, 0.5 - (u % 0.5)), ey = Math.min(v % 0.5, 0.5 - (v % 0.5));
+      const seam = 1 - smooth(0.006, 0.02, Math.min(ex, ey));
+      r *= 1 - seam * 0.5; g *= 1 - seam * 0.5; bl *= 1 - seam * 0.45;
+      const pipe = smooth(0.02, 0.0, Math.abs((u % 0.25) - 0.125)) * 0.5;
+      r *= 1 - pipe * 0.4; g *= 1 - pipe * 0.4; bl *= 1 - pipe * 0.35;
+    } else {
+      const blot = smooth(0.55, 0.95, n.n2);
+      r *= 1 - blot * 0.35; g *= 1 - blot * 0.33; bl *= 1 - blot * 0.3;
+    }
+    r = lerp(r, tint[0], 0.25); g = lerp(g, tint[1], 0.25); bl = lerp(bl, tint[2], 0.25);
+    return [r, g, bl];
+  });
+}
+
+/* ============================== SPRITES ============================== */
+
+function drawGriever(ctx, size, ph) {
+  const S = size / 128;
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = 'rgba(0,0,0,0.42)';
+  ctx.beginPath(); ctx.ellipse(64 * S, 116 * S, 38 * S, 8 * S, 0, 0, Math.PI * 2); ctx.fill();
+
+  const legs = [[-26, -8], [-32, 0], [-26, 8], [26, -8], [32, 0], [26, 8]];
+  legs.forEach((l, i) => {
+    const sw = Math.sin(ph * Math.PI * 2 + i * 1.9) * 7 * S;
+    ctx.strokeStyle = '#191c21'; ctx.lineWidth = 5 * S; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(64 * S + l[0] * 0.42 * S, 84 * S);
+    ctx.quadraticCurveTo(64 * S + l[0] * 0.9 * S, 90 * S + l[1] * 1.3 * S + sw,
+      64 * S + l[0] * 1.15 * S, 114 * S + Math.abs(l[1]) * 0.2 * S + sw * 0.5);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(150,165,185,0.30)'; ctx.lineWidth = 1.6 * S;
+    ctx.stroke();
+  });
+
+  const g = ctx.createLinearGradient(0, 52 * S, 0, 108 * S);
+  g.addColorStop(0, '#6d757f'); g.addColorStop(0.42, '#39404a'); g.addColorStop(1, '#121417');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.ellipse(64 * S, 84 * S, 38 * S, 26 * S, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(170,185,205,0.30)'; ctx.lineWidth = 2 * S;
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath(); ctx.ellipse(64 * S, 84 * S, 38 * S - i * 9 * S, 26 * S - i * 6 * S, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.fillStyle = '#24282e';
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(64 * S + i * 13 * S, 62 * S);
+    ctx.lineTo(64 * S + i * 13 * S + 4 * S, 44 * S + Math.abs(i) * 4 * S);
+    ctx.lineTo(64 * S + i * 13 * S + 9 * S, 62 * S);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(190,210,235,0.35)'; ctx.lineWidth = 2 * S;
+  ctx.beginPath(); ctx.ellipse(64 * S, 84 * S, 37 * S, 25 * S, 0, Math.PI * 0.9, Math.PI * 1.9); ctx.stroke();
+
+  ctx.fillStyle = '#1e2229';
+  ctx.beginPath(); ctx.ellipse(64 * S, 56 * S, 21 * S, 16 * S, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(160,175,195,0.35)'; ctx.lineWidth = 1.6 * S; ctx.stroke();
+  const eg = ctx.createRadialGradient(70 * S, 54 * S, 0, 70 * S, 54 * S, 14 * S);
+  eg.addColorStop(0, '#fff3d2'); eg.addColorStop(0.28, '#ff7a22'); eg.addColorStop(1, 'rgba(255,60,0,0)');
+  ctx.fillStyle = eg;
+  ctx.beginPath(); ctx.arc(70 * S, 54 * S, 14 * S, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#ff5a10';
+  ctx.beginPath(); ctx.arc(70 * S, 54 * S, 4 * S, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#2b3037'; ctx.lineWidth = 5 * S; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(52 * S, 70 * S); ctx.lineTo(38 * S, 86 * S);
+  ctx.moveTo(76 * S, 70 * S); ctx.lineTo(90 * S, 86 * S);
+  ctx.stroke();
+  ctx.strokeStyle = '#3b414a'; ctx.lineWidth = 3 * S;
+  ctx.beginPath();
+  ctx.moveTo(58 * S, 44 * S); ctx.quadraticCurveTo(48 * S, 22 * S, 34 * S, 16 * S);
+  ctx.moveTo(70 * S, 44 * S); ctx.quadraticCurveTo(80 * S, 22 * S, 94 * S, 16 * S);
+  ctx.stroke();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function drawBattery(ctx, s) {
+  const S = s / 128;
+  ctx.clearRect(0, 0, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(64 * S, 112 * S, 26 * S, 6 * S, 0, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createLinearGradient(42 * S, 0, 86 * S, 0);
+  g.addColorStop(0, '#14501f'); g.addColorStop(0.35, '#3fd46e'); g.addColorStop(1, '#0e3a17');
+  ctx.fillStyle = g;
+  roundRect(ctx, 46 * S, 58 * S, 36 * S, 54 * S, 5 * S); ctx.fill();
+  ctx.fillStyle = '#c9d2cf'; roundRect(ctx, 55 * S, 46 * S, 18 * S, 13 * S, 3 * S); ctx.fill();
+  ctx.fillStyle = '#0b1a10'; ctx.fillRect(46 * S, 82 * S, 36 * S, 7 * S);
+  ctx.fillStyle = '#eaffef'; ctx.font = `bold ${22 * S}px monospace`; ctx.fillText('+', 58 * S, 78 * S);
+  const eg = ctx.createRadialGradient(64 * S, 52 * S, 0, 64 * S, 52 * S, 26 * S);
+  eg.addColorStop(0, 'rgba(130,255,180,0.55)'); eg.addColorStop(1, 'rgba(130,255,180,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(64 * S, 52 * S, 26 * S, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawFlare(ctx, s) {
+  const S = s / 128;
+  ctx.clearRect(0, 0, s, s);
+  ctx.fillStyle = '#c03a2b'; roundRect(ctx, 55 * S, 60 * S, 18 * S, 46 * S, 4 * S); ctx.fill();
+  ctx.fillStyle = '#efe8d6'; ctx.fillRect(55 * S, 46 * S, 18 * S, 15 * S);
+  ctx.fillStyle = '#ff7a3c'; ctx.fillRect(55 * S, 38 * S, 18 * S, 10 * S);
+  ctx.fillStyle = '#7d221a'; ctx.fillRect(55 * S, 92 * S, 18 * S, 6 * S);
+  const eg = ctx.createRadialGradient(64 * S, 42 * S, 0, 64 * S, 42 * S, 28 * S);
+  eg.addColorStop(0, 'rgba(255,200,130,0.65)'); eg.addColorStop(1, 'rgba(255,120,40,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(64 * S, 42 * S, 28 * S, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawMedkit(ctx, s) {
+  const S = s / 128;
+  ctx.clearRect(0, 0, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(64 * S, 112 * S, 30 * S, 6 * S, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#dfe3dc'; roundRect(ctx, 36 * S, 62 * S, 56 * S, 44 * S, 5 * S); ctx.fill();
+  ctx.fillStyle = '#b7bcb6'; roundRect(ctx, 36 * S, 62 * S, 56 * S, 10 * S, 5 * S); ctx.fill();
+  ctx.fillStyle = '#8f9591'; roundRect(ctx, 54 * S, 52 * S, 20 * S, 11 * S, 3 * S); ctx.fill();
+  ctx.fillStyle = '#c62a22';
+  ctx.fillRect(58 * S, 78 * S, 12 * S, 26 * S);
+  ctx.fillRect(49 * S, 87 * S, 30 * S, 9 * S);
+  const eg = ctx.createRadialGradient(64 * S, 88 * S, 0, 64 * S, 88 * S, 36 * S);
+  eg.addColorStop(0, 'rgba(255,120,120,0.3)'); eg.addColorStop(1, 'rgba(255,120,120,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(64 * S, 88 * S, 36 * S, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawCode(ctx, s) {
+  const S = s / 128;
+  ctx.clearRect(0, 0, s, s);
+  ctx.fillStyle = '#2a2f36'; roundRect(ctx, 36 * S, 46 * S, 56 * S, 46 * S, 4 * S); ctx.fill();
+  ctx.fillStyle = '#57606c';
+  for (let i = 0; i < 6; i++) {
+    ctx.fillRect(42 * S + i * 9 * S, 92 * S, 5 * S, 10 * S);
+    ctx.fillRect(42 * S + i * 9 * S, 36 * S, 5 * S, 10 * S);
+  }
+  const g = ctx.createLinearGradient(0, 52 * S, 0, 86 * S);
+  g.addColorStop(0, '#7df6ff'); g.addColorStop(1, '#0d7f95');
+  ctx.fillStyle = g; roundRect(ctx, 44 * S, 54 * S, 40 * S, 30 * S, 3 * S); ctx.fill();
+  ctx.fillStyle = '#08252c'; ctx.font = `bold ${11 * S}px monospace`; ctx.fillText('CRUEL', 48 * S, 74 * S);
+  const eg = ctx.createRadialGradient(64 * S, 68 * S, 0, 64 * S, 68 * S, 40 * S);
+  eg.addColorStop(0, 'rgba(120,245,255,0.5)'); eg.addColorStop(1, 'rgba(120,245,255,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(64 * S, 68 * S, 40 * S, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawBeacon(ctx, s) {
+  const S = s / 128;
+  ctx.clearRect(0, 0, s, s);
+  const g = ctx.createLinearGradient(0, 4 * S, 0, 124 * S);
+  g.addColorStop(0, 'rgba(120,255,180,0)');
+  g.addColorStop(0.5, 'rgba(120,255,180,0.45)');
+  g.addColorStop(1, 'rgba(200,255,225,0.95)');
+  ctx.fillStyle = g; ctx.fillRect(48 * S, 4 * S, 32 * S, 118 * S);
+  ctx.fillStyle = 'rgba(235,255,240,0.95)';
+  ctx.beginPath();
+  ctx.moveTo(64 * S, 40 * S); ctx.lineTo(78 * S, 62 * S); ctx.lineTo(64 * S, 84 * S); ctx.lineTo(50 * S, 62 * S);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(180,255,210,0.8)'; ctx.lineWidth = 3 * S;
+  ctx.beginPath(); ctx.ellipse(64 * S, 116 * S, 30 * S, 8 * S, 0, 0, Math.PI * 2); ctx.stroke();
+}
+
+function spriteTex(draw, size = 128) {
+  const c = cv(size);
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.imageSmoothingEnabled = true;
+  draw(ctx, size);
+  return { w: size, h: size, data: new Uint8ClampedArray(ctx.getImageData(0, 0, size, size).data.buffer) };
+}
+
+/* ============================== BUILD ============================== */
+
+function buildTextures() {
+  const wallDoorTex = detail(wallDoor(), (ctx, w, h) => {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, h * 0.86, w, h * 0.14); ctx.clip();
+    ctx.fillStyle = '#c8a41e'; ctx.fillRect(0, h * 0.86, w, h * 0.14);
+    ctx.fillStyle = '#1b1d20';
+    for (let i = -20; i < w; i += 20) {
+      ctx.beginPath();
+      ctx.moveTo(i, h); ctx.lineTo(i + 12, h); ctx.lineTo(i + 22, h * 0.86); ctx.lineTo(i + 10, h * 0.86);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  });
+  const cruelWall = detail(wallCruel(), (ctx, w, h) => {
+    ctx.fillStyle = '#8d221a'; ctx.fillRect(0, h * 0.40, w, h * 0.055);
+    ctx.fillStyle = 'rgba(220,214,200,0.75)';
+    ctx.font = `bold ${Math.round(h * 0.05)}px monospace`;
+    ctx.fillText('CRUEL', w * 0.06, h * 0.455);
+  });
+  const metalWall = detail(wallMetal(), (ctx, w, h) => {
+    ctx.fillStyle = 'rgba(190,200,215,0.55)';
+    for (let py = 0; py < 2; py++) {
+      for (let px = 0; px < 2; px++) {
+        for (const [ox, oy] of [[0.08, 0.08], [0.42, 0.08], [0.08, 0.42], [0.42, 0.42]]) {
+          ctx.beginPath();
+          ctx.arc((px * 0.5 + ox) * w, (py * 0.5 + oy) * h, Math.max(2, w * 0.012), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  });
+
+  return {
+    walls: [
+      finish(wallGlade()), finish(wallMoss()), finish(metalWall),
+      finish(wallConcrete()), finish(cruelWall), finish(wallDoorTex),
+    ],
+    floors: [
+      finish(floorGlade()), finish(floorStone()), finish(floorGrate()),
+      finish(floorSand()), finish(floorCruel()),
+    ],
+    ceils: [
+      finish(ceilTex([38, 46, 34], [24, 32, 22], 'rough')()),
+      finish(ceilTex([34, 33, 30], [20, 20, 18], 'rough')()),
+      finish(ceilTex([30, 34, 40], [18, 21, 26], 'panels')()),
+      finish(ceilTex([70, 62, 46], [44, 39, 29], 'rough')()),
+      finish(ceilTex([24, 27, 32], [13, 15, 18], 'panels')()),
+    ],
+  };
+}
+
+function buildSprites() {
+  return {
+    griever: [spriteTex((c, s) => drawGriever(c, s, 0)), spriteTex((c, s) => drawGriever(c, s, 0.5))],
+    battery: spriteTex(drawBattery),
+    flare: spriteTex(drawFlare),
+    medkit: spriteTex(drawMedkit),
+    code: spriteTex(drawCode),
+    beacon: spriteTex(drawBeacon),
+  };
+}
+
+
+/* ==================== world.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Generación y consultas del mundo
+   3×3 bloques: El Área (centro, segura) + 8 sectores en anillo
+   (biomas A/B/C) + Piso −1 (subsuelo CRUEL). Laberinto por
+   backtracking recursivo + trenzado (bucles). Determinista.
+   ============================================================= */
+
+
+const T = { FLOOR: 0, WALL: 1, DOOR: 2, HATCH_DOWN: 3, HATCH_UP: 4, EXIT: 5 };
+const FL = { SURFACE: 0, UNDER: 1 };
+const BIOME = { GLADE: 0, A: 1, B: 2, C: 3, CRUEL: 4 };
+const BIOME_NAME = ['El Área', 'Clásico', 'Industrial', 'Ruinas', 'CRUEL'];
+
+/** Altura de muro/techo por bioma, en 1/16 de celda (ver GUIA_MAESTRA §6.2/§7). */
+const HEIGHTS = [38, 19, 27, 21, 14];
+
+const SECTOR_DEF = [
+  { n: 1, r: 0, c: 1, biome: BIOME.A },
+  { n: 2, r: 0, c: 2, biome: BIOME.B },
+  { n: 3, r: 1, c: 2, biome: BIOME.A },
+  { n: 4, r: 2, c: 2, biome: BIOME.C },
+  { n: 5, r: 2, c: 1, biome: BIOME.A },
+  { n: 6, r: 2, c: 0, biome: BIOME.B },
+  { n: 7, r: 1, c: 0, biome: BIOME.A },
+  { n: 8, r: 0, c: 0, biome: BIOME.C },
+];
+const GLADE = 4; // índice de bloque r=1,c=1
+
+class World {
+  constructor(seed) {
+    this.seed = seed >>> 0;
+    this.rng = makeRng(this.seed);
+    this.build();
+  }
+
+  /* ---------------------------------------------------------- generación */
+
+  build() {
+    const rng = this.rng;
+    const colW = [15 + 2 * rng.int(3), 15 + 2 * rng.int(3), 15 + 2 * rng.int(3)];
+    const rowH = [15 + 2 * rng.int(3), 15 + 2 * rng.int(3), 15 + 2 * rng.int(3)];
+    const W = colW[0] + colW[1] + colW[2], H = rowH[0] + rowH[1] + rowH[2];
+    this.W = W; this.H = H;
+    const xs = [0, colW[0], colW[0] + colW[1]];
+    const ys = [0, rowH[0], rowH[0] + rowH[1]];
+
+    this.blocks = [];
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        const def = SECTOR_DEF.find((d) => d.r === r && d.c === c);
+        this.blocks[r * 3 + c] = {
+          i: r * 3 + c, r, c, x0: xs[c], y0: ys[r], w: colW[c], h: rowH[r],
+          sector: def ? def.n : 0, biome: def ? def.biome : BIOME.GLADE, isGlade: !def,
+        };
+      }
+    }
+
+    const N = W * H;
+    this.grid = [new Uint8Array(N).fill(T.WALL), new Uint8Array(N).fill(T.WALL)];
+    this.region = [new Uint8Array(N), new Uint8Array(N)];
+    this.biome = [new Uint8Array(N), new Uint8Array(N)];
+    this.sky = [new Uint8Array(N), new Uint8Array(N)];
+    this.wallH = [new Uint8Array(N), new Uint8Array(N)];
+    this.ceilH = [new Uint8Array(N), new Uint8Array(N)];
+    this.doorIdx = [new Int16Array(N).fill(-1), new Int16Array(N).fill(-1)];
+    this.doors = [];
+
+    for (const b of this.blocks) {
+      for (let y = b.y0; y < b.y0 + b.h; y++) {
+        for (let x = b.x0; x < b.x0 + b.w; x++) {
+          const i = y * W + x;
+          this.region[FL.SURFACE][i] = b.sector;
+          this.biome[FL.SURFACE][i] = b.biome;
+          this.wallH[FL.SURFACE][i] = HEIGHTS[b.biome];
+          this.ceilH[FL.SURFACE][i] = HEIGHTS[b.biome];
+          this.region[FL.UNDER][i] = b.sector;
+          this.biome[FL.UNDER][i] = BIOME.CRUEL;
+          this.wallH[FL.UNDER][i] = HEIGHTS[BIOME.CRUEL];
+          this.ceilH[FL.UNDER][i] = HEIGHTS[BIOME.CRUEL];
+        }
+      }
+    }
+
+    for (const b of this.blocks) {
+      if (b.isGlade) this.carveGlade(b);
+      else this.carveMaze(FL.SURFACE, b, b.biome === BIOME.B ? 0.12 : 0.07);
+    }
+    this.carveUnderground();
+
+    // zonas sin techo (ruinas a cielo abierto) en el bioma C
+    for (const b of this.blocks) {
+      if (b.biome !== BIOME.C) continue;
+      const n = 1 + rng.int(2);
+      for (let k = 0; k < n; k++) {
+        const px = b.x0 + 3 + rng.int(Math.max(1, b.w - 7));
+        const py = b.y0 + 3 + rng.int(Math.max(1, b.h - 7));
+        for (let y = py; y < Math.min(b.y0 + b.h - 1, py + 4); y++) {
+          for (let x = px; x < Math.min(b.x0 + b.w - 1, px + 4); x++) {
+            const i = y * W + x;
+            if (this.grid[FL.SURFACE][i] === T.WALL) this.grid[FL.SURFACE][i] = T.FLOOR;
+            this.sky[FL.SURFACE][i] = 1;
+          }
+        }
+      }
+    }
+
+    this.placeDoors();
+    this.placeHatches();
+    this.placeExit();
+    this.buildCellLists();
+
+    const gb = this.blocks[GLADE];
+    this.spawn = { x: gb.x0 + gb.w / 2, y: gb.y0 + gb.h / 2, dir: -Math.PI / 2, floor: FL.SURFACE };
+
+    // campo de flujo (BFS compartido): estructuras reutilizables
+    this.flowDist = new Int32Array(N);
+    this.flowStamp = new Int32Array(N).fill(-1);
+    this.flowQueue = new Int32Array(N);
+    this.flowStampId = 0;
+    this.flowValidFloor = -1;
+  }
+
+  carveMaze(floor, block, braid = 0.08) {
+    const g = this.grid[floor], W = this.W, rng = this.rng;
+    const { x0, y0, w, h } = block;
+    const startX = x0 + 1, startY = y0 + 1;
+    g[startY * W + startX] = T.FLOOR;
+    const stack = [[startX, startY]];
+    while (stack.length) {
+      const [cx, cy] = stack[stack.length - 1];
+      const dirs = rng.shuffle([[2, 0], [-2, 0], [0, 2], [0, -2]]);
+      let moved = false;
+      for (const [dx, dy] of dirs) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx > x0 && nx < x0 + w - 1 && ny > y0 && ny < y0 + h - 1 && g[ny * W + nx] === T.WALL) {
+          g[(cy + dy / 2) * W + (cx + dx / 2)] = T.FLOOR;
+          g[ny * W + nx] = T.FLOOR;
+          stack.push([nx, ny]);
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) stack.pop();
+    }
+    // trenzado: abre bucles para que huir sea posible
+    for (let y = y0 + 1; y < y0 + h - 1; y++) {
+      for (let x = x0 + 1; x < x0 + w - 1; x++) {
+        if (g[y * W + x] !== T.WALL || !rng.chance(braid)) continue;
+        const horiz = g[y * W + (x - 1)] === T.FLOOR && g[y * W + (x + 1)] === T.FLOOR;
+        const vert = g[(y - 1) * W + x] === T.FLOOR && g[(y + 1) * W + x] === T.FLOOR;
+        if (horiz || vert) g[y * W + x] = T.FLOOR;
+      }
+    }
+  }
+
+  carveGlade(block) {
+    const g = this.grid[FL.SURFACE], W = this.W, rng = this.rng;
+    const { x0, y0, w, h } = block;
+    for (let y = y0 + 1; y < y0 + h - 1; y++) {
+      for (let x = x0 + 1; x < x0 + w - 1; x++) {
+        g[y * W + x] = T.FLOOR;
+        this.sky[FL.SURFACE][y * W + x] = 1;
+      }
+    }
+    // el punto de aparición cae en el centro geométrico exacto del bloque:
+    // los pilares decorativos deben evitarlo (y cualquier obstáculo sólido
+    // centrado también, o bloquearían el spawn — ver tools/test-world.mjs).
+    const cx = x0 + (w >> 1), cy = y0 + (h >> 1);
+    // pilares sueltos
+    for (let k = 0; k < 4; k++) {
+      const px = x0 + 2 + rng.int(Math.max(1, w - 4));
+      const py = y0 + 2 + rng.int(Math.max(1, h - 4));
+      if (Math.abs(px - cx) > 2 || Math.abs(py - cy) > 2) g[py * W + px] = T.WALL;
+    }
+  }
+
+  carveUnderground() {
+    const g = this.grid[FL.UNDER], W = this.W, H = this.H, rng = this.rng;
+    g[1 * W + 1] = T.FLOOR;
+    const stack = [[1, 1]];
+    while (stack.length) {
+      const [cx, cy] = stack[stack.length - 1];
+      const dirs = rng.shuffle([[2, 0], [-2, 0], [0, 2], [0, -2]]);
+      let moved = false;
+      for (const [dx, dy] of dirs) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx > 0 && nx < W - 1 && ny > 0 && ny < H - 1 && g[ny * W + nx] === T.WALL) {
+          g[(cy + dy / 2) * W + (cx + dx / 2)] = T.FLOOR;
+          g[ny * W + nx] = T.FLOOR;
+          stack.push([nx, ny]);
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) stack.pop();
+    }
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 1; x < W - 1; x++) {
+        if (g[y * W + x] !== T.WALL || !rng.chance(0.045)) continue;
+        const horiz = g[y * W + (x - 1)] === T.FLOOR && g[y * W + (x + 1)] === T.FLOOR;
+        const vert = g[(y - 1) * W + x] === T.FLOOR && g[(y + 1) * W + x] === T.FLOOR;
+        if (horiz || vert) g[y * W + x] = T.FLOOR;
+      }
+    }
+    // cámaras CRUEL
+    for (let k = 0; k < 6; k++) {
+      const cx = 3 + rng.int(Math.max(1, W - 7)), cy = 3 + rng.int(Math.max(1, H - 7));
+      for (let y = cy; y < Math.min(H - 1, cy + 4); y++) {
+        for (let x = cx; x < Math.min(W - 1, cx + 4); x++) g[y * W + x] = T.FLOOR;
+      }
+    }
+  }
+
+  carveDoorAxis(x, y, axis) {
+    const g = this.grid[FL.SURFACE], W = this.W;
+    const set = (xx, yy) => { if (g[yy * W + xx] === T.WALL) g[yy * W + xx] = T.FLOOR; };
+    if (axis === 'v') { set(x, y - 1); set(x, y - 2); set(x, y + 1); set(x, y + 2); }
+    else { set(x - 1, y); set(x - 2, y); set(x + 1, y); set(x + 2, y); }
+  }
+
+  makeDoor(ia, ib) {
+    const A = this.blocks[ia], B = this.blocks[ib];
+    const rng = this.rng;
+    let x, y, axis;
+    if (A.c === B.c) {
+      axis = 'v';
+      const top = A.r < B.r ? A : B;
+      const xr0 = Math.max(A.x0, B.x0) + 1, xr1 = Math.min(A.x0 + A.w, B.x0 + B.w) - 2;
+      x = xr0 + 2 * rng.int(Math.max(1, Math.floor((xr1 - xr0) / 2)));
+      y = top.y0 + top.h - 1;
+    } else {
+      axis = 'h';
+      const left = A.c < B.c ? A : B;
+      const yr0 = Math.max(A.y0, B.y0) + 1, yr1 = Math.min(A.y0 + A.h, B.y0 + B.h) - 2;
+      y = yr0 + 2 * rng.int(Math.max(1, Math.floor((yr1 - yr0) / 2)));
+      x = left.x0 + left.w - 1;
+    }
+    this.carveDoorAxis(x, y, axis);
+
+    const W = this.W, i = y * W + x;
+    const h = Math.max(HEIGHTS[A.biome], HEIGHTS[B.biome]);
+    const d = { x, y, open: 1, target: 1, id: this.doors.length };
+    this.doors.push(d);
+    this.grid[FL.SURFACE][i] = T.DOOR;
+    this.doorIdx[FL.SURFACE][i] = d.id;
+    this.wallH[FL.SURFACE][i] = h;
+    this.ceilH[FL.SURFACE][i] = h;
+  }
+
+  placeDoors() {
+    for (const o of [1, 5, 7, 3]) this.makeDoor(GLADE, o);
+    const ring = [[0, 1], [1, 2], [2, 5], [5, 8], [8, 7], [7, 6], [6, 3], [3, 0]];
+    for (const [a, b] of ring) this.makeDoor(a, b);
+  }
+
+  randomFloorInBlock(floor, block) {
+    const g = this.grid[floor], W = this.W, rng = this.rng;
+    for (let tries = 0; tries < 400; tries++) {
+      const x = block.x0 + 1 + rng.int(Math.max(1, block.w - 2));
+      const y = block.y0 + 1 + rng.int(Math.max(1, block.h - 2));
+      if (g[y * W + x] === T.FLOOR) return { x, y };
+    }
+    return { x: block.x0 + (block.w >> 1), y: block.y0 + (block.h >> 1) };
+  }
+
+  placeHatches() {
+    this.hatches = [];
+    const W = this.W;
+    const addHatch = (block) => {
+      const { x, y } = this.randomFloorInBlock(FL.SURFACE, block);
+      this.grid[FL.SURFACE][y * W + x] = T.HATCH_DOWN;
+      this.grid[FL.UNDER][y * W + x] = T.HATCH_UP;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ni = (y + dy) * W + (x + dx);
+        if (this.grid[FL.SURFACE][ni] === T.WALL) this.grid[FL.SURFACE][ni] = T.FLOOR;
+        if (this.grid[FL.UNDER][ni] === T.WALL) this.grid[FL.UNDER][ni] = T.FLOOR;
+      }
+      this.hatches.push({ x, y });
+    };
+    addHatch(this.blocks[GLADE]);
+    const candidates = this.blocks.filter((b) => !b.isGlade);
+    this.rng.shuffle(candidates);
+    addHatch(candidates[0]);
+    addHatch(candidates[1]);
+  }
+
+  placeExit() {
+    const corners = this.blocks.filter((b) => !b.isGlade && (b.r === 0 || b.r === 2) && (b.c === 0 || b.c === 2));
+    const block = this.rng.pick(corners);
+    const gb = this.blocks[GLADE];
+    const gx = gb.x0 + (gb.w >> 1), gy = gb.y0 + (gb.h >> 1);
+    const g = this.grid[FL.SURFACE], W = this.W;
+    let best = null, bestD = -1;
+    for (let y = block.y0 + 1; y < block.y0 + block.h - 1; y++) {
+      for (let x = block.x0 + 1; x < block.x0 + block.w - 1; x++) {
+        if (g[y * W + x] !== T.FLOOR) continue;
+        const d = (x - gx) * (x - gx) + (y - gy) * (y - gy);
+        if (d > bestD) { bestD = d; best = { x, y }; }
+      }
+    }
+    if (!best) best = this.randomFloorInBlock(FL.SURFACE, block);
+    g[best.y * W + best.x] = T.EXIT;
+    this.exit = { x: best.x, y: best.y, region: block.sector };
+  }
+
+  buildCellLists() {
+    this.cellsByRegion = [{}, {}];
+    for (let f = 0; f < 2; f++) {
+      const grid = this.grid[f], region = this.region[f];
+      for (let i = 0; i < grid.length; i++) {
+        if (grid[i] !== T.FLOOR) continue;
+        const r = region[i];
+        (this.cellsByRegion[f][r] = this.cellsByRegion[f][r] || []).push(i);
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------- consultas */
+
+  idx(x, y) { return y * this.W + x; }
+  inBounds(x, y) { return x >= 0 && y >= 0 && x < this.W && y < this.H; }
+
+  typeAt(floor, x, y) {
+    if (!this.inBounds(x, y)) return T.WALL;
+    return this.grid[floor][y * this.W + x];
+  }
+
+  isBlocked(floor, x, y) {
+    const t = this.typeAt(floor, x, y);
+    if (t === T.WALL) return true;
+    if (t === T.DOOR) {
+      const di = this.doorIdx[floor][this.idx(x, y)];
+      return di >= 0 && this.doors[di].open < 0.55;
+    }
+    return false;
+  }
+
+  circleBlocked(floor, x, y, r) {
+    const x0 = Math.floor(x - r), x1 = Math.floor(x + r);
+    const y0 = Math.floor(y - r), y1 = Math.floor(y + r);
+    for (let cy = y0; cy <= y1; cy++) {
+      for (let cx = x0; cx <= x1; cx++) {
+        if (!this.isBlocked(floor, cx, cy)) continue;
+        const nx = Math.max(cx, Math.min(x, cx + 1));
+        const ny = Math.max(cy, Math.min(y, cy + 1));
+        const ddx = x - nx, ddy = y - ny;
+        if (ddx * ddx + ddy * ddy < r * r) return true;
+      }
+    }
+    return false;
+  }
+
+  hasLineOfSight(floor, x0, y0, x1, y1) {
+    const dx = x1 - x0, dy = y1 - y0;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 20) return false;
+    const steps = Math.max(1, Math.ceil(dist * 6));
+    const sx = dx / steps, sy = dy / steps;
+    let x = x0, y = y0;
+    for (let i = 0; i < steps; i++) {
+      x += sx; y += sy;
+      if (this.isBlocked(floor, Math.floor(x), Math.floor(y))) return false;
+    }
+    return true;
+  }
+
+  regionAt(floor, x, y) {
+    const cx = Math.floor(x), cy = Math.floor(y);
+    if (!this.inBounds(cx, cy)) return 0;
+    return this.region[floor][cy * this.W + cx];
+  }
+
+  biomeAt(floor, x, y) {
+    const cx = Math.floor(x), cy = Math.floor(y);
+    if (!this.inBounds(cx, cy)) return BIOME.A;
+    return this.biome[floor][cy * this.W + cx];
+  }
+
+  regionLabel(floor, x, y) {
+    const r = this.regionAt(floor, x, y);
+    if (floor === FL.UNDER) return r === 0 ? 'Subsuelo · bajo El Área' : `Subsuelo · bajo el Sector ${r}`;
+    if (r === 0) return 'El Área · Zona segura';
+    return `Sector ${r} · ${BIOME_NAME[this.biomeAt(floor, x, y)]}`;
+  }
+
+  /** Celda de suelo al azar dentro de una región (0 = El Área, 1..8 = sectores). */
+  randCell(region, floor = FL.SURFACE) {
+    const list = this.cellsByRegion[floor][region];
+    if (!list || !list.length) return null;
+    const i = list[this.rng.int(list.length)];
+    return { x: (i % this.W) + 0.5, y: Math.floor(i / this.W) + 0.5 };
+  }
+
+  /* ---------------------------------------------------------- IA: campo de flujo */
+
+  computeFlow(floor, tx, ty, radius = 26) {
+    const W = this.W, H = this.H;
+    let cx = Math.max(0, Math.min(W - 1, Math.floor(tx)));
+    let cy = Math.max(0, Math.min(H - 1, Math.floor(ty)));
+    if (this.isBlocked(floor, cx, cy)) {
+      const found = this._findFree(floor, cx, cy);
+      if (!found) return;
+      cx = found.x; cy = found.y;
+    }
+    const s = ++this.flowStampId;
+    const dist = this.flowDist, stamp = this.flowStamp, q = this.flowQueue;
+    let head = 0, tail = 0;
+    const start = cy * W + cx;
+    dist[start] = 0; stamp[start] = s; q[tail++] = start;
+    const minX = Math.max(0, cx - radius), maxX = Math.min(W - 1, cx + radius);
+    const minY = Math.max(0, cy - radius), maxY = Math.min(H - 1, cy + radius);
+    const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    while (head < tail) {
+      const cur = q[head++];
+      const px = cur % W, py = (cur / W) | 0;
+      const d = dist[cur];
+      if (d >= radius) continue;
+      for (const [dx, dy] of N4) {
+        const nx = px + dx, ny = py + dy;
+        if (nx < minX || nx > maxX || ny < minY || ny > maxY) continue;
+        const ni = ny * W + nx;
+        if (stamp[ni] === s || this.isBlocked(floor, nx, ny)) continue;
+        stamp[ni] = s; dist[ni] = d + 1; q[tail++] = ni;
+      }
+    }
+    this.flowValidFloor = floor;
+  }
+
+  _findFree(floor, cx, cy) {
+    for (let r = 1; r <= 3; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (!this.isBlocked(floor, cx + dx, cy + dy)) return { x: cx + dx, y: cy + dy };
+        }
+      }
+    }
+    return null;
+  }
+
+  flowAt(x, y) {
+    if (x < 0 || y < 0 || x >= this.W || y >= this.H) return Infinity;
+    const i = y * this.W + x;
+    return this.flowStamp[i] === this.flowStampId ? this.flowDist[i] : Infinity;
+  }
+
+  /** Centro de la celda vecina con menor distancia del campo de flujo (o null). */
+  nextFlowStep(floor, x, y) {
+    if (floor !== this.flowValidFloor) return null;
+    const cx = Math.floor(x), cy = Math.floor(y);
+    const cur = this.flowAt(cx, cy);
+    if (!Number.isFinite(cur)) return null;
+    let best = cur, bx = null, by = null;
+    const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    for (const [dx, dy] of N8) {
+      const nx = cx + dx, ny = cy + dy;
+      if (this.isBlocked(floor, nx, ny)) continue;
+      if (dx !== 0 && dy !== 0 && (this.isBlocked(floor, cx + dx, cy) || this.isBlocked(floor, cx, cy + dy))) continue;
+      const d = this.flowAt(nx, ny);
+      if (d < best) { best = d; bx = nx; by = ny; }
+    }
+    if (bx === null) return null;
+    return { x: bx + 0.5, y: by + 0.5 };
+  }
+}
+
+
+/* ==================== entities.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Entidades: Grievers, objetos y bengalas
+   ============================================================= */
+
+
+const ITEM_DEFS = {
+  battery: { sprite: 'battery', h: 0.55, yBase: 0.02, label: 'Batería (+45% linterna)' },
+  flare: { sprite: 'flare', h: 0.55, yBase: 0.02, label: 'Bengala (+1)' },
+  medkit: { sprite: 'medkit', h: 0.5, yBase: 0.02, label: 'Botiquín (+35 vida)' },
+  code: { sprite: 'code', h: 0.5, yBase: 0.25, label: 'Código CRUEL' },
+};
+
+class Item {
+  constructor(x, y, floor, type) {
+    this.x = x; this.y = y; this.floor = floor; this.type = type;
+    this.taken = false;
+    this.bob = Math.random() * Math.PI * 2;
+  }
+  update(dt) { this.bob += dt * 2.2; }
+}
+
+class Flare {
+  constructor(x, y, floor, vx, vy) {
+    this.x = x; this.y = y; this.floor = floor;
+    this.vx = vx; this.vy = vy;
+    this.life = 28;
+    this.intensity = 1;
+    this.dead = false;
+  }
+  update(dt, world) {
+    this.life -= dt;
+    if (this.life <= 0) { this.dead = true; return; }
+    const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt;
+    if (!world.circleBlocked(this.floor, nx, this.y, 0.12)) this.x = nx; else this.vx *= -0.4;
+    if (!world.circleBlocked(this.floor, this.x, ny, 0.12)) this.y = ny; else this.vy *= -0.4;
+    this.vx *= 0.86; this.vy *= 0.86;
+    const t = this.life;
+    this.intensity = t > 3 ? 1 : Math.max(0, t / 3) * (0.6 + 0.4 * Math.sin(performance.now() * 0.02));
+  }
+}
+
+const PATROL = 0, CHASE = 1, SEARCH = 2;
+
+class Griever {
+  constructor(x, y, floor, id) {
+    this.id = id;
+    this.x = x; this.y = y; this.floor = floor;
+    this.spawnX = x; this.spawnY = y;
+    this.state = PATROL;
+    this.alertTimer = 0;
+    this.attackCd = 0;
+    this.target = null;
+    this.retarget = 0;
+    this.stuck = 0;
+    this.lastX = x; this.lastY = y;
+    this.animT = Math.random() * 10;
+    this.growlCd = Math.random() * 3;
+  }
+
+  update(dt, game) {
+    const p = game.player, w = game.world;
+    this.animT += dt;
+    if (this.attackCd > 0) this.attackCd -= dt;
+    this.growlCd -= dt;
+
+    if (this.floor !== p.floor) return;
+    if (game.time < game.graceTime) return;   // gracia inicial: nadie persigue al empezar
+
+    const dx = p.x - this.x, dy = p.y - this.y;
+    const d = Math.hypot(dx, dy);
+
+    // streaming: fuera de rango, latente
+    if (d > 34) { this.state = PATROL; return; }
+
+    // sentidos
+    const seeRange = game.isNight ? 12.5 : 9;
+    const sees = d < seeRange && w.hasLineOfSight(this.floor, this.x, this.y, p.x, p.y);
+    const noiseR = p.running ? 12 : (p.moving ? 5 : 0);
+    const hears = noiseR > 0 && d < noiseR;
+
+    if (sees || hears) {
+      this.state = CHASE;
+      this.alertTimer = 4.2;
+      this.lastX = p.x; this.lastY = p.y;
+    } else if (this.alertTimer > 0) {
+      this.alertTimer -= dt;
+      if (this.alertTimer <= 0) this.state = SEARCH;
+    }
+
+    let tx, ty;
+    if (this.state === CHASE) { tx = p.x; ty = p.y; }
+    else if (this.state === SEARCH) {
+      tx = this.lastX; ty = this.lastY;
+      if (Math.hypot(tx - this.x, ty - this.y) < 1.2) this.state = PATROL;
+    } else {
+      this.retarget -= dt;
+      if (!this.target || this.retarget <= 0 || Math.hypot(this.target.x - this.x, this.target.y - this.y) < 0.7) {
+        this.pickWander(w);
+        this.retarget = 4 + Math.random() * 4;
+      }
+      tx = this.target ? this.target.x : this.spawnX;
+      ty = this.target ? this.target.y : this.spawnY;
+    }
+
+    // dirección deseada: campo de flujo hacia el jugador (persecución/búsqueda)
+    let dirX = 0, dirY = 0;
+    const useFlow = this.state === CHASE || this.state === SEARCH;
+    if (useFlow) {
+      const step = w.nextFlowStep(this.floor, this.x, this.y);
+      if (step) { dirX = step.x - this.x; dirY = step.y - this.y; }
+      else { dirX = tx - this.x; dirY = ty - this.y; }
+    } else {
+      dirX = tx - this.x; dirY = ty - this.y;
+    }
+    const len = Math.hypot(dirX, dirY) || 1;
+    dirX /= len; dirY /= len;
+
+    // separación entre grievers
+    for (const o of game.grievers) {
+      if (o === this || o.floor !== this.floor) continue;
+      const ox = this.x - o.x, oy = this.y - o.y;
+      const od = Math.hypot(ox, oy);
+      if (od > 0.001 && od < 1.1) { dirX += (ox / od) * 0.7; dirY += (oy / od) * 0.7; }
+    }
+    // huyen ligeramente de las bengalas
+    for (const f of game.flares) {
+      if (f.floor !== this.floor) continue;
+      const fx = this.x - f.x, fy = this.y - f.y;
+      const fd = Math.hypot(fx, fy);
+      if (fd > 0.001 && fd < 4) { dirX += (fx / fd) * 0.5; dirY += (fy / fd) * 0.5; }
+    }
+
+    const dl = Math.hypot(dirX, dirY) || 1;
+    dirX /= dl; dirY /= dl;
+
+    let sp = this.state === CHASE ? (game.isNight ? 3.25 : 2.85) : this.state === SEARCH ? 1.9 : 1.3;
+    if (this.floor === FL.UNDER) sp *= 1.08;
+
+    const nx = this.x + dirX * sp * dt;
+    const ny = this.y + dirY * sp * dt;
+    const before = this.x + this.y;
+    if (!w.circleBlocked(this.floor, nx, this.y, 0.32)) this.x = nx;
+    if (!w.circleBlocked(this.floor, this.x, ny, 0.32)) this.y = ny;
+    if (Math.abs(this.x + this.y - before) < 0.0005) {
+      this.stuck += dt;
+      if (this.stuck > 0.8) { this.pickWander(w); this.stuck = 0; }
+    } else this.stuck = 0;
+
+    // ataque
+    const nd = Math.hypot(p.x - this.x, p.y - this.y);
+    if (nd < 0.78 && this.attackCd <= 0) {
+      this.attackCd = 1.1;
+      game.damagePlayer(game.isNight ? 20 : 16, (p.x - this.x) / (nd || 1), (p.y - this.y) / (nd || 1));
+    }
+    // gruñido
+    if (this.state === CHASE && this.growlCd <= 0) {
+      this.growlCd = 1.6 + Math.random() * 2.2;
+      game.audio.growl(Math.max(0, 1 - nd / 16));
+    }
+    // indicador de amenaza en el HUD: el perseguidor más cercano
+    if (this.state === CHASE) {
+      if (!game.threat || nd < game.threat.d) game.threat = { x: this.x, y: this.y, d: nd };
+    }
+  }
+
+  pickWander(w) {
+    for (let k = 0; k < 12; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 2 + Math.random() * 6;
+      const x = this.x + Math.cos(a) * r, y = this.y + Math.sin(a) * r;
+      if (!w.circleBlocked(this.floor, x, y, 0.4)) { this.target = { x, y }; return; }
+    }
+    this.target = { x: this.spawnX, y: this.spawnY };
+  }
+}
+
+
+/* ==================== player.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Jugador (movimiento, stamina, linterna)
+   Movimiento con asistencia: deslizamiento por muros, esquinas
+   redondeadas, empuje lateral y centrado en el pasillo.
+   ============================================================= */
+
+
+const WALK = 2.7;
+const RUN = 4.4;
+
+class Player {
+  constructor(world) {
+    this.world = world;
+    this.x = world.spawn.x;
+    this.y = world.spawn.y;
+    this.floor = FL.SURFACE;
+    this.dir = world.spawn.dir ?? -Math.PI / 2;
+    this.pitch = 0;
+    this.health = 100;
+    this.stamina = 100;
+    this.battery = 100;
+    this.flares = 3;
+    this.codes = 0;
+    this.flashOn = true;
+    this.running = false;
+    this.moving = false;
+    this.speedNow = 0;
+    this.bob = 0;
+    this.bobScale = 0.5;   // 0..1, ajustable en opciones
+    this.hurtT = 0;
+    this.regenT = 0;
+    this.radius = 0.20;
+    this.assist = true;    // asistencia de movimiento, ajustable en opciones
+  }
+
+  get maxStamina() { return 100; }
+
+  applySettings(s = {}) {
+    if (typeof s.bob === 'number') this.bobScale = Math.max(0, Math.min(1, s.bob));
+    if (typeof s.assist === 'boolean') this.assist = s.assist;
+  }
+
+  update(dt, input, game) {
+    const w = this.world;
+
+    // --- mirada ---
+    this.dir += input.consumeLookX();
+    this.pitch = Math.max(-0.35, Math.min(0.35, this.pitch + input.consumeLookY()));
+
+    // --- movimiento deseado ---
+    let fwd = -input.moveY;
+    let str = input.moveX;
+    const mag = Math.hypot(fwd, str);
+    if (mag > 1) { fwd /= mag; str /= mag; }
+    this.moving = mag > 0.08;
+
+    const wantRun = input.run || mag > 0.85;
+    this.running = wantRun && this.stamina > 2 && this.moving;
+    const speed = this.running ? RUN : WALK;
+    if (this.stamina <= 0) this.running = false;
+    this.speedNow = this.moving ? speed : 0;
+
+    const dirX = Math.cos(this.dir), dirY = Math.sin(this.dir);
+    const rightX = -dirY, rightY = dirX;
+    let vx = (dirX * fwd + rightX * str) * speed;
+    let vy = (dirY * fwd + rightY * str) * speed;
+
+    // --- asistencia de centrado en el pasillo (si no hay strafe intencionado) ---
+    if (this.assist && this.moving && Math.abs(str) < 0.3) {
+      const vlen = Math.hypot(vx, vy);
+      if (vlen > 0.01) {
+        const ux = vx / vlen, uy = vy / vlen;
+        const perpX = -uy, perpY = ux;
+        const R = 0.20, maxP = 0.45, step = 0.1;
+        let l = 0, r = 0;
+        while (l < maxP && !w.circleBlocked(this.floor, this.x - perpX * l, this.y - perpY * l, R)) l += step;
+        while (r < maxP && !w.circleBlocked(this.floor, this.x + perpX * r, this.y + perpY * r, R)) r += step;
+        const diff = r - l;
+        if (Math.abs(diff) > 0.08) {
+          const corr = Math.min(0.6, Math.abs(diff)) * Math.sign(diff) * speed * 0.6;
+          vx += perpX * corr; vy += perpY * corr;
+        }
+      }
+    }
+
+    this.moveWithAssist(vx * dt, vy * dt, w, dt);
+
+    // --- stamina ---
+    if (this.running) this.stamina -= 18 * dt;
+    else this.stamina += 12 * dt;
+    this.stamina = Math.max(0, Math.min(100, this.stamina));
+
+    // --- linterna ---
+    if (this.flashOn && this.battery > 0) {
+      const drain = this.floor === FL.UNDER ? 1.7 : 1.05;
+      this.battery = Math.max(0, this.battery - drain * dt);
+      if (this.battery === 0) game.toast?.('⚠ Linterna sin batería', 2.2);
+    }
+
+    // --- regeneración leve tras 12 s sin daño ---
+    if (this.hurtT > 0) this.hurtT -= dt;
+    this.regenT = this.hurtT > 0 ? 0 : this.regenT + dt;
+    if (this.regenT > 12 && this.health < 100) this.health = Math.min(100, this.health + 1.4 * dt);
+
+    // --- balanceo de cámara ---
+    if (this.moving) {
+      this.bob += dt * (this.running ? 11 : 7);
+      game.audio?.step(this.running);
+    } else this.bob += dt * 1.5;
+
+    // --- si una puerta se cierra encima, expulsa al corredor ---
+    const cx = Math.floor(this.x), cy = Math.floor(this.y);
+    if (w.isBlocked(this.floor, cx, cy)) {
+      const opts = [[0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
+      for (const [ox, oy] of opts) {
+        if (!w.circleBlocked(this.floor, cx + 0.5 + ox, cy + 0.5 + oy, this.radius)) {
+          this.x = cx + 0.5 + ox; this.y = cy + 0.5 + oy; break;
+        }
+      }
+    }
+  }
+
+  /**
+   * Movimiento con asistencia (4 pasos):
+   *  1. intento completo
+   *  2. deslizamiento por un eje
+   *  3. esquina redondeada: avanza parcialmente en el otro eje
+   *  4. empuje lateral para rodear el obstáculo (sólo con asistencia)
+   */
+  moveWithAssist(dx, dy, w, dt) {
+    const r = this.radius;
+    const free = (x, y) => !w.circleBlocked(this.floor, x, y, r);
+    if (dx === 0 && dy === 0) return;
+
+    if (free(this.x + dx, this.y + dy)) { this.x += dx; this.y += dy; return; }
+
+    let moved = false;
+    if (dx !== 0 && free(this.x + dx, this.y)) { this.x += dx; moved = true; }
+    if (dy !== 0 && free(this.x, this.y + dy)) { this.y += dy; moved = true; }
+    if (moved) return;
+
+    if (!this.assist) return;
+
+    for (const k of [0.65, 0.35]) {
+      if (free(this.x + dx, this.y + dy * k)) { this.x += dx; this.y += dy * k; return; }
+      if (free(this.x + dx * k, this.y + dy)) { this.x += dx * k; this.y += dy; return; }
+    }
+
+    const l = Math.hypot(dx, dy);
+    if (l > 1e-6) {
+      const px = -dy / l, py = dx / l;
+      const push = 2.6 * dt;
+      if (free(this.x + px * push, this.y + py * push)) { this.x += px * push; this.y += py * push; }
+      else if (free(this.x - px * push, this.y - py * push)) { this.x -= px * push; this.y -= py * push; }
+    }
+  }
+
+  get bobOffset() {
+    const amp = this.running ? 0.014 : 0.007;
+    return Math.sin(this.bob) * amp * this.bobScale;
+  }
+}
+
+
+/* ==================== render.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Raycaster (DDA) con alturas variables por
+   bioma, oclusión ambiental vertical, suelo/techo, puertas tipo
+   rastrillo (pasables al abrir), sprites con z-buffer, niebla,
+   linterna cónica y adaptación a la oscuridad.
+   ============================================================= */
+
+
+const RTS = 128;
+const FLASH_I = 2.6;
+const COS_IN = Math.cos(0.32), COS_OUT = Math.cos(0.62);
+
+// ambiente, niebla y color de niebla por bioma (0 Área,1 A,2 B,3 C,4 CRUEL)
+const BIOME_LIGHT = [
+  { amb: 0.62, fog: 0.045, fr: 34, fg: 44, fb: 30 },
+  { amb: 0.34, fog: 0.095, fr: 15, fg: 17, fb: 15 },
+  { amb: 0.30, fog: 0.125, fr: 12, fg: 14, fb: 18 },
+  { amb: 0.46, fog: 0.055, fr: 58, fg: 48, fb: 36 },
+  { amb: 0.26, fog: 0.200, fr: 4, fg: 5, fb: 7 },
+];
+
+class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d', { alpha: false });
+    this.tex = buildTextures();
+    this.sprites = buildSprites();
+    this.vScale = 0.85;
+    this.ceilSmooth = 1.2;
+    this.resize(canvas.clientWidth || 360, canvas.clientHeight || 200, 0.5);
+  }
+
+  resize(cssW, cssH, quality = 0.5) {
+    const scale = Math.max(0.3, Math.min(0.85, quality || 0.5));
+    let rw = Math.round((cssW || 360) * scale);
+    let rh = Math.round((cssH || 200) * scale);
+    rw = Math.max(220, Math.min(620, rw));
+    rh = Math.max(130, Math.min(400, rh));
+    this.rw = rw; this.rh = rh;
+    this.canvas.width = rw; this.canvas.height = rh;
+    this.img = this.ctx.createImageData(rw, rh);
+    this.data = this.img.data;
+
+    this.perp = new Float32Array(rw);
+    this.colH = new Float32Array(rw);
+    this.texId = new Uint8Array(rw);
+    this.texX = new Float32Array(rw);
+    this.side = new Uint8Array(rw);
+    this.rayDirX = new Float32Array(rw);
+    this.rayDirY = new Float32Array(rw);
+    this.cone = new Float32Array(rw);
+    this.drawStart = new Int32Array(rw);
+    this.drawEnd = new Int32Array(rw);
+    this.wallA = new Float32Array(rw);
+    this.wallB = new Float32Array(rw);
+    this.doorCount = new Uint8Array(rw);
+    this.doorCell = new Int32Array(rw * 4);
+    this.doorDist = new Float32Array(rw * 4);
+    this.doorWallX = new Float32Array(rw * 4);
+    this.zbuf = new Float32Array(rw);
+  }
+
+  render(game) {
+    const w = game.world, p = game.player, f = p.floor;
+    const rw = this.rw, rh = this.rh, data = this.data;
+    const W = w.W, H = w.H;
+    const grid = w.grid[f], biomeArr = w.biome[f], skyArr = w.sky[f];
+    const wallHArr = w.wallH[f], ceilHArr = w.ceilH[f];
+    const px = p.x, py = p.y;
+    const dirX = Math.cos(p.dir), dirY = Math.sin(p.dir);
+    const planeScale = 0.5 * this.vScale * (rw / rh);
+    const planeX = -dirY * planeScale, planeY = dirX * planeScale;
+    const horizon = Math.round(rh * 0.5 + p.pitch * rh + (p.bobOffset || 0) * rh);
+
+    const flashOn = p.flashOn && p.battery > 0;
+    const underAdapt = Math.max(0, Math.min(1, game.darkAdapt || 0));
+    const adaptMul = 1 + 2.2 * underAdapt;
+    const ambMul = f === FL.UNDER ? 1 : (0.30 + 0.70 * (game.dayFactor ?? 1));
+    const biomeHere = w.biomeAt(f, px, py);
+    const bl0 = BIOME_LIGHT[biomeHere];
+    const fogDensity = bl0.fog, fogR = bl0.fr, fogG = bl0.fg, fogB = bl0.fb;
+
+    const targetCeil = Math.max(0.55, (ceilHArr[w.idx(Math.max(0, Math.min(W - 1, Math.floor(px))), Math.max(0, Math.min(H - 1, Math.floor(py))))] || 19) / 16);
+    this.ceilSmooth += (targetCeil - this.ceilSmooth) * 0.12;
+
+    const flares = game.flares || [];
+    const flareLight = (wx, wy) => {
+      let s = 0;
+      for (let k = 0; k < flares.length; k++) {
+        const fl = flares[k];
+        if (fl.floor !== f) continue;
+        const dx = wx - fl.x, dy = wy - fl.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < 49) s += (fl.intensity || 1) * 2.2 / (1 + 0.5 * d2);
+      }
+      return s;
+    };
+
+    /* ---------------- 1) DDA por columna ---------------- */
+    for (let x = 0; x < rw; x++) {
+      const camX = (2 * x) / rw - 1;
+      const rdx = dirX + planeX * camX, rdy = dirY + planeY * camX;
+      this.rayDirX[x] = rdx; this.rayDirY[x] = rdy;
+      const rl = Math.hypot(rdx, rdy) || 1;
+      const cosA = (rdx * dirX + rdy * dirY) / rl;
+      let coneV = 0;
+      if (flashOn) {
+        const t = Math.max(0, Math.min(1, (cosA - COS_OUT) / (COS_IN - COS_OUT)));
+        coneV = t * t * (3 - 2 * t);
+      }
+      this.cone[x] = coneV;
+
+      let mapX = Math.floor(px), mapY = Math.floor(py);
+      const ddx = rdx === 0 ? 1e30 : Math.abs(1 / rdx);
+      const ddy = rdy === 0 ? 1e30 : Math.abs(1 / rdy);
+      let stepX, stepY, sideDistX, sideDistY;
+      if (rdx < 0) { stepX = -1; sideDistX = (px - mapX) * ddx; } else { stepX = 1; sideDistX = (mapX + 1 - px) * ddx; }
+      if (rdy < 0) { stepY = -1; sideDistY = (py - mapY) * ddy; } else { stepY = 1; sideDistY = (mapY + 1 - py) * ddy; }
+
+      let side = 0, hit = false, perp = 60, guard = 0;
+      this.doorCount[x] = 0;
+      let gotWall = false;
+      while (!hit && guard++ < 300) {
+        if (sideDistX < sideDistY) { sideDistX += ddx; mapX += stepX; side = 0; }
+        else { sideDistY += ddy; mapY += stepY; side = 1; }
+        if (mapX < 0 || mapY < 0 || mapX >= W || mapY >= H) { hit = true; perp = 60; break; }
+        const ci = mapY * W + mapX;
+        const t = grid[ci];
+        if (t === T.WALL) {
+          hit = true; gotWall = true;
+          perp = side === 0 ? sideDistX - ddx : sideDistY - ddy;
+          this.texId[x] = biomeArr[ci];
+          this.colH[x] = (wallHArr[ci] || 19) / 16;
+          this.side[x] = side;
+          let wallX = side === 0 ? py + perp * rdy : px + perp * rdx;
+          wallX -= Math.floor(wallX);
+          this.texX[x] = wallX;
+        } else if (t === T.DOOR) {
+          const dperp = side === 0 ? sideDistX - ddx : sideDistY - ddy;
+          const k = this.doorCount[x];
+          if (k < 4) {
+            this.doorCell[x * 4 + k] = ci;
+            this.doorDist[x * 4 + k] = dperp;
+            let wallX = side === 0 ? py + dperp * rdy : px + dperp * rdx;
+            wallX -= Math.floor(wallX);
+            this.doorWallX[x * 4 + k] = wallX;
+            this.doorCount[x] = k + 1;
+          }
+        }
+      }
+      this.perp[x] = perp;
+      if (!gotWall) { this.texId[x] = biomeHere; this.colH[x] = 1.2; }
+
+      // extensión en pantalla del muro + iluminación de la columna
+      const unit = (this.vScale * rh) / Math.max(0.0001, perp);
+      const wh = this.colH[x];
+      const lineH = unit * wh;
+      const bottomF = horizon + 0.5 * unit;
+      const topF = bottomF - lineH;
+      let ds = Math.round(topF), de = Math.round(bottomF);
+      if (ds < 0) ds = 0; if (ds > rh) ds = rh;
+      if (de < 0) de = 0; if (de > rh) de = rh;
+      this.drawStart[x] = ds; this.drawEnd[x] = de;
+      this.zbuf[x] = perp;
+
+      if (gotWall) {
+        const hitX = px + perp * rdx, hitY = py + perp * rdy;
+        const blW = BIOME_LIGHT[this.texId[x]];
+        const fogA = Math.min(1, 1 - Math.exp(-perp * fogDensity));
+        const shade = this.side[x] === 1 ? 0.78 : 1;
+        let lum = blW.amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + 0.22 * perp + 0.085 * perp * perp) + flareLight(hitX, hitY);
+        lum = Math.min(1.35, lum);
+        this.wallA[x] = lum * (1 - fogA) * shade;
+        this.wallB[x] = fogA;
+      } else {
+        this.wallA[x] = 0; this.wallB[x] = 1;
+      }
+    }
+
+    /* ---------------- 2) suelo y techo ---------------- */
+    const rayDir0X = dirX - planeX, rayDir0Y = dirY - planeY;
+    const rayDir1X = dirX + planeX, rayDir1Y = dirY + planeY;
+    const posZFloor = 0.5 * this.vScale * rh;
+    const posZCeil = (this.ceilSmooth - 0.5) * this.vScale * rh;
+
+    for (let y = 0; y < rh; y++) {
+      const isFloor = y > horizon;
+      const prow = isFloor ? y - horizon : horizon - y;
+      if (prow <= 0) continue;
+      const rowDist = (isFloor ? posZFloor : posZCeil) / prow;
+      if (rowDist <= 0 || rowDist > 80) continue;
+      const stepX = (rowDist * (rayDir1X - rayDir0X)) / rw;
+      const stepY = (rowDist * (rayDir1Y - rayDir0Y)) / rw;
+      let fx = px + rowDist * rayDir0X, fy = py + rowDist * rayDir0Y;
+      const fogA = Math.min(1, 1 - Math.exp(-rowDist * fogDensity));
+      const flashFall = flashOn ? FLASH_I / (1 + 0.22 * rowDist + 0.085 * rowDist * rowDist) : 0;
+
+      for (let x = 0; x < rw; x++) {
+        if (y >= this.drawStart[x] && y < this.drawEnd[x]) { fx += stepX; fy += stepY; continue; }
+        const o = (y * rw + x) * 4;
+        const cx = Math.floor(fx), cy = Math.floor(fy);
+        if (cx < 0 || cy < 0 || cx >= W || cy >= H) {
+          data[o] = fogR; data[o + 1] = fogG; data[o + 2] = fogB; data[o + 3] = 255;
+          fx += stepX; fy += stepY; continue;
+        }
+        const ci = cy * W + cx;
+        const bio = biomeArr[ci];
+        const sky = !isFloor && skyArr[ci];
+        let r, g, bch;
+        let lum = Math.min(1.3, BIOME_LIGHT[bio].amb * ambMul * adaptMul + this.cone[x] * flashFall + flareLight(fx, fy));
+
+        if (sky) {
+          const t = Math.max(0, Math.min(1, prow / 40));
+          const day = game.dayFactor ?? 1;
+          r = (10 + 70 * day) * (1 - t) + (48 + 90 * day) * t;
+          g = (14 + 90 * day) * (1 - t) + (64 + 100 * day) * t;
+          bch = (22 + 110 * day) * (1 - t) + (90 + 120 * day) * t;
+          const a = 1 - fogA, b = fogA;
+          data[o] = r * a + fogR * b; data[o + 1] = g * a + fogG * b; data[o + 2] = bch * a + fogB * b; data[o + 3] = 255;
+          fx += stepX; fy += stepY; continue;
+        }
+
+        const tex = isFloor ? this.tex.floors[bio] : this.tex.ceils[bio];
+        const tx = Math.min(RTS - 1, Math.max(0, ((fx - cx) * tex.w) | 0));
+        const ty = Math.min(RTS - 1, Math.max(0, ((fy - cy) * tex.h) | 0));
+        const ti = (ty * tex.w + tx) * 4;
+        r = tex.data[ti]; g = tex.data[ti + 1]; bch = tex.data[ti + 2];
+
+        if (isFloor) {
+          const ct = grid[ci];
+          if (ct === T.HATCH_DOWN || ct === T.HATCH_UP) {
+            const hx = fx - cx, hy = fy - cy;
+            if (hx < 0.12 || hx > 0.88 || hy < 0.12 || hy > 0.88) { r = 110; g = 195; bch = 210; lum = Math.max(lum, 0.55); }
+          } else if (ct === T.EXIT) {
+            const ex = fx - cx - 0.5, ey = fy - cy - 0.5;
+            if (ex * ex + ey * ey < 0.16) {
+              const pulse = 0.65 + 0.35 * Math.sin((game.time || 0) * 4);
+              r = 110 * pulse; g = 255 * pulse; bch = 175 * pulse;
+              lum = Math.max(lum, 1.05);
+            }
+          }
+        }
+
+        const a = lum * (1 - fogA), b = fogA;
+        const o2 = o;
+        data[o2] = r * a + fogR * b;
+        data[o2 + 1] = g * a + fogG * b;
+        data[o2 + 2] = bch * a + fogB * b;
+        data[o2 + 3] = 255;
+        fx += stepX; fy += stepY;
+      }
+    }
+
+    /* ---------------- 3) muros ---------------- */
+    for (let x = 0; x < rw; x++) {
+      const ds = this.drawStart[x], de = this.drawEnd[x];
+      if (de <= ds) continue;
+      const tex = this.tex.walls[this.texId[x]];
+      const unit = (this.vScale * rh) / Math.max(0.0001, this.perp[x]);
+      const lineH = unit * this.colH[x];
+      const bottomF = horizon + 0.5 * unit;
+      const topF = bottomF - lineH;
+      const step = tex.h / unit; // la textura se repite cada unidad de mundo
+      let texX = Math.min(RTS - 1, Math.max(0, (this.texX[x] * tex.w) | 0));
+      if ((this.side[x] === 0 && this.rayDirX[x] > 0) || (this.side[x] === 1 && this.rayDirY[x] < 0)) texX = tex.w - 1 - texX;
+      let texPos = (ds - topF) * step;
+      const invLineH = 1 / Math.max(1, lineH);
+      const a = this.wallA[x], b = this.wallB[x];
+      for (let y = ds; y < de; y++) {
+        let ty = texPos | 0;
+        ty = ((ty % tex.h) + tex.h) % tex.h;
+        texPos += step;
+        const ti = (ty * tex.w + texX) * 4;
+        if (tex.data[ti + 3] < 16) continue; // hueco transparente (rastrillo)
+        const vv = (y - topF) * invLineH;
+        const edge = vv < 1 - vv ? vv : 1 - vv;
+        const ao = edge < 0.14 ? 0.64 + edge * 2.57 : 1;
+        const o = (y * rw + x) * 4;
+        data[o] = tex.data[ti] * a * ao + fogR * b;
+        data[o + 1] = tex.data[ti + 1] * a * ao + fogG * b;
+        data[o + 2] = tex.data[ti + 2] * a * ao + fogB * b;
+        data[o + 3] = 255;
+      }
+    }
+
+    /* ---------------- 4) puertas (rastrillo, pasable al abrir) ---------------- */
+    for (let x = 0; x < rw; x++) {
+      const n = this.doorCount[x];
+      if (!n) continue;
+      // de lejos a cerca para pintar correctamente encima de lo que haya detrás
+      const order = [0, 1, 2, 3].slice(0, n).sort((i, j) => this.doorDist[x * 4 + j] - this.doorDist[x * 4 + i]);
+      for (const k of order) {
+        const ci = this.doorCell[x * 4 + k];
+        const doorId = w.doorIdx[f][ci];
+        const d = doorId >= 0 ? w.doors[doorId] : null;
+        const open = d ? d.open : 1;
+        if (open >= 0.999) continue;
+        const perp = this.doorDist[x * 4 + k];
+        const wh = (wallHArr[ci] || 19) / 16;
+        const unit = (this.vScale * rh) / Math.max(0.0001, perp);
+        const lineH = unit * wh;
+        const bottomF = horizon + 0.5 * unit;
+        const topF = bottomF - lineH;
+        const visibleTopF = topF + lineH * open; // el panel baja desde el techo
+        let ds = Math.max(0, Math.round(topF)), de = Math.min(rh, Math.round(visibleTopF));
+        if (de <= ds) continue;
+        const tex = this.tex.walls[5]; // textura de rastrillo
+        const texX = Math.min(RTS - 1, Math.max(0, (this.doorWallX[x * 4 + k] * tex.w) | 0));
+        const step = tex.h / unit;
+        let texPos = (ds - topF) * step;
+        const fogA = Math.min(1, 1 - Math.exp(-perp * fogDensity));
+        const lum = Math.min(1.2, BIOME_LIGHT[biomeHere].amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + 0.22 * perp + 0.085 * perp * perp));
+        const a = lum * (1 - fogA), b = fogA;
+        for (let y = ds; y < de; y++) {
+          let ty = texPos | 0; ty = ((ty % tex.h) + tex.h) % tex.h;
+          texPos += step;
+          const ti = (ty * tex.w + texX) * 4;
+          if (tex.data[ti + 3] < 16) continue;
+          const o = (y * rw + x) * 4;
+          data[o] = tex.data[ti] * a + fogR * b;
+          data[o + 1] = tex.data[ti + 1] * a + fogG * b;
+          data[o + 2] = tex.data[ti + 2] * a + fogB * b;
+          data[o + 3] = 255;
+        }
+        if (perp < this.zbuf[x]) this.zbuf[x] = perp;
+      }
+    }
+
+    /* ---------------- 5) sprites ---------------- */
+    const list = [];
+    for (const g of game.grievers || []) {
+      if (g.floor !== f) continue;
+      const frame = Math.floor(g.animT * 6) % 2;
+      list.push({ x: g.x, y: g.y, tex: this.sprites.griever[frame], h: 1.0, yBase: 0, emissive: true });
+    }
+    for (const it of game.items || []) {
+      if (it.taken || it.floor !== f) continue;
+      const bob = Math.sin(it.bob || 0) * 0.08;
+      const def = ITEM_H[it.type] || { h: 0.5, yBase: 0.1 };
+      list.push({ x: it.x, y: it.y, tex: this.sprites[it.type], h: def.h, yBase: def.yBase + bob });
+    }
+    for (const fl of game.flares || []) {
+      if (fl.floor !== f) continue;
+      list.push({ x: fl.x, y: fl.y, tex: this.sprites.flare, h: 0.3, yBase: 0.02, emissive: true });
+    }
+    if (w.exit && w.exit.region != null) {
+      list.push({ x: w.exit.x + 0.5, y: w.exit.y + 0.5, tex: this.sprites.beacon, h: 1.5, yBase: 0, emissive: true, floorOnly: f === FL.SURFACE });
+    }
+
+    list.sort((s1, s2) => {
+      const d1 = (s1.x - px) * (s1.x - px) + (s1.y - py) * (s1.y - py);
+      const d2 = (s2.x - px) * (s2.x - px) + (s2.y - py) * (s2.y - py);
+      return d2 - d1;
+    });
+
+    for (const s of list) {
+      if (s.floorOnly === false) continue;
+      const sx = s.x - px, sy = s.y - py;
+      const invDet = 1 / (planeX * dirY - dirX * planeY);
+      const transformX = invDet * (dirY * sx - dirX * sy);
+      const transformY = invDet * (-planeY * sx + planeX * sy);
+      if (transformY <= 0.1) continue;
+      const lineH = (this.vScale * rh) / transformY;
+      const hpx = s.h * lineH;
+      const wpx = hpx * (s.tex.w / s.tex.h);
+      const screenX = (rw / 2) * (1 + transformX / transformY);
+      const bottom = horizon + (0.5 - s.yBase) * lineH;
+      const top = bottom - hpx;
+      const x0 = Math.floor(screenX - wpx / 2), x1 = Math.ceil(screenX + wpx / 2);
+      if (x1 < 0 || x0 >= rw) continue;
+      const y0 = Math.max(0, Math.floor(top)), y1 = Math.min(rh - 1, Math.ceil(bottom));
+
+      const dist = Math.hypot(sx, sy);
+      const cosA = (s.x - px) * dirX / (dist || 1) + (s.y - py) * dirY / (dist || 1);
+      let coneV = 0;
+      if (flashOn) {
+        const t = Math.max(0, Math.min(1, (cosA - COS_OUT) / (COS_IN - COS_OUT)));
+        coneV = t * t * (3 - 2 * t);
+      }
+      const fogA = Math.min(1, 1 - Math.exp(-dist * fogDensity));
+      const biomeAtS = w.biomeAt(f, s.x, s.y);
+      let lum = Math.min(1.3, BIOME_LIGHT[biomeAtS].amb * ambMul * adaptMul + coneV * FLASH_I / (1 + 0.22 * dist + 0.085 * dist * dist) + flareLight(s.x, s.y));
+      const a = lum * (1 - fogA), b = fogA;
+
+      const xs0 = Math.max(0, x0), xs1 = Math.min(rw, x1);
+      for (let x = xs0; x < xs1; x++) {
+        if (transformY >= this.zbuf[x]) continue;
+        const txf = ((x - (screenX - wpx / 2)) * s.tex.w) / wpx;
+        const tx = txf | 0;
+        if (tx < 0 || tx >= s.tex.w) continue;
+        for (let y = y0; y <= y1; y++) {
+          const tyf = ((y - top) * s.tex.h) / hpx;
+          const ty = tyf | 0;
+          if (ty < 0 || ty >= s.tex.h) continue;
+          const ti = (ty * s.tex.w + tx) * 4;
+          const al = s.tex.data[ti + 3];
+          if (al < 24) continue;
+          const o = (y * rw + x) * 4;
+          const r = s.tex.data[ti], g = s.tex.data[ti + 1], bb = s.tex.data[ti + 2];
+          if (s.emissive && r > 170 && g < 150 && bb < 130) {
+            const e = Math.max(lum, 0.5 + 0.4 * Math.sin((game.time || 0) * 6));
+            data[o] = Math.min(255, r * e); data[o + 1] = Math.min(255, g * e * 0.9); data[o + 2] = Math.min(255, bb * e);
+          } else {
+            data[o] = r * a + fogR * b; data[o + 1] = g * a + fogG * b; data[o + 2] = bb * a + fogB * b;
+          }
+          data[o + 3] = 255;
+        }
+      }
+    }
+
+    this.ctx.putImageData(this.img, 0, 0);
+  }
+}
+
+const ITEM_H = {
+  battery: { h: 0.55, yBase: 0.02 },
+  flare: { h: 0.55, yBase: 0.02 },
+  medkit: { h: 0.5, yBase: 0.02 },
+  code: { h: 0.5, yBase: 0.25 },
+};
+
+
+/* ==================== minimap.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Minimapa con niebla de guerra
+   ============================================================= */
+
+
+const COLORS = {
+  floor: ['#5d7a4a', '#4a453c', '#3f454d', '#96865f', '#2b2f35'],
+  wall: ['#2a3324', '#221f1b', '#1e2228', '#413a2b', '#14171b'],
+};
+
+class Minimap {
+  constructor(canvas, world) {
+    this.cv = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.world = world;
+    const N = world.W * world.H;
+    this.seen = [new Uint8Array(N), new Uint8Array(N)];
+  }
+
+  reveal(game) {
+    const w = this.world, p = game.player, f = p.floor;
+    const seen = this.seen[f];
+    const px = p.x, py = p.y, W = w.W, H = w.H;
+    const R = 7;
+    const x0 = Math.max(0, Math.floor(px - R)), x1 = Math.min(W - 1, Math.ceil(px + R));
+    const y0 = Math.max(0, Math.floor(py - R)), y1 = Math.min(H - 1, Math.ceil(py + R));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const dx = x + 0.5 - px, dy = y + 0.5 - py;
+        if (dx * dx + dy * dy <= R * R) seen[y * W + x] = 1;
+      }
+    }
+    // abanico de visión
+    for (let i = 0; i < 44; i++) {
+      const a = p.dir + (i / 44 - 0.5) * 1.9;
+      const rx = Math.cos(a) * 0.28, ry = Math.sin(a) * 0.28;
+      let x = px, y = py;
+      for (let s = 0; s < 22; s++) {
+        x += rx; y += ry;
+        const cx = Math.floor(x), cy = Math.floor(y);
+        if (cx < 0 || cy < 0 || cx >= W || cy >= H) break;
+        seen[cy * W + cx] = 1;
+        if (w.isBlocked(f, cx, cy)) break;
+      }
+    }
+  }
+
+  draw(game) {
+    const w = this.world, p = game.player, f = p.floor;
+    const cv = this.cv, ctx = this.ctx;
+    const W = cv.width, H = cv.height;
+    const cell = Math.min(W / w.W, H / w.H);
+    const ox = (W - cell * w.W) / 2, oy = (H - cell * w.H) / 2;
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#07090a';
+    ctx.fillRect(0, 0, W, H);
+
+    const seen = this.seen[f];
+    const grid = w.grid[f], bio = w.biome[f];
+    for (let y = 0; y < w.H; y++) {
+      for (let x = 0; x < w.W; x++) {
+        const i = y * w.W + x;
+        if (!seen[i]) continue;
+        const t = grid[i];
+        let c;
+        if (t === T.WALL) c = COLORS.wall[bio[i]];
+        else if (t === T.DOOR) {
+          const d = w.doors[w.doorIdx[f][i]];
+          c = d && d.open > 0.5 ? '#d8a53a' : '#c0392b';
+        } else if (t === T.HATCH_DOWN || t === T.HATCH_UP) c = '#39c6d6';
+        else if (t === T.EXIT) c = game.player.codes >= 3 ? '#5cff9d' : '#7a8f86';
+        else c = COLORS.floor[bio[i]];
+        ctx.fillStyle = c;
+        ctx.fillRect(ox + x * cell, oy + y * cell, cell + 0.6, cell + 0.6);
+      }
+    }
+
+    // rejilla de sectores
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = 1;
+    for (const b of w.blocks) ctx.strokeRect(ox + b.x0 * cell, oy + b.y0 * cell, b.w * cell, b.h * cell);
+
+    // objetos conocidos
+    for (const it of game.items) {
+      if (it.taken || it.floor !== f) continue;
+      const i = Math.floor(it.y) * w.W + Math.floor(it.x);
+      if (!seen[i] && Math.hypot(it.x - p.x, it.y - p.y) > 7) continue;
+      ctx.fillStyle = it.type === 'code' ? '#5ff0ff' : it.type === 'medkit' ? '#ff6b6b' : it.type === 'battery' ? '#7dff9c' : '#ffb04a';
+      ctx.beginPath();
+      ctx.arc(ox + it.x * cell, oy + it.y * cell, Math.max(1.6, cell * 0.4), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // grievers en radar (rango corto)
+    for (const g of game.grievers) {
+      if (g.floor !== f) continue;
+      const d = Math.hypot(g.x - p.x, g.y - p.y);
+      if (d > 15) continue;
+      ctx.fillStyle = `rgba(255,70,40,${Math.max(0.25, 1 - d / 15)})`;
+      ctx.beginPath();
+      ctx.arc(ox + g.x * cell, oy + g.y * cell, Math.max(1.8, cell * 0.45), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // salida (si se conoce o ya hay 3 códigos)
+    if (w.exit && (game.player.codes >= 3 || seen[Math.floor(w.exit.y) * w.W + Math.floor(w.exit.x)])) {
+      ctx.strokeStyle = '#5cff9d'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(ox + (w.exit.x + 0.5) * cell, oy + (w.exit.y + 0.5) * cell, Math.max(3, cell * 1.1), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // jugador
+    const pxx = ox + p.x * cell, pyy = oy + p.y * cell;
+    ctx.save();
+    ctx.translate(pxx, pyy);
+    ctx.rotate(p.dir + Math.PI / 2);
+    ctx.fillStyle = '#ffe9a8';
+    ctx.beginPath();
+    ctx.moveTo(0, -cell * 1.5); ctx.lineTo(cell * 0.9, cell * 0.9); ctx.lineTo(0, cell * 0.35); ctx.lineTo(-cell * 0.9, cell * 0.9);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+}
+
+
+/* ==================== input.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Entrada: táctil (joystick + arrastre),
+   teclado y ratón con pointer lock. Sensibilidad/zona muerta/
+   invertir Y configurables (ajustes de cámara).
+   ============================================================= */
+
+class Input {
+  constructor(canvas, els = {}) {
+    this.canvas = canvas;
+    this.els = els;
+    this.moveX = 0; this.moveY = 0;
+    this.run = false;
+    this.lookX = 0; this.lookY = 0;
+    this.press = { flash: false, flare: false, use: false };
+    this.keys = new Set();
+    this.stickId = null;
+    this.lookId = null;
+
+    // ajustes de cámara (configurables desde la UI)
+    this.sens = 1.0;
+    this.invertY = false;
+    this.deadZone = 0.14;
+    this.response = 0.7;      // 0..1: 1 = instantáneo, menos = más suave
+
+    this.runToggle = false;
+    this.enabled = false;
+    this.onPause = null;
+    this.onToggleMap = null;
+    this._bind();
+  }
+
+  applySettings(s = {}) {
+    if (typeof s.sens === 'number') this.sens = Math.max(0.3, Math.min(2.5, s.sens));
+    if (typeof s.invertY === 'boolean') this.invertY = s.invertY;
+  }
+
+  _bind() {
+    const cv = this.canvas;
+
+    cv.addEventListener('pointerdown', (e) => {
+      if (!this.enabled) return;
+      cv.setPointerCapture?.(e.pointerId);
+      const rect = cv.getBoundingClientRect();
+      const px = e.clientX - rect.left, py = e.clientY - rect.top;
+      if (px < rect.width * 0.45 && this.stickId === null) {
+        this.stickId = e.pointerId;
+        this.stickOrigin = { x: px, y: py };
+        this.moveX = 0; this.moveY = 0;
+        if (this.els.stick) {
+          this.els.stick.style.display = 'block';
+          this.els.stick.style.left = px + 'px';
+          this.els.stick.style.top = py + 'px';
+          this._setKnob(0, 0);
+        }
+      } else if (this.lookId === null) {
+        this.lookId = e.pointerId;
+        this.lookPrev = { x: e.clientX, y: e.clientY };
+      }
+      e.preventDefault();
+    }, { passive: false });
+
+    const move = (e) => {
+      if (!this.enabled) return;
+      if (e.pointerId === this.stickId && this.stickOrigin) {
+        const rect = cv.getBoundingClientRect();
+        const px = e.clientX - rect.left, py = e.clientY - rect.top;
+        let dx = px - this.stickOrigin.x, dy = py - this.stickOrigin.y;
+        const R = 52;
+        const d = Math.hypot(dx, dy);
+        if (d > R) { dx *= R / d; dy *= R / d; }
+        const nd = Math.min(1, d / R);
+        if (nd < this.deadZone) { this.moveX = 0; this.moveY = 0; }
+        else {
+          const k = (nd - this.deadZone) / (1 - this.deadZone) / (nd || 1);
+          this.moveX = (dx / R) * k; this.moveY = (dy / R) * k;
+        }
+        this._setKnob(dx, dy);
+      } else if (e.pointerId === this.lookId && this.lookPrev) {
+        const TOUCH_SENS = 0.0022;
+        this.lookX += (e.clientX - this.lookPrev.x) * TOUCH_SENS * this.sens * 1.6;
+        const dy = (e.clientY - this.lookPrev.y) * TOUCH_SENS * this.sens * 1.1;
+        this.lookY += this.invertY ? dy : -dy;
+        this.lookPrev = { x: e.clientX, y: e.clientY };
+      }
+      e.preventDefault();
+    };
+    cv.addEventListener('pointermove', move, { passive: false });
+    cv.addEventListener('pointerup', (e) => this._up(e), { passive: false });
+    cv.addEventListener('pointercancel', (e) => this._up(e), { passive: false });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      this.keys.add(e.code);
+      if (e.code === 'KeyF') this.press.flash = true;
+      if (e.code === 'KeyG') this.press.flare = true;
+      if (e.code === 'KeyE' || e.code === 'Space') this.press.use = true;
+      if (e.code === 'Escape' && this.onPause) this.onPause();
+      if (e.code === 'KeyM' && this.onToggleMap) this.onToggleMap();
+    });
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => { this.keys.clear(); });
+
+    // ratón + pointer lock
+    cv.addEventListener('click', () => {
+      if (!this.enabled) return;
+      if (document.pointerLockElement !== cv && window.matchMedia('(pointer:fine)').matches) {
+        cv.requestPointerLock?.();
+      }
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (!this.enabled) return;
+      if (document.pointerLockElement === cv) {
+        const MOUSE_SENS = 0.0014;
+        this.lookX += e.movementX * MOUSE_SENS * this.sens;
+        const dy = e.movementY * MOUSE_SENS * this.sens * 0.7;
+        this.lookY += this.invertY ? dy : -dy;
+      }
+    });
+
+    // botones táctiles
+    const bind = (el, key, toggle) => {
+      if (!el) return;
+      const down = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (toggle) { this.runToggle = !this.runToggle; el.classList.toggle('on', this.runToggle); }
+        else this.press[key] = true;
+      };
+      el.addEventListener('pointerdown', down, { passive: false });
+      el.addEventListener('contextmenu', (e) => e.preventDefault());
+    };
+    bind(this.els.btnRun, null, true);
+    bind(this.els.btnFlash, 'flash', false);
+    bind(this.els.btnFlare, 'flare', false);
+    bind(this.els.btnAction, 'use', false);
+  }
+
+  _up(e) {
+    if (e.pointerId === this.stickId) {
+      this.stickId = null; this.moveX = 0; this.moveY = 0;
+      if (this.els.stick) this.els.stick.style.display = 'none';
+    }
+    if (e.pointerId === this.lookId) { this.lookId = null; this.lookPrev = null; }
+  }
+
+  _setKnob(dx, dy) {
+    if (!this.els.knob) return;
+    this.els.knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
+
+  /** Teclado -> joystick virtual (desktop). */
+  pollKeyboard() {
+    const k = this.keys;
+    let x = 0, y = 0;
+    if (k.has('KeyW') || k.has('ArrowUp')) y -= 1;
+    if (k.has('KeyS') || k.has('ArrowDown')) y += 1;
+    if (k.has('KeyA') || k.has('ArrowLeft')) x -= 1;
+    if (k.has('KeyD') || k.has('ArrowRight')) x += 1;
+    if (x || y) {
+      const d = Math.hypot(x, y);
+      this.moveX = x / d; this.moveY = y / d;
+    } else if (this.stickId === null) {
+      this.moveX = 0; this.moveY = 0;
+    }
+    if (k.has('ShiftLeft') || k.has('ShiftRight')) this.run = true;
+    else this.run = this.runToggle;
+  }
+
+  consumeLookX() { const v = this.lookX * this.response; this.lookX -= v; return v; }
+  consumeLookY() { const v = this.lookY * this.response; this.lookY -= v; return v; }
+  consume(k) { const v = this.press[k]; this.press[k] = false; return v; }
+
+  reset() {
+    this.moveX = this.moveY = 0;
+    this.lookX = this.lookY = 0;
+    this.run = false; this.runToggle = false;
+    this.press.flash = this.press.flare = this.press.use = false;
+    if (this.els.btnRun) this.els.btnRun.classList.remove('on');
+  }
+}
+
+
+/* ==================== ui.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — Interfaz (menús, HUD, ranking, ajustes)
+   ============================================================= */
+
+
+const fmt = (t) => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}.${String(Math.floor((t % 1) * 100)).padStart(2, '0')}`;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+class UI {
+  constructor(game) {
+    this.game = game;
+    this.el = (id) => document.getElementById(id);
+    this.panels = ['panelTitle', 'panelHelp', 'panelScores', 'panelPause', 'panelEnd'];
+    this.seedMode = 'daily';
+    this.lastOpts = null;
+    this.toastTimer = null;
+
+    const savedName = Store.getName();
+    if (savedName && this.el('inpName')) this.el('inpName').value = savedName;
+
+    if (window.matchMedia('(pointer: coarse)').matches) this.el('touch').classList.remove('hidden');
+
+    this.bind();
+    this.loadCfg();
+    this.bindSettings();
+    this.showPanel('panelTitle');
+
+    game.on.toast = (m, d) => this.toast(m, d);
+    game.on.end = (kind, data) => this.showEnd(kind, data);
+    game.input.onPause = () => this.togglePause();
+    game.input.onToggleMap = () => this.el('minimapWrap')?.classList.toggle('hidden');
+  }
+
+  /* ---------------------------------------------------------- paneles */
+
+  showPanel(name) {
+    for (const p of this.panels) this.el(p).classList.toggle('hidden', p !== name);
+    this.el('menus').classList.toggle('hidden', !name);
+    this.el('hud').classList.toggle('hidden', !!name);
+    if (name) this.el('rotate').classList.remove('armed');
+  }
+
+  /* ---------------------------------------------------------- eventos */
+
+  bind() {
+    const g = this.game;
+
+    for (const chip of document.querySelectorAll('#seedModes .chip')) {
+      chip.addEventListener('click', () => {
+        document.querySelectorAll('#seedModes .chip').forEach((c) => c.classList.remove('on'));
+        chip.classList.add('on');
+        this.seedMode = chip.dataset.mode;
+        this.el('inpSeed').classList.toggle('hidden', this.seedMode !== 'manual');
+      });
+    }
+
+    this.el('btnStart').addEventListener('click', () => this.start('random'));
+    this.el('btnHelp').addEventListener('click', () => this.showPanel('panelHelp'));
+    this.el('btnScores').addEventListener('click', () => { this.renderScores('scoreList'); this.showPanel('panelScores'); });
+    for (const b of document.querySelectorAll('[data-back]')) b.addEventListener('click', () => this.showPanel('panelTitle'));
+
+    this.el('btnRefreshScores')?.addEventListener('click', () => this.renderScores('scoreList'));
+    this.el('btnClearScores')?.addEventListener('click', () => { Store.clearScores(); this.renderScores('scoreList'); });
+
+    this.el('btnSaveCfg').addEventListener('click', () => {
+      const cfg = { url: this.el('inpUrl').value.trim(), key: this.el('inpKey').value.trim() };
+      Store.setConfig(cfg);
+      this.cfgStatus(cfg.url ? 'Guardado ✓' : 'Desconectado (ranking sólo local)');
+    });
+    this.el('btnTestCfg').addEventListener('click', async () => {
+      const cfg = { url: this.el('inpUrl').value.trim(), key: this.el('inpKey').value.trim() };
+      this.cfgStatus('Probando…');
+      const top = await Store.sbTop(cfg, 3);
+      this.cfgStatus(top ? `Conectado ✓ (${top.length} filas)` : 'Sin conexión o sin tablas ✗');
+    });
+
+    this.el('btnFull')?.addEventListener('click', () => this.toggleFullscreen());
+    this.el('btnPause').addEventListener('click', () => this.togglePause());
+    this.el('btnResume').addEventListener('click', () => { g.resume(); this.showPanel(null); });
+    this.el('btnRestart').addEventListener('click', () => { this.showPanel(null); this.start('same'); });
+    this.el('btnQuit').addEventListener('click', () => { g.quit(); this.showPanel('panelTitle'); });
+
+    this.el('btnAgain').addEventListener('click', () => { this.showPanel(null); this.start('same'); });
+    this.el('btnNewSeed').addEventListener('click', () => { this.showPanel(null); this.start('random'); });
+    this.el('btnMenu').addEventListener('click', () => { g.quit(); this.showPanel('panelTitle'); });
+
+    this.el('btnRotSkip')?.addEventListener('click', () => this.el('rotate').classList.remove('armed'));
+  }
+
+  bindSettings() {
+    const s = Store.getSettings();
+    this.el('rngSens').value = s.sens;
+    this.el('sensVal').textContent = Number(s.sens).toFixed(1);
+    this.el('chkInvert').checked = !!s.invertY;
+    this.el('chkAssist').checked = s.assist !== false;
+    this.el('rngBob').value = s.bob;
+    this.el('bobVal').textContent = `${Math.round(s.bob * 100)}%`;
+    this.el('chkSound').checked = s.sound !== false;
+
+    const apply = () => {
+      const st = {
+        sens: parseFloat(this.el('rngSens').value),
+        invertY: this.el('chkInvert').checked,
+        assist: this.el('chkAssist').checked,
+        bob: parseFloat(this.el('rngBob').value),
+        sound: this.el('chkSound').checked,
+      };
+      Store.saveSettings(st);
+      this.el('sensVal').textContent = st.sens.toFixed(1);
+      this.el('bobVal').textContent = `${Math.round(st.bob * 100)}%`;
+      this.game.applySettings(st);
+    };
+    ['rngSens', 'chkInvert', 'chkAssist', 'rngBob', 'chkSound'].forEach((id) => this.el(id)?.addEventListener('input', apply));
+  }
+
+  cfgStatus(t) {
+    const s = this.el('cfgStatus');
+    if (!s) return;
+    s.textContent = t;
+    clearTimeout(this._cfgTimer);
+    this._cfgTimer = setTimeout(() => { if (s.textContent === t) s.textContent = ''; }, 3500);
+  }
+
+  loadCfg() {
+    const cfg = Store.getConfigSaved();
+    this.el('inpUrl').value = cfg.url || '';
+    this.el('inpKey').value = cfg.key || '';
+  }
+
+  toggleFullscreen() {
+    try {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.()
+          .then(() => { screen.orientation?.lock?.('landscape').catch(() => {}); })
+          .catch(() => {});
+      } else {
+        document.exitFullscreen?.();
+      }
+    } catch { /* no soportado en este navegador */ }
+  }
+
+  /* ---------------------------------------------------------- partida */
+
+  start(mode) {
+    const name = (this.el('inpName').value || 'Corredor').slice(0, 16);
+    Store.setName(name);
+    const quality = parseFloat(this.el('selQuality').value);
+    const sound = this.el('chkSound').checked;
+
+    let seedMode, seed;
+    if (mode === 'same' && this.lastOpts) {
+      seedMode = this.lastOpts.seedMode; seed = this.lastOpts.seed;
+    } else {
+      seedMode = this.seedMode;
+      seed = parseInt(this.el('inpSeed').value, 10) || 0;
+    }
+    const opts = { name, seedMode, seed, quality, sound, cfg: Store.getConfig() };
+    this.lastOpts = opts;
+    this.showPanel(null);
+    this.toggleFullscreenOnStart();
+    this.game.startRun(opts);
+  }
+
+  toggleFullscreenOnStart() {
+    try {
+      document.documentElement.requestFullscreen?.()
+        .then(() => { screen.orientation?.lock?.('landscape').catch(() => {}); })
+        .catch(() => {});
+    } catch { /* ignorar */ }
+    if (window.matchMedia('(orientation: portrait)').matches && window.matchMedia('(pointer: coarse)').matches) {
+      this.el('rotate').classList.add('armed');
+    }
+  }
+
+  togglePause() {
+    const g = this.game;
+    if (g.state === 'play') {
+      g.pause();
+      this.el('pauseStats').innerHTML = `
+        <div class="stat"><div class="k">TIEMPO</div><div class="v">${fmt(g.time)}</div></div>
+        <div class="stat"><div class="k">SECTOR</div><div class="v">${g.maxSector}</div></div>
+        <div class="stat"><div class="k">CÓDIGOS</div><div class="v">${g.player.codes}/3</div></div>
+        <div class="stat"><div class="k">SEMILLA</div><div class="v">${seedLabel(g.seed)}</div></div>`;
+      this.showPanel('panelPause');
+    } else if (g.state === 'paused') {
+      g.resume();
+      this.showPanel(null);
+    }
+  }
+
+  showEnd(kind, data) {
+    const g = this.game, win = kind === 'win';
+    this.el('endTitle').textContent = win ? '🟢 ¡HAS ESCAPADO DEL LABERINTO!' : '☠ TE HAN ATRAPADO';
+    this.el('endArt').classList.toggle('win', win);
+    this.el('endBody').innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="k">CORREDOR</div><div class="v">${escapeHtml(g.runName)}</div></div>
+        <div class="stat"><div class="k">TIEMPO</div><div class="v">${fmt(data.time)}</div></div>
+        <div class="stat"><div class="k">SECTOR</div><div class="v">${data.sector}/8</div></div>
+        <div class="stat"><div class="k">CÓDIGOS</div><div class="v">${g.player.codes}/3</div></div>
+      </div>
+      <div class="tiny-note">Semilla: ${seedLabel(g.seed)}${win ? '' : ' — reinténtala con «Repetir semilla»'}</div>`;
+    this.renderScores('endScores');
+    this.showPanel('panelEnd');
+  }
+
+  async renderScores(containerId) {
+    const el = this.el(containerId);
+    if (!el) return;
+    const local = Store.getScores().slice(0, 10);
+    let html = '';
+    if (!local.length) html += '<div class="tiny-note">Sin registros locales todavía.</div>';
+    local.forEach((s, i) => {
+      html += `<div class="score-row"><span class="pos">${i + 1}</span><span>${escapeHtml(s.name)}</span><span class="t">${fmt(s.time)}</span><span class="d">Sect. ${s.sector || '-'}</span></div>`;
+    });
+    const cfg = Store.getConfig();
+    if (cfg.url && cfg.key) {
+      html += '<div class="tiny-note" style="margin-top:8px">ONLINE · SUPABASE</div>';
+      const top = await Store.sbTop(cfg, 10);
+      if (top && top.length) {
+        top.forEach((s, i) => {
+          html += `<div class="score-row"><span class="pos">${i + 1}</span><span>${escapeHtml(s.username || '—')}</span><span class="t">${fmt(s.escape_time_seconds)}</span><span class="d">Sect. ${s.sector_reached || '-'}</span></div>`;
+        });
+      } else {
+        html += '<div class="tiny-note">Sin datos online todavía.</div>';
+      }
+    }
+    el.innerHTML = html;
+  }
+
+  /* ---------------------------------------------------------- toast */
+
+  toast(msg, dur = 2) {
+    const t = this.el('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => t.classList.remove('show'), dur * 1000);
+  }
+}
+
+
+/* ==================== game.js ==================== */
+/* =============================================================
+   Maze Runner Mobile — bucle de juego, ciclo día/noche y reglas
+   ============================================================= */
+
+
+const DAY_LEN = 150;
+const NIGHT_LEN = 90;
+
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('view');
+    this.renderer = new Renderer(this.canvas);
+    this.input = new Input(this.canvas, {
+      stick: document.getElementById('stick'),
+      knob: document.getElementById('stickKnob'),
+      btnRun: document.getElementById('btnRun'),
+      btnFlash: document.getElementById('btnFlash'),
+      btnFlare: document.getElementById('btnFlare'),
+      btnAction: document.getElementById('btnAction'),
+    });
+    this.audio = new Sfx();
+    this.on = { toast: null, end: null, region: null };
+
+    this.hudEl = {
+      sectorName: document.getElementById('sectorName'),
+      doorState: document.getElementById('doorState'),
+      barHealth: document.getElementById('barHealth'),
+      barStamina: document.getElementById('barStamina'),
+      barBattery: document.getElementById('barBattery'),
+      flareCount: document.getElementById('flareCount'),
+      clock: document.getElementById('clock'),
+      codesChip: document.getElementById('codesChip'),
+      cycleChip: document.getElementById('cycleChip'),
+      interactHint: document.getElementById('interactHint'),
+      damage: document.getElementById('damage'),
+      threat: document.getElementById('threat'),
+      threatArrow: document.querySelector('#threat .arrow'),
+      threatLbl: document.querySelector('#threat .lbl'),
+    };
+
+    this.state = 'menu';
+    this.world = null;
+    this.player = null;
+    this.grievers = [];
+    this.items = [];
+    this.flares = [];
+    this.minimap = null;
+
+    this.time = 0;
+    this.cycleT = 0;
+    this.isNight = false;
+    this.dayFactor = 1;
+    this.warned = false;
+    this.graceTime = 7;
+    this.darkAdapt = 0;
+    this.adaptMsg = false;
+    this.maxSector = 1;
+    this.seed = 0;
+    this.runName = 'Corredor';
+    this.threat = null;
+    this.lastRegionLabel = null;
+    this.flowT = 0;
+    this.hudT = 0;
+    this.mmT = 0;
+    this.heartT = 0;
+    this.damageFlash = 0;
+    this.quality = 0.5;
+
+    this._lastTs = 0;
+    window.addEventListener('resize', () => this._resizeRenderer());
+    requestAnimationFrame((t) => this._frame(t));
+  }
+
+  toast(msg, dur = 2.2) { this.on.toast?.(msg, dur); }
+
+  _resizeRenderer() {
+    if (!this.canvas) return;
+    this.renderer.resize(this.canvas.clientWidth, this.canvas.clientHeight, this.quality);
+  }
+
+  /* ---------------------------------------------------------- partida */
+
+  async startRun(opts = {}) {
+    this.audio.init();
+    this.audio.setEnabled(opts.sound !== false);
+    this.runName = (opts.name || 'Corredor').slice(0, 16);
+    this.quality = opts.quality || 0.5;
+    this._resizeRenderer();
+
+    const cfg = opts.cfg || Store.getConfig();
+    this.cfg = cfg;
+    let seed;
+    if (opts.seedMode === 'manual') {
+      seed = (parseInt(opts.seed, 10) >>> 0) || randomSeed();
+    } else if (opts.seedMode === 'daily') {
+      seed = dailySeed();
+      if (cfg && cfg.url && cfg.key) {
+        const online = await Store.sbDailySeedRpc(cfg);
+        if (online != null) seed = online >>> 0;
+        else Store.sbEnsureDaily(cfg, seed);
+      }
+    } else {
+      seed = randomSeed();
+    }
+    this.seed = seed >>> 0;
+
+    this.world = new World(this.seed);
+    this.player = new Player(this.world);
+    const settings = Store.getSettings();
+    this.player.applySettings(settings);
+    this.input.applySettings(settings);
+    this.minimap = new Minimap(document.getElementById('minimap'), this.world);
+
+    this.grievers = []; this.items = []; this.flares = [];
+    this.spawnEntities();
+
+    this.time = 0; this.cycleT = 0; this.isNight = false; this.dayFactor = 1; this.warned = false;
+    this.darkAdapt = 0; this.adaptMsg = false; this.maxSector = 1; this.threat = null; this.lastRegionLabel = null;
+    this.input.enabled = true;
+    this.input.reset();
+    this.state = 'play';
+    this.toast(`☀ Encuentra los 3 códigos CRUEL y escapa — semilla ${seedLabel(this.seed)}`, 4.5);
+  }
+
+  quit() {
+    this.state = 'menu';
+    this.input.enabled = false;
+    this.input.reset();
+  }
+
+  pause() { if (this.state === 'play') this.state = 'paused'; }
+  resume() { if (this.state === 'paused') this.state = 'play'; }
+
+  applySettings(settings) {
+    this.player?.applySettings(settings);
+    this.input.applySettings(settings);
+    this.audio.setEnabled(settings.sound !== false);
+  }
+
+  /* ---------------------------------------------------------- mundo vivo */
+
+  spawnEntities() {
+    const w = this.world;
+    for (let s = 1; s <= 8; s++) {
+      const b = w.blocks.find((x) => x.sector === s);
+      const n = b && b.biome !== BIOME.A ? 2 : 1;
+      for (let k = 0; k < n; k++) this._spawnGriever(s, FL.SURFACE);
+      this._addItem(s, FL.SURFACE, 'battery');
+      this._addItem(s, FL.SURFACE, 'battery');
+      this._addItem(s, FL.SURFACE, 'flare');
+      if (w.rng.chance(0.65)) this._addItem(s, FL.SURFACE, 'medkit');
+    }
+    for (let k = 0; k < 7; k++) this._spawnGriever(w.rng.int(9), FL.UNDER);
+    for (let k = 0; k < 5; k++) this._addItem(w.rng.int(9), FL.UNDER, 'battery');
+    for (let k = 0; k < 3; k++) this._addItem(w.rng.int(9), FL.UNDER, 'flare');
+    for (let k = 0; k < 2; k++) this._addItem(w.rng.int(9), FL.UNDER, 'medkit');
+
+    const order = [1, 2, 3, 4, 5, 6, 7, 8];
+    w.rng.shuffle(order);
+    this._addItem(order[0], FL.SURFACE, 'code');
+    this._addItem(order[1], FL.SURFACE, 'code');
+    this._addItem(w.rng.int(9), FL.UNDER, 'code');
+  }
+
+  _spawnGriever(region, floor) {
+    const c = this.world.randCell(region, floor);
+    if (!c) return;
+    this.grievers.push(new Griever(c.x, c.y, floor, this.grievers.length));
+  }
+
+  _addItem(region, floor, type) {
+    const c = this.world.randCell(region, floor);
+    if (!c) return;
+    this.items.push(new Item(c.x, c.y, floor, type));
+  }
+
+  interact() {
+    const w = this.world, p = this.player;
+    const cx = Math.floor(p.x), cy = Math.floor(p.y);
+    const t = w.typeAt(p.floor, cx, cy);
+    if (t === T.HATCH_DOWN && p.floor === FL.SURFACE) {
+      p.floor = FL.UNDER; this.audio.descend(); this.toast('⬇ Bajas a los túneles CRUEL', 2.4);
+    } else if (t === T.HATCH_UP && p.floor === FL.UNDER) {
+      p.floor = FL.SURFACE; this.audio.descend(); this.toast('⬆ Subes a la superficie', 2.4);
+    } else if (t === T.EXIT) {
+      if (p.codes >= 3) this.win();
+      else this.toast(`La salida está sellada. Códigos CRUEL: ${p.codes}/3`, 2.6);
+    }
+  }
+
+  throwFlare() {
+    const p = this.player;
+    if (p.flares <= 0) return;
+    p.flares--;
+    const dirX = Math.cos(p.dir), dirY = Math.sin(p.dir);
+    this.flares.push(new Flare(p.x + dirX * 0.4, p.y + dirY * 0.4, p.floor, dirX * 4, dirY * 4));
+    this.audio.flare();
+  }
+
+  pickup(item) {
+    const p = this.player;
+    switch (item.type) {
+      case 'battery': p.battery = Math.min(100, p.battery + 45); this.audio.pickup(); break;
+      case 'flare': p.flares++; this.audio.pickup(); break;
+      case 'medkit': p.health = Math.min(100, p.health + 35); this.audio.pickup(); break;
+      case 'code': p.codes++; this.audio.code(); this.toast(`🔷 Código CRUEL ${p.codes}/3`, 3); break;
+      default: break;
+    }
+    item.taken = true;
+  }
+
+  damagePlayer(n, kx = 0, ky = 0) {
+    const p = this.player;
+    if (p.health <= 0) return;
+    p.health = Math.max(0, p.health - n);
+    p.hurtT = 8; p.regenT = 0;
+    this.damageFlash = 1;
+    this.audio.hurt();
+    const w = this.world;
+    const nx = p.x - kx * 0.22, ny = p.y - ky * 0.22;
+    if (!w.circleBlocked(p.floor, nx, p.y, p.radius)) p.x = nx;
+    if (!w.circleBlocked(p.floor, p.x, ny, p.radius)) p.y = ny;
+  }
+
+  win() {
+    if (this.state !== 'play') return;
+    this.state = 'win';
+    this.input.enabled = false;
+    this.audio.win();
+    const entry = { name: this.runName, time: this.time, sector: this.maxSector, date: new Date().toISOString().slice(0, 10) };
+    Store.addScore(entry);
+    if (this.cfg && this.cfg.url && this.cfg.key) Store.sbSubmit(this.cfg, entry);
+    this.on.end?.('win', { time: this.time, sector: this.maxSector });
+  }
+
+  die() {
+    if (this.state !== 'play') return;
+    this.state = 'dead';
+    this.input.enabled = false;
+    this.audio.lose();
+    this.on.end?.('dead', { time: this.time, sector: this.maxSector });
+  }
+
+  /* ---------------------------------------------------------- bucle */
+
+  _frame(ts) {
+    const dt = Math.min(0.05, Math.max(0, (ts - (this._lastTs || ts)) / 1000));
+    this._lastTs = ts;
+    if (this.state === 'play') this.update(dt);
+    if (this.world) this.renderer.render(this);
+    if (this.state === 'play') this.updateHud(dt);
+    requestAnimationFrame((t) => this._frame(t));
+  }
+
+  update(dt) {
+    this.time += dt;
+    this.threat = null;
+    const p = this.player, w = this.world;
+
+    this.input.pollKeyboard();
+    if (this.input.consume('flash')) { p.flashOn = !p.flashOn; this.audio.click(); }
+    if (this.input.consume('flare')) this.throwFlare();
+    if (this.input.consume('use')) this.interact();
+
+    p.update(dt, this.input, this);
+    this.updateCycle(dt);
+
+    // adaptación a la oscuridad: apagar la linterna recompensa con visión corta
+    const dark = !p.flashOn || p.battery <= 0;
+    this.darkAdapt = Math.max(0, Math.min(1, this.darkAdapt + (dark ? dt / 3.5 : -dt / 1.2)));
+    if (this.darkAdapt >= 0.97 && !this.adaptMsg) { this.adaptMsg = true; this.toast('👁 Tus ojos se adaptan a la oscuridad', 2.6); }
+    if (!dark) this.adaptMsg = false;
+
+    // campo de flujo compartido (BFS) hacia el jugador
+    this.flowT -= dt;
+    if (this.flowT <= 0) { this.flowT = 0.35; w.computeFlow(p.floor, p.x, p.y, 26); }
+
+    for (const g of this.grievers) g.update(dt, this);
+
+    for (const it of this.items) {
+      if (it.taken) continue;
+      it.update(dt);
+      if (it.floor === p.floor && Math.hypot(it.x - p.x, it.y - p.y) < 0.6) this.pickup(it);
+    }
+
+    for (const fl of this.flares) fl.update(dt, w);
+    this.flares = this.flares.filter((fl) => !fl.dead);
+
+    this.mmT -= dt;
+    if (this.mmT <= 0) { this.mmT = 0.12; this.minimap.reveal(this); this.minimap.draw(this); }
+
+    const region = w.regionAt(p.floor, p.x, p.y);
+    if (p.floor === FL.SURFACE && region >= 1) this.maxSector = Math.max(this.maxSector, region);
+    const label = w.regionLabel(p.floor, p.x, p.y);
+    if (label !== this.lastRegionLabel) { this.lastRegionLabel = label; this.on.region?.(label); }
+
+    if (p.health < 35 && p.health > 0) {
+      this.heartT -= dt;
+      if (this.heartT <= 0) { this.audio.heart(); this.heartT = 0.7 + p.health / 60; }
+    }
+
+    if (p.health <= 0) this.die();
+  }
+
+  updateCycle(dt) {
+    const total = DAY_LEN + NIGHT_LEN;
+    this.cycleT += dt;
+    if (this.cycleT >= total) this.cycleT -= total;
+    const night = this.cycleT >= DAY_LEN;
+    if (night !== this.isNight) {
+      this.isNight = night;
+      for (const d of this.world.doors) d.target = night ? 0 : 1;
+      this.audio.door(night);
+      this.toast(night ? '☾ Anochece: las puertas se cierran' : '☀ Amanece: las puertas se abren', 3);
+      this.warned = false;
+    }
+    if (!this.isNight && !this.warned && DAY_LEN - this.cycleT < 20) {
+      this.warned = true; this.toast('⚠ Las puertas se cierran en 20 s', 2.8);
+    }
+
+    const fade = 15;
+    if (this.cycleT < DAY_LEN - fade) this.dayFactor = 1;
+    else if (this.cycleT < DAY_LEN) this.dayFactor = 1 - ((this.cycleT - (DAY_LEN - fade)) / fade) * 0.82;
+    else if (this.cycleT < total - fade) this.dayFactor = 0.18;
+    else this.dayFactor = 0.18 + ((this.cycleT - (total - fade)) / fade) * 0.82;
+
+    for (const d of this.world.doors) {
+      if (d.open === d.target) continue;
+      const speed = 0.55 * dt;
+      if (d.open < d.target) d.open = Math.min(d.target, d.open + speed);
+      else d.open = Math.max(d.target, d.open - speed);
+    }
+  }
+
+  updateHud(dt) {
+    this.hudT -= dt;
+    this.damageFlash = Math.max(0, this.damageFlash - dt * 4);
+    if (this.hudEl.damage) this.hudEl.damage.style.opacity = String(this.damageFlash);
+    if (this.hudT > 0) return;
+    this.hudT = 0.1;
+
+    const p = this.player, w = this.world, e = this.hudEl;
+    if (e.sectorName) e.sectorName.textContent = w.regionLabel(p.floor, p.x, p.y);
+    if (e.doorState) {
+      const anyClosing = this.world.doors.some((d) => d.open < 0.9);
+      e.doorState.textContent = this.isNight ? 'Puertas cerradas' : (anyClosing ? 'Puertas abriéndose…' : 'Puertas abiertas');
+    }
+    if (e.barHealth) e.barHealth.style.width = `${Math.max(0, p.health)}%`;
+    if (e.barStamina) e.barStamina.style.width = `${Math.max(0, p.stamina)}%`;
+    if (e.barBattery) e.barBattery.style.width = `${Math.max(0, p.battery)}%`;
+    if (e.flareCount) e.flareCount.textContent = `x${p.flares}`;
+    const t = Math.floor(this.time);
+    if (e.clock) e.clock.textContent = `${String(((t / 60) | 0)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+    if (e.codesChip) e.codesChip.textContent = `Códigos ${p.codes}/3`;
+    if (e.cycleChip) e.cycleChip.textContent = this.isNight ? '☾ Noche' : '☀ Día';
+
+    const cx = Math.floor(p.x), cy = Math.floor(p.y);
+    const ct = w.typeAt(p.floor, cx, cy);
+    let hint = '';
+    if (ct === T.HATCH_DOWN) hint = 'Pulsa ⚡ para bajar al subsuelo';
+    else if (ct === T.HATCH_UP) hint = 'Pulsa ⚡ para subir a la superficie';
+    else if (ct === T.EXIT) hint = p.codes >= 3 ? 'Pulsa ⚡ para escapar' : `Salida sellada (códigos ${p.codes}/3)`;
+    if (e.interactHint) { e.interactHint.textContent = hint; e.interactHint.classList.toggle('hidden', !hint); }
+
+    if (e.threat) {
+      if (this.threat) {
+        const dx = this.threat.x - p.x, dy = this.threat.y - p.y;
+        const rel = Math.atan2(dy, dx) - p.dir;
+        if (e.threatArrow) e.threatArrow.style.transform = `rotate(${rel}rad)`;
+        if (e.threatLbl) e.threatLbl.textContent = this.threat.d < 5.5 ? '¡ENCIMA!' : 'TE PERSIGUE';
+        e.threat.classList.remove('hidden');
+        e.threat.classList.toggle('near', this.threat.d < 5.5);
+      } else {
+        e.threat.classList.add('hidden');
+      }
+    }
+  }
+}
+
+
+const Store = { getScores, addScore, clearScores, getName, setName, getConfigSaved, getConfig, setConfig, getSettings, saveSettings, sbTop, sbSubmit, sbDailySeedRpc, sbDailySeed, sbEnsureDaily };
+
+/* ==================== boot ==================== */
+window.addEventListener('DOMContentLoaded', function () {
+  var game = new Game();
+  var ui = new UI(game);
+  window.__maze = { game: game, ui: ui };
+});
+
+})();
+</script>
+</body>
+</html>
