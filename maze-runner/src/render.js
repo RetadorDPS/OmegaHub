@@ -5,20 +5,23 @@
    linterna cónica y adaptación a la oscuridad.
    ============================================================= */
 
-import { T, FL } from './world.js';
+import { T, FL, DIL } from './world.js';
 import { buildTextures, buildSprites } from './textures.js';
 
 const RTS = 128;
-const FLASH_I = 2.6;
+const FLASH_I = 3.1;
 const COS_IN = Math.cos(0.32), COS_OUT = Math.cos(0.62);
+// alcance de la linterna/sentidos: pasillos de 3u => la luz debe llegar lejos
+const FLASH_K1 = 0.11, FLASH_K2 = 0.024;
 
 // ambiente, niebla y color de niebla por bioma (0 Área,1 A,2 B,3 C,4 CRUEL)
+// niebla rebajada respecto a v1: el mundo es ~2.6x más grande y hay que verlo.
 const BIOME_LIGHT = [
-  { amb: 0.62, fog: 0.045, fr: 34, fg: 44, fb: 30 },
-  { amb: 0.34, fog: 0.095, fr: 15, fg: 17, fb: 15 },
-  { amb: 0.30, fog: 0.125, fr: 12, fg: 14, fb: 18 },
-  { amb: 0.46, fog: 0.055, fr: 58, fg: 48, fb: 36 },
-  { amb: 0.26, fog: 0.200, fr: 4, fg: 5, fb: 7 },
+  { amb: 0.62, fog: 0.024, fr: 34, fg: 44, fb: 30 },
+  { amb: 0.36, fog: 0.050, fr: 15, fg: 17, fb: 15 },
+  { amb: 0.32, fog: 0.065, fr: 12, fg: 14, fb: 18 },
+  { amb: 0.48, fog: 0.028, fr: 58, fg: 48, fb: 36 },
+  { amb: 0.26, fog: 0.110, fr: 4, fg: 5, fb: 7 },
 ];
 
 export class Renderer {
@@ -27,7 +30,7 @@ export class Renderer {
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.tex = buildTextures();
     this.sprites = buildSprites();
-    this.vScale = 0.85;
+    this.vScale = 0.74;        // FOV más abierto: ver los muros colosales y los ángulos
     this.ceilSmooth = 1.2;
     this.resize(canvas.clientWidth || 360, canvas.clientHeight || 200, 0.5);
   }
@@ -93,7 +96,7 @@ export class Renderer {
         if (fl.floor !== f) continue;
         const dx = wx - fl.x, dy = wy - fl.y;
         const d2 = dx * dx + dy * dy;
-        if (d2 < 49) s += (fl.intensity || 1) * 2.2 / (1 + 0.5 * d2);
+        if (d2 < 110) s += (fl.intensity || 1) * 2.6 / (1 + 0.22 * d2);
       }
       return s;
     };
@@ -170,7 +173,7 @@ export class Renderer {
         const blW = BIOME_LIGHT[this.texId[x]];
         const fogA = Math.min(1, 1 - Math.exp(-perp * fogDensity));
         const shade = this.side[x] === 1 ? 0.78 : 1;
-        let lum = blW.amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + 0.22 * perp + 0.085 * perp * perp) + flareLight(hitX, hitY);
+        let lum = blW.amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + FLASH_K1 * perp + FLASH_K2 * perp * perp) + flareLight(hitX, hitY);
         lum = Math.min(1.35, lum);
         this.wallA[x] = lum * (1 - fogA) * shade;
         this.wallB[x] = fogA;
@@ -195,7 +198,7 @@ export class Renderer {
       const stepY = (rowDist * (rayDir1Y - rayDir0Y)) / rw;
       let fx = px + rowDist * rayDir0X, fy = py + rowDist * rayDir0Y;
       const fogA = Math.min(1, 1 - Math.exp(-rowDist * fogDensity));
-      const flashFall = flashOn ? FLASH_I / (1 + 0.22 * rowDist + 0.085 * rowDist * rowDist) : 0;
+      const flashFall = flashOn ? FLASH_I / (1 + FLASH_K1 * rowDist + FLASH_K2 * rowDist * rowDist) : 0;
 
       for (let x = 0; x < rw; x++) {
         if (y >= this.drawStart[x] && y < this.drawEnd[x]) { fx += stepX; fy += stepY; continue; }
@@ -231,14 +234,16 @@ export class Renderer {
         if (isFloor) {
           const ct = grid[ci];
           if (ct === T.HATCH_DOWN || ct === T.HATCH_UP) {
-            const hx = fx - cx, hy = fy - cy;
-            if (hx < 0.12 || hx > 0.88 || hy < 0.12 || hy > 0.88) { r = 110; g = 195; bch = 210; lum = Math.max(lum, 0.55); }
-          } else if (ct === T.EXIT) {
-            const ex = fx - cx - 0.5, ey = fy - cy - 0.5;
-            if (ex * ex + ey * ey < 0.16) {
+            // plataforma de la escotilla: tinte uniforme (ocupa DIL×DIL celdas)
+            r = r * 0.5 + 55; g = g * 0.5 + 125; bch = bch * 0.5 + 140;
+            lum = Math.max(lum, 0.6);
+          } else if (ct === T.EXIT && w.exit) {
+            const ecx = w.exit.x + DIL / 2, ecy = w.exit.y + DIL / 2;
+            const ex = fx - ecx, ey = fy - ecy;
+            if (ex * ex + ey * ey < 1.1) {
               const pulse = 0.65 + 0.35 * Math.sin((game.time || 0) * 4);
               r = 110 * pulse; g = 255 * pulse; bch = 175 * pulse;
-              lum = Math.max(lum, 1.05);
+              lum = Math.max(lum, 1.1);
             }
           }
         }
@@ -311,7 +316,7 @@ export class Renderer {
         const step = tex.h / unit;
         let texPos = (ds - topF) * step;
         const fogA = Math.min(1, 1 - Math.exp(-perp * fogDensity));
-        const lum = Math.min(1.2, BIOME_LIGHT[biomeHere].amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + 0.22 * perp + 0.085 * perp * perp));
+        const lum = Math.min(1.2, BIOME_LIGHT[biomeHere].amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + FLASH_K1 * perp + FLASH_K2 * perp * perp));
         const a = lum * (1 - fogA), b = fogA;
         for (let y = ds; y < de; y++) {
           let ty = texPos | 0; ty = ((ty % tex.h) + tex.h) % tex.h;
@@ -333,7 +338,7 @@ export class Renderer {
     for (const g of game.grievers || []) {
       if (g.floor !== f) continue;
       const frame = Math.floor(g.animT * 6) % 2;
-      list.push({ x: g.x, y: g.y, tex: this.sprites.griever[frame], h: 1.0, yBase: 0, emissive: true });
+      list.push({ x: g.x, y: g.y, tex: this.sprites.griever[frame], h: 1.5, yBase: 0, emissive: true });
     }
     for (const it of game.items || []) {
       if (it.taken || it.floor !== f) continue;
@@ -346,7 +351,7 @@ export class Renderer {
       list.push({ x: fl.x, y: fl.y, tex: this.sprites.flare, h: 0.3, yBase: 0.02, emissive: true });
     }
     if (w.exit && w.exit.region != null) {
-      list.push({ x: w.exit.x + 0.5, y: w.exit.y + 0.5, tex: this.sprites.beacon, h: 1.5, yBase: 0, emissive: true, floorOnly: f === FL.SURFACE });
+      list.push({ x: w.exit.x + DIL / 2, y: w.exit.y + DIL / 2, tex: this.sprites.beacon, h: 3.2, yBase: 0, emissive: true, floorOnly: f === FL.SURFACE });
     }
 
     list.sort((s1, s2) => {
@@ -381,7 +386,7 @@ export class Renderer {
       }
       const fogA = Math.min(1, 1 - Math.exp(-dist * fogDensity));
       const biomeAtS = w.biomeAt(f, s.x, s.y);
-      let lum = Math.min(1.3, BIOME_LIGHT[biomeAtS].amb * ambMul * adaptMul + coneV * FLASH_I / (1 + 0.22 * dist + 0.085 * dist * dist) + flareLight(s.x, s.y));
+      let lum = Math.min(1.3, BIOME_LIGHT[biomeAtS].amb * ambMul * adaptMul + coneV * FLASH_I / (1 + FLASH_K1 * dist + FLASH_K2 * dist * dist) + flareLight(s.x, s.y));
       const a = lum * (1 - fogA), b = fogA;
 
       const xs0 = Math.max(0, x0), xs1 = Math.min(rw, x1);
@@ -415,8 +420,9 @@ export class Renderer {
 }
 
 const ITEM_H = {
-  battery: { h: 0.55, yBase: 0.02 },
-  flare: { h: 0.55, yBase: 0.02 },
-  medkit: { h: 0.5, yBase: 0.02 },
-  code: { h: 0.5, yBase: 0.25 },
+  battery: { h: 0.8, yBase: 0.03 },
+  flare: { h: 0.8, yBase: 0.03 },
+  medkit: { h: 0.75, yBase: 0.03 },
+  code: { h: 0.75, yBase: 0.35 },
+  note: { h: 0.6, yBase: 0.05 },
 };

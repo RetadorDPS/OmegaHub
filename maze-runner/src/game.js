@@ -1,5 +1,13 @@
 /* =============================================================
    Maze Runner Mobile — bucle de juego, ciclo día/noche y reglas
+
+   v2: de día el peligro es manejable — se puede explorar, mapear
+   y recoger objetos sin morir cada minuto. De noche cambia todo:
+   sentidos y velocidad de los Grievers se disparan y las puertas
+   quedan cerradas. El reloj del HUD cuenta ahora hacia ese
+   instante, como el de la película. Además: bitácora de notas
+   coleccionables (lore original) y un "aguijonazo" narrativo al
+   recibir daño de un Griever.
    ============================================================= */
 
 import { World, T, FL, BIOME } from './world.js';
@@ -12,8 +20,28 @@ import { Sfx } from './audio.js';
 import { dailySeed, randomSeed, seedLabel } from './rng.js';
 import * as Store from './storage.js';
 
-export const DAY_LEN = 150;
-export const NIGHT_LEN = 90;
+export const DAY_LEN = 240;
+export const NIGHT_LEN = 120;
+
+const LORE = [
+  'Página 1: Desperté sin nombre, solo el eco metálico de la Caja cerrándose sobre mí.',
+  'Página 2: Dicen que el Área lleva siglos aquí. Yo llevo tres días y ya no estoy seguro de nada.',
+  'Página 3: Los muros se mueven de noche. Lo he visto. Nadie me cree, pero lo he visto.',
+  'Página 4: CRUEL no es un nombre, es una promesa. Alguien la escribió con sangre en la piedra.',
+  'Página 5: Un Corredor no vuelve dos veces del mismo pasillo. O aprende el patrón, o se queda en él.',
+  'Página 6: Soñé con un lugar sin muros. Desperté llorando sin saber por qué.',
+  'Página 7: Las puertas se abren cada mañana. Cada mañana, un poco menos de nosotros vuelve a cruzarlas.',
+  'Página 8: Si encuentras esto, Corredor: la salida existe. Yo no la encontré. Tú puedes.',
+];
+
+const FLASHBACKS = [
+  'una voz dice tu nombre… pero no la recuerdas',
+  'un pasillo blanco, una puerta, un grito que no es tuyo',
+  'el zumbido de una máquina, antes de todo esto',
+  'alguien te sostiene la mano. no sabes quién',
+  '«CRUEL es bueno». ¿por qué no te lo crees?',
+  'el Área ardiendo, en otra vida que no fue la tuya',
+];
 
 export class Game {
   constructor() {
@@ -26,9 +54,10 @@ export class Game {
       btnFlash: document.getElementById('btnFlash'),
       btnFlare: document.getElementById('btnFlare'),
       btnAction: document.getElementById('btnAction'),
+      btnLookBack: document.getElementById('btnLookBack'),
     });
     this.audio = new Sfx();
-    this.on = { toast: null, end: null, region: null };
+    this.on = { toast: null, end: null, region: null, sting: null };
 
     this.hudEl = {
       sectorName: document.getElementById('sectorName'),
@@ -38,7 +67,9 @@ export class Game {
       barBattery: document.getElementById('barBattery'),
       flareCount: document.getElementById('flareCount'),
       clock: document.getElementById('clock'),
+      clockLabel: document.getElementById('clockLabel'),
       codesChip: document.getElementById('codesChip'),
+      notesChip: document.getElementById('notesChip'),
       cycleChip: document.getElementById('cycleChip'),
       interactHint: document.getElementById('interactHint'),
       damage: document.getElementById('damage'),
@@ -59,8 +90,8 @@ export class Game {
     this.cycleT = 0;
     this.isNight = false;
     this.dayFactor = 1;
-    this.warned = false;
-    this.graceTime = 7;
+    this.warnStage = 0;
+    this.graceTime = 18;
     this.darkAdapt = 0;
     this.adaptMsg = false;
     this.maxSector = 1;
@@ -123,7 +154,7 @@ export class Game {
     this.grievers = []; this.items = []; this.flares = [];
     this.spawnEntities();
 
-    this.time = 0; this.cycleT = 0; this.isNight = false; this.dayFactor = 1; this.warned = false;
+    this.time = 0; this.cycleT = 0; this.isNight = false; this.dayFactor = 1; this.warnStage = 0;
     this.darkAdapt = 0; this.adaptMsg = false; this.maxSector = 1; this.threat = null; this.lastRegionLabel = null;
     this.input.enabled = true;
     this.input.reset();
@@ -157,7 +188,7 @@ export class Game {
       this._addItem(s, FL.SURFACE, 'battery');
       this._addItem(s, FL.SURFACE, 'battery');
       this._addItem(s, FL.SURFACE, 'flare');
-      if (w.rng.chance(0.65)) this._addItem(s, FL.SURFACE, 'medkit');
+      if (w.rng.chance(0.75)) this._addItem(s, FL.SURFACE, 'medkit');
     }
     for (let k = 0; k < 7; k++) this._spawnGriever(w.rng.int(9), FL.UNDER);
     for (let k = 0; k < 5; k++) this._addItem(w.rng.int(9), FL.UNDER, 'battery');
@@ -169,6 +200,11 @@ export class Game {
     this._addItem(order[0], FL.SURFACE, 'code');
     this._addItem(order[1], FL.SURFACE, 'code');
     this._addItem(w.rng.int(9), FL.UNDER, 'code');
+
+    // bitácora del corredor: páginas sueltas por el laberinto
+    for (let k = 2; k < 8; k++) this._addItem(order[k], FL.SURFACE, 'note');
+    this._addItem(w.rng.int(9), FL.UNDER, 'note');
+    this._addItem(w.rng.int(9), FL.UNDER, 'note');
   }
 
   _spawnGriever(region, floor) {
@@ -213,6 +249,15 @@ export class Game {
       case 'flare': p.flares++; this.audio.pickup(); break;
       case 'medkit': p.health = Math.min(100, p.health + 35); this.audio.pickup(); break;
       case 'code': p.codes++; this.audio.code(); this.toast(`🔷 Código CRUEL ${p.codes}/3`, 3); break;
+      case 'note': {
+        const line = LORE[Math.min(p.notes, LORE.length - 1)];
+        p.notes++;
+        p.loreLog = p.loreLog || [];
+        p.loreLog.push(line);
+        this.audio.code();
+        this.toast(`📖 ${line}`, 5.5);
+        break;
+      }
       default: break;
     }
     item.taken = true;
@@ -226,9 +271,13 @@ export class Game {
     this.damageFlash = 1;
     this.audio.hurt();
     const w = this.world;
-    const nx = p.x - kx * 0.22, ny = p.y - ky * 0.22;
+    const nx = p.x - kx * 0.3, ny = p.y - ky * 0.3;
     if (!w.circleBlocked(p.floor, nx, p.y, p.radius)) p.x = nx;
     if (!w.circleBlocked(p.floor, p.x, ny, p.radius)) p.y = ny;
+    // "aguijonazo": un destello de memoria, como en la película
+    const line = FLASHBACKS[(Math.random() * FLASHBACKS.length) | 0];
+    this.on.sting?.(line);
+    this.toast(`⚡ ${line}…`, 2.6);
   }
 
   win() {
@@ -239,7 +288,7 @@ export class Game {
     const entry = { name: this.runName, time: this.time, sector: this.maxSector, date: new Date().toISOString().slice(0, 10) };
     Store.addScore(entry);
     if (this.cfg && this.cfg.url && this.cfg.key) Store.sbSubmit(this.cfg, entry);
-    this.on.end?.('win', { time: this.time, sector: this.maxSector });
+    this.on.end?.('win', { time: this.time, sector: this.maxSector, notes: this.player.notes, mapped: this.minimap?.percentExplored() ?? 0 });
   }
 
   die() {
@@ -247,7 +296,7 @@ export class Game {
     this.state = 'dead';
     this.input.enabled = false;
     this.audio.lose();
-    this.on.end?.('dead', { time: this.time, sector: this.maxSector });
+    this.on.end?.('dead', { time: this.time, sector: this.maxSector, notes: this.player.notes, mapped: this.minimap?.percentExplored() ?? 0 });
   }
 
   /* ---------------------------------------------------------- bucle */
@@ -280,16 +329,16 @@ export class Game {
     if (this.darkAdapt >= 0.97 && !this.adaptMsg) { this.adaptMsg = true; this.toast('👁 Tus ojos se adaptan a la oscuridad', 2.6); }
     if (!dark) this.adaptMsg = false;
 
-    // campo de flujo compartido (BFS) hacia el jugador
+    // campo de flujo compartido (BFS) hacia el jugador — radio grande: pasillos de 3u
     this.flowT -= dt;
-    if (this.flowT <= 0) { this.flowT = 0.35; w.computeFlow(p.floor, p.x, p.y, 26); }
+    if (this.flowT <= 0) { this.flowT = 0.35; w.computeFlow(p.floor, p.x, p.y, 70); }
 
     for (const g of this.grievers) g.update(dt, this);
 
     for (const it of this.items) {
       if (it.taken) continue;
       it.update(dt);
-      if (it.floor === p.floor && Math.hypot(it.x - p.x, it.y - p.y) < 0.6) this.pickup(it);
+      if (it.floor === p.floor && Math.hypot(it.x - p.x, it.y - p.y) < 0.9) this.pickup(it);
     }
 
     for (const fl of this.flares) fl.update(dt, w);
@@ -320,11 +369,13 @@ export class Game {
       this.isNight = night;
       for (const d of this.world.doors) d.target = night ? 0 : 1;
       this.audio.door(night);
-      this.toast(night ? '☾ Anochece: las puertas se cierran' : '☀ Amanece: las puertas se abren', 3);
-      this.warned = false;
+      this.toast(night ? '☾ ANOCHECE — las puertas grandes se cierran. No hay refugio fuera de El Área.' : '☀ Amanece: las puertas se abren de nuevo', 3.5);
+      this.warnStage = 0;
     }
-    if (!this.isNight && !this.warned && DAY_LEN - this.cycleT < 20) {
-      this.warned = true; this.toast('⚠ Las puertas se cierran en 20 s', 2.8);
+    if (!this.isNight) {
+      const left = DAY_LEN - this.cycleT;
+      if (this.warnStage === 0 && left < 60) { this.warnStage = 1; this.toast('⚠ Queda un minuto: busca refugio antes de que anochezca', 3); }
+      else if (this.warnStage === 1 && left < 20) { this.warnStage = 2; this.toast('⚠ ¡Las puertas se cierran en 20 s!', 2.8); }
     }
 
     const fade = 15;
@@ -335,7 +386,7 @@ export class Game {
 
     for (const d of this.world.doors) {
       if (d.open === d.target) continue;
-      const speed = 0.55 * dt;
+      const speed = 0.4 * dt;
       if (d.open < d.target) d.open = Math.min(d.target, d.open + speed);
       else d.open = Math.max(d.target, d.open - speed);
     }
@@ -349,6 +400,7 @@ export class Game {
     this.hudT = 0.1;
 
     const p = this.player, w = this.world, e = this.hudEl;
+    const total = DAY_LEN + NIGHT_LEN;
     if (e.sectorName) e.sectorName.textContent = w.regionLabel(p.floor, p.x, p.y);
     if (e.doorState) {
       const anyClosing = this.world.doors.some((d) => d.open < 0.9);
@@ -358,9 +410,19 @@ export class Game {
     if (e.barStamina) e.barStamina.style.width = `${Math.max(0, p.stamina)}%`;
     if (e.barBattery) e.barBattery.style.width = `${Math.max(0, p.battery)}%`;
     if (e.flareCount) e.flareCount.textContent = `x${p.flares}`;
-    const t = Math.floor(this.time);
-    if (e.clock) e.clock.textContent = `${String(((t / 60) | 0)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+
+    // reloj: cuenta atrás hasta el próximo cambio de ciclo (como en la película)
+    const secsLeft = Math.max(0, Math.ceil(this.isNight ? total - this.cycleT : DAY_LEN - this.cycleT));
+    if (e.clock) {
+      e.clock.textContent = `${String((secsLeft / 60) | 0).padStart(2, '0')}:${String(secsLeft % 60).padStart(2, '0')}`;
+      e.clock.classList.toggle('urgent', !this.isNight && secsLeft < 20);
+    }
+    if (e.clockLabel) e.clockLabel.textContent = this.isNight ? 'Amanece en' : 'Anochece en';
     if (e.codesChip) e.codesChip.textContent = `Códigos ${p.codes}/3`;
+    if (e.notesChip) {
+      e.notesChip.classList.toggle('hidden', !p.notes);
+      if (p.notes) e.notesChip.textContent = `📖 ${p.notes}/8`;
+    }
     if (e.cycleChip) e.cycleChip.textContent = this.isNight ? '☾ Noche' : '☀ Día';
 
     const cx = Math.floor(p.x), cy = Math.floor(p.y);
@@ -376,9 +438,9 @@ export class Game {
         const dx = this.threat.x - p.x, dy = this.threat.y - p.y;
         const rel = Math.atan2(dy, dx) - p.dir;
         if (e.threatArrow) e.threatArrow.style.transform = `rotate(${rel}rad)`;
-        if (e.threatLbl) e.threatLbl.textContent = this.threat.d < 5.5 ? '¡ENCIMA!' : 'TE PERSIGUE';
+        if (e.threatLbl) e.threatLbl.textContent = this.threat.d < 8 ? '¡ENCIMA!' : 'TE PERSIGUE';
         e.threat.classList.remove('hidden');
-        e.threat.classList.toggle('near', this.threat.d < 5.5);
+        e.threat.classList.toggle('near', this.threat.d < 8);
       } else {
         e.threat.classList.add('hidden');
       }

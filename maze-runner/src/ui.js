@@ -11,11 +11,22 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function runnerRank(kind, data) {
+  const notes = data.notes || 0, mapped = data.mapped || 0;
+  if (kind === 'win') {
+    if (data.time < 200 && notes >= 4) return '🏆 Corredor Legendario';
+    if (data.sector >= 6 || mapped > 0.55) return '⭐ Corredor Veterano';
+    return '🏃 Corredor de El Área';
+  }
+  if (data.sector >= 5 || mapped > 0.4) return '💀 Casi lo logras — Corredor Caído';
+  return '🔰 Novato del Laberinto';
+}
+
 export class UI {
   constructor(game) {
     this.game = game;
     this.el = (id) => document.getElementById(id);
-    this.panels = ['panelTitle', 'panelHelp', 'panelScores', 'panelPause', 'panelEnd'];
+    this.panels = ['panelTitle', 'panelHelp', 'panelScores', 'panelPause', 'panelEnd', 'panelMap', 'panelLore'];
     this.seedMode = 'daily';
     this.lastOpts = null;
     this.toastTimer = null;
@@ -32,8 +43,61 @@ export class UI {
 
     game.on.toast = (m, d) => this.toast(m, d);
     game.on.end = (kind, data) => this.showEnd(kind, data);
+    game.on.sting = () => this.sting();
     game.input.onPause = () => this.togglePause();
-    game.input.onToggleMap = () => this.el('minimapWrap')?.classList.toggle('hidden');
+    game.input.onToggleMap = () => this.openMap();
+  }
+
+  /** Pausa la partida y muestra un panel por encima (mapa, bitácora…). */
+  pauseInto(panel) {
+    const g = this.game;
+    this._cameFrom = g.state;
+    if (g.state === 'play') g.pause();
+    this.showPanel(panel);
+  }
+
+  resumeFromOverlay() {
+    this.game.resume();
+    this.showPanel(null);
+  }
+
+  openMap() {
+    this.renderBigMap();
+    this.pauseInto('panelMap');
+  }
+
+  openLore() {
+    this.renderLore();
+    this.pauseInto('panelLore');
+  }
+
+  renderBigMap() {
+    const g = this.game, mm = g.minimap, big = this.el('mapBig');
+    if (!mm || !big) return;
+    const origCv = mm.cv, origCtx = mm.ctx;
+    mm.cv = big; mm.ctx = big.getContext('2d');
+    mm.draw(g, { labels: true });
+    mm.cv = origCv; mm.ctx = origCtx;
+    const pct = Math.round(mm.percentExplored() * 100);
+    this.el('mapPct').textContent = `${pct}% cartografiado`;
+  }
+
+  renderLore() {
+    const log = this.game.player?.loreLog || [];
+    const el = this.el('loreList');
+    if (!el) return;
+    if (!log.length) { el.innerHTML = '<div class="tiny-note">Aún no has encontrado ninguna página. Están repartidas por los sectores y el subsuelo.</div>'; return; }
+    el.innerHTML = log.map((line) => `<div class="lore-entry">${escapeHtml(line)}</div>`).join('');
+  }
+
+  sting() {
+    const el = this.el('sting');
+    if (!el) return;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(this._stingTimer);
+    this._stingTimer = setTimeout(() => el.classList.remove('show'), 900);
   }
 
   /* ---------------------------------------------------------- paneles */
@@ -63,6 +127,10 @@ export class UI {
     this.el('btnHelp').addEventListener('click', () => this.showPanel('panelHelp'));
     this.el('btnScores').addEventListener('click', () => { this.renderScores('scoreList'); this.showPanel('panelScores'); });
     for (const b of document.querySelectorAll('[data-back]')) b.addEventListener('click', () => this.showPanel('panelTitle'));
+    for (const b of document.querySelectorAll('[data-resume]')) b.addEventListener('click', () => this.resumeFromOverlay());
+
+    this.el('minimapWrap')?.addEventListener('click', () => this.openMap());
+    this.el('btnLore')?.addEventListener('click', () => this.openLore());
 
     this.el('btnRefreshScores')?.addEventListener('click', () => this.renderScores('scoreList'));
     this.el('btnClearScores')?.addEventListener('click', () => { Store.clearScores(); this.renderScores('scoreList'); });
@@ -197,12 +265,16 @@ export class UI {
     const g = this.game, win = kind === 'win';
     this.el('endTitle').textContent = win ? '🟢 ¡HAS ESCAPADO DEL LABERINTO!' : '☠ TE HAN ATRAPADO';
     this.el('endArt').classList.toggle('win', win);
+    const rank = this.el('endRank');
+    if (rank) rank.textContent = runnerRank(kind, data);
     this.el('endBody').innerHTML = `
       <div class="stats">
         <div class="stat"><div class="k">CORREDOR</div><div class="v">${escapeHtml(g.runName)}</div></div>
         <div class="stat"><div class="k">TIEMPO</div><div class="v">${fmt(data.time)}</div></div>
         <div class="stat"><div class="k">SECTOR</div><div class="v">${data.sector}/8</div></div>
         <div class="stat"><div class="k">CÓDIGOS</div><div class="v">${g.player.codes}/3</div></div>
+        <div class="stat"><div class="k">BITÁCORA</div><div class="v">${data.notes || 0}/8</div></div>
+        <div class="stat"><div class="k">CARTOGRAFIADO</div><div class="v">${Math.round((data.mapped || 0) * 100)}%</div></div>
       </div>
       <div class="tiny-note">Semilla: ${seedLabel(g.seed)}${win ? '' : ' — reinténtala con «Repetir semilla»'}</div>`;
     this.renderScores('endScores');

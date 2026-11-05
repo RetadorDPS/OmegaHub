@@ -1,14 +1,21 @@
 /* =============================================================
    Maze Runner Mobile — Entidades: Grievers, objetos y bengalas
+
+   v2: ciclo de peligro día/noche fiel a la película — de día los
+   Grievers son evitables (sentidos cortos, lentos, se rinden
+   rápido); de noche son la amenaza real (perciben mucho más,
+   corren casi tanto como tú y no sueltan la presa). Así se puede
+   explorar de día sin morir constantemente, y el reloj importa.
    ============================================================= */
 
 import { FL } from './world.js';
 
 export const ITEM_DEFS = {
-  battery: { sprite: 'battery', h: 0.55, yBase: 0.02, label: 'Batería (+45% linterna)' },
-  flare: { sprite: 'flare', h: 0.55, yBase: 0.02, label: 'Bengala (+1)' },
-  medkit: { sprite: 'medkit', h: 0.5, yBase: 0.02, label: 'Botiquín (+35 vida)' },
-  code: { sprite: 'code', h: 0.5, yBase: 0.25, label: 'Código CRUEL' },
+  battery: { sprite: 'battery', h: 0.8, yBase: 0.03, label: 'Batería (+45% linterna)' },
+  flare: { sprite: 'flare', h: 0.8, yBase: 0.03, label: 'Bengala (+1)' },
+  medkit: { sprite: 'medkit', h: 0.75, yBase: 0.03, label: 'Botiquín (+35 vida)' },
+  code: { sprite: 'code', h: 0.75, yBase: 0.35, label: 'Código CRUEL' },
+  note: { sprite: 'note', h: 0.6, yBase: 0.05, label: 'Página de la bitácora' },
 };
 
 export class Item {
@@ -24,7 +31,7 @@ export class Flare {
   constructor(x, y, floor, vx, vy) {
     this.x = x; this.y = y; this.floor = floor;
     this.vx = vx; this.vy = vy;
-    this.life = 28;
+    this.life = 32;
     this.intensity = 1;
     this.dead = false;
   }
@@ -32,8 +39,8 @@ export class Flare {
     this.life -= dt;
     if (this.life <= 0) { this.dead = true; return; }
     const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt;
-    if (!world.circleBlocked(this.floor, nx, this.y, 0.12)) this.x = nx; else this.vx *= -0.4;
-    if (!world.circleBlocked(this.floor, this.x, ny, 0.12)) this.y = ny; else this.vy *= -0.4;
+    if (!world.circleBlocked(this.floor, nx, this.y, 0.15)) this.x = nx; else this.vx *= -0.4;
+    if (!world.circleBlocked(this.floor, this.x, ny, 0.15)) this.y = ny; else this.vy *= -0.4;
     this.vx *= 0.86; this.vy *= 0.86;
     const t = this.life;
     this.intensity = t > 3 ? 1 : Math.max(0, t / 3) * (0.6 + 0.4 * Math.sin(performance.now() * 0.02));
@@ -41,6 +48,12 @@ export class Flare {
 }
 
 const PATROL = 0, CHASE = 1, SEARCH = 2;
+
+// sentidos y velocidad por franja horaria (unidades de mundo = pasillo de 3u)
+const SENSE = {
+  day: { see: 13, hearRun: 15, hearWalk: 5, chase: 3.4, search: 2.3, patrol: 1.6, alert: 3.0, dmg: 10 },
+  night: { see: 26, hearRun: 28, hearWalk: 12, chase: 5.6, search: 3.6, patrol: 2.0, alert: 7.5, dmg: 20 },
+};
 
 export class Griever {
   constructor(x, y, floor, id) {
@@ -67,21 +80,22 @@ export class Griever {
     if (this.floor !== p.floor) return;
     if (game.time < game.graceTime) return;   // gracia inicial: nadie persigue al empezar
 
+    const S = game.isNight ? SENSE.night : SENSE.day;
     const dx = p.x - this.x, dy = p.y - this.y;
     const d = Math.hypot(dx, dy);
 
     // streaming: fuera de rango, latente
-    if (d > 34) { this.state = PATROL; return; }
+    if (d > 85) { this.state = PATROL; return; }
 
-    // sentidos
-    const seeRange = game.isNight ? 12.5 : 9;
-    const sees = d < seeRange && w.hasLineOfSight(this.floor, this.x, this.y, p.x, p.y);
-    const noiseR = p.running ? 12 : (p.moving ? 5 : 0);
-    const hears = noiseR > 0 && d < noiseR;
+    // sentidos (el subsuelo, siempre oscuro, oye y ve un poco más)
+    const underBoost = this.floor === FL.UNDER ? 1.12 : 1;
+    const sees = d < S.see * underBoost && w.hasLineOfSight(this.floor, this.x, this.y, p.x, p.y);
+    const noiseR = p.running ? S.hearRun : (p.moving ? S.hearWalk : 0);
+    const hears = noiseR > 0 && d < noiseR * underBoost;
 
     if (sees || hears) {
       this.state = CHASE;
-      this.alertTimer = 4.2;
+      this.alertTimer = S.alert;
       this.lastX = p.x; this.lastY = p.y;
     } else if (this.alertTimer > 0) {
       this.alertTimer -= dt;
@@ -92,12 +106,12 @@ export class Griever {
     if (this.state === CHASE) { tx = p.x; ty = p.y; }
     else if (this.state === SEARCH) {
       tx = this.lastX; ty = this.lastY;
-      if (Math.hypot(tx - this.x, ty - this.y) < 1.2) this.state = PATROL;
+      if (Math.hypot(tx - this.x, ty - this.y) < 1.6) this.state = PATROL;
     } else {
       this.retarget -= dt;
-      if (!this.target || this.retarget <= 0 || Math.hypot(this.target.x - this.x, this.target.y - this.y) < 0.7) {
+      if (!this.target || this.retarget <= 0 || Math.hypot(this.target.x - this.x, this.target.y - this.y) < 1) {
         this.pickWander(w);
-        this.retarget = 4 + Math.random() * 4;
+        this.retarget = 5 + Math.random() * 5;
       }
       tx = this.target ? this.target.x : this.spawnX;
       ty = this.target ? this.target.y : this.spawnY;
@@ -121,27 +135,27 @@ export class Griever {
       if (o === this || o.floor !== this.floor) continue;
       const ox = this.x - o.x, oy = this.y - o.y;
       const od = Math.hypot(ox, oy);
-      if (od > 0.001 && od < 1.1) { dirX += (ox / od) * 0.7; dirY += (oy / od) * 0.7; }
+      if (od > 0.001 && od < 1.6) { dirX += (ox / od) * 0.7; dirY += (oy / od) * 0.7; }
     }
-    // huyen ligeramente de las bengalas
+    // huyen de las bengalas
     for (const f of game.flares) {
       if (f.floor !== this.floor) continue;
       const fx = this.x - f.x, fy = this.y - f.y;
       const fd = Math.hypot(fx, fy);
-      if (fd > 0.001 && fd < 4) { dirX += (fx / fd) * 0.5; dirY += (fy / fd) * 0.5; }
+      if (fd > 0.001 && fd < 5.5) { dirX += (fx / fd) * 0.6; dirY += (fy / fd) * 0.6; }
     }
 
     const dl = Math.hypot(dirX, dirY) || 1;
     dirX /= dl; dirY /= dl;
 
-    let sp = this.state === CHASE ? (game.isNight ? 3.25 : 2.85) : this.state === SEARCH ? 1.9 : 1.3;
-    if (this.floor === FL.UNDER) sp *= 1.08;
+    let sp = this.state === CHASE ? S.chase : this.state === SEARCH ? S.search : S.patrol;
+    if (this.floor === FL.UNDER) sp *= 1.05;
 
     const nx = this.x + dirX * sp * dt;
     const ny = this.y + dirY * sp * dt;
     const before = this.x + this.y;
-    if (!w.circleBlocked(this.floor, nx, this.y, 0.32)) this.x = nx;
-    if (!w.circleBlocked(this.floor, this.x, ny, 0.32)) this.y = ny;
+    if (!w.circleBlocked(this.floor, nx, this.y, 0.5)) this.x = nx;
+    if (!w.circleBlocked(this.floor, this.x, ny, 0.5)) this.y = ny;
     if (Math.abs(this.x + this.y - before) < 0.0005) {
       this.stuck += dt;
       if (this.stuck > 0.8) { this.pickWander(w); this.stuck = 0; }
@@ -149,14 +163,14 @@ export class Griever {
 
     // ataque
     const nd = Math.hypot(p.x - this.x, p.y - this.y);
-    if (nd < 0.78 && this.attackCd <= 0) {
-      this.attackCd = 1.1;
-      game.damagePlayer(game.isNight ? 20 : 16, (p.x - this.x) / (nd || 1), (p.y - this.y) / (nd || 1));
+    if (nd < 1.05 && this.attackCd <= 0) {
+      this.attackCd = 1.3;
+      game.damagePlayer(S.dmg, (p.x - this.x) / (nd || 1), (p.y - this.y) / (nd || 1));
     }
     // gruñido
     if (this.state === CHASE && this.growlCd <= 0) {
       this.growlCd = 1.6 + Math.random() * 2.2;
-      game.audio.growl(Math.max(0, 1 - nd / 16));
+      game.audio.growl(Math.max(0, 1 - nd / 20));
     }
     // indicador de amenaza en el HUD: el perseguidor más cercano
     if (this.state === CHASE) {
@@ -167,9 +181,9 @@ export class Griever {
   pickWander(w) {
     for (let k = 0; k < 12; k++) {
       const a = Math.random() * Math.PI * 2;
-      const r = 2 + Math.random() * 6;
+      const r = 5 + Math.random() * 14;
       const x = this.x + Math.cos(a) * r, y = this.y + Math.sin(a) * r;
-      if (!w.circleBlocked(this.floor, x, y, 0.4)) { this.target = { x, y }; return; }
+      if (!w.circleBlocked(this.floor, x, y, 0.6)) { this.target = { x, y }; return; }
     }
     this.target = { x: this.spawnX, y: this.spawnY };
   }

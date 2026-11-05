@@ -11,7 +11,7 @@ export class Input {
     this.moveX = 0; this.moveY = 0;
     this.run = false;
     this.lookX = 0; this.lookY = 0;
-    this.press = { flash: false, flare: false, use: false };
+    this.press = { flash: false, flare: false, use: false, lookBack: false };
     this.keys = new Set();
     this.stickId = null;
     this.lookId = null;
@@ -90,10 +90,15 @@ export class Input {
 
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
+      // no interceptar atajos de juego mientras se escribe en un campo de texto
+      // (nombre del corredor, semilla manual, URL/clave de Supabase…)
+      const tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       this.keys.add(e.code);
       if (e.code === 'KeyF') this.press.flash = true;
       if (e.code === 'KeyG') this.press.flare = true;
       if (e.code === 'KeyE' || e.code === 'Space') this.press.use = true;
+      if (e.code === 'KeyQ' || e.code === 'KeyC') this.press.lookBack = true;
       if (e.code === 'Escape' && this.onPause) this.onPause();
       if (e.code === 'KeyM' && this.onToggleMap) this.onToggleMap();
     });
@@ -132,6 +137,7 @@ export class Input {
     bind(this.els.btnFlash, 'flash', false);
     bind(this.els.btnFlare, 'flare', false);
     bind(this.els.btnAction, 'use', false);
+    bind(this.els.btnLookBack, 'lookBack', false);
   }
 
   _up(e) {

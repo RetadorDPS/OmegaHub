@@ -1,13 +1,17 @@
 /* =============================================================
    Maze Runner Mobile — Jugador (movimiento, stamina, linterna)
-   Movimiento con asistencia: deslizamiento por muros, esquinas
-   redondeadas, empuje lateral y centrado en el pasillo.
+
+   v2: recalibrado para pasillos de 3 unidades de ancho — el radio
+   y las velocidades ya no pelean con el espacio disponible, así
+   que la asistencia es un remate, no un parche. Incluye un giro
+   rápido de 180° ("mirar atrás") para la huida fluida que pedía
+   la jugabilidad de la película.
    ============================================================= */
 
 import { FL } from './world.js';
 
-export const WALK = 2.7;
-export const RUN = 4.4;
+export const WALK = 3.6;
+export const RUN = 6.2;
 
 export class Player {
   constructor(world) {
@@ -16,12 +20,14 @@ export class Player {
     this.y = world.spawn.y;
     this.floor = FL.SURFACE;
     this.dir = world.spawn.dir ?? -Math.PI / 2;
+    this.turnTarget = null;      // giro rápido en curso (mirar atrás)
     this.pitch = 0;
     this.health = 100;
     this.stamina = 100;
     this.battery = 100;
     this.flares = 3;
     this.codes = 0;
+    this.notes = 0;
     this.flashOn = true;
     this.running = false;
     this.moving = false;
@@ -30,7 +36,7 @@ export class Player {
     this.bobScale = 0.5;   // 0..1, ajustable en opciones
     this.hurtT = 0;
     this.regenT = 0;
-    this.radius = 0.20;
+    this.radius = 0.34;    // pasillo de 3u de ancho => sobra espacio de sobra
     this.assist = true;    // asistencia de movimiento, ajustable en opciones
   }
 
@@ -44,9 +50,20 @@ export class Player {
   update(dt, input, game) {
     const w = this.world;
 
-    // --- mirada ---
-    this.dir += input.consumeLookX();
-    this.pitch = Math.max(-0.35, Math.min(0.35, this.pitch + input.consumeLookY()));
+    // --- giro rápido (mirar atrás): toma el control de la mirada mientras dura ---
+    if (this.turnTarget != null) {
+      const diff = normAngle(this.turnTarget - this.dir);
+      const step = Math.sign(diff) * Math.min(Math.abs(diff), 9.5 * dt);
+      this.dir += step;
+      if (Math.abs(diff) < 0.03) { this.dir = this.turnTarget; this.turnTarget = null; }
+      input.consumeLookX(); input.consumeLookY(); // descarta el arrastre acumulado durante el giro
+    } else {
+      this.dir += input.consumeLookX();
+      if (input.consume('lookBack')) {
+        this.turnTarget = normAngle(this.dir + Math.PI);
+      }
+    }
+    this.pitch = Math.max(-0.6, Math.min(0.6, this.pitch + input.consumeLookY()));
 
     // --- movimiento deseado ---
     let fwd = -input.moveY;
@@ -72,13 +89,13 @@ export class Player {
       if (vlen > 0.01) {
         const ux = vx / vlen, uy = vy / vlen;
         const perpX = -uy, perpY = ux;
-        const R = 0.20, maxP = 0.45, step = 0.1;
+        const R = 0.3, maxP = 1.3, step = 0.18;
         let l = 0, r = 0;
         while (l < maxP && !w.circleBlocked(this.floor, this.x - perpX * l, this.y - perpY * l, R)) l += step;
         while (r < maxP && !w.circleBlocked(this.floor, this.x + perpX * r, this.y + perpY * r, R)) r += step;
         const diff = r - l;
-        if (Math.abs(diff) > 0.08) {
-          const corr = Math.min(0.6, Math.abs(diff)) * Math.sign(diff) * speed * 0.6;
+        if (Math.abs(diff) > 0.15) {
+          const corr = Math.min(1.1, Math.abs(diff)) * Math.sign(diff) * speed * 0.45;
           vx += perpX * corr; vy += perpY * corr;
         }
       }
@@ -87,21 +104,21 @@ export class Player {
     this.moveWithAssist(vx * dt, vy * dt, w, dt);
 
     // --- stamina ---
-    if (this.running) this.stamina -= 18 * dt;
-    else this.stamina += 12 * dt;
+    if (this.running) this.stamina -= 15 * dt;
+    else this.stamina += 13 * dt;
     this.stamina = Math.max(0, Math.min(100, this.stamina));
 
     // --- linterna ---
     if (this.flashOn && this.battery > 0) {
-      const drain = this.floor === FL.UNDER ? 1.7 : 1.05;
+      const drain = this.floor === FL.UNDER ? 1.5 : 0.85;
       this.battery = Math.max(0, this.battery - drain * dt);
       if (this.battery === 0) game.toast?.('⚠ Linterna sin batería', 2.2);
     }
 
-    // --- regeneración leve tras 12 s sin daño ---
+    // --- regeneración leve tras 8 s sin daño ---
     if (this.hurtT > 0) this.hurtT -= dt;
     this.regenT = this.hurtT > 0 ? 0 : this.regenT + dt;
-    if (this.regenT > 12 && this.health < 100) this.health = Math.min(100, this.health + 1.4 * dt);
+    if (this.regenT > 8 && this.health < 100) this.health = Math.min(100, this.health + 1.6 * dt);
 
     // --- balanceo de cámara ---
     if (this.moving) {
@@ -112,7 +129,7 @@ export class Player {
     // --- si una puerta se cierra encima, expulsa al corredor ---
     const cx = Math.floor(this.x), cy = Math.floor(this.y);
     if (w.isBlocked(this.floor, cx, cy)) {
-      const opts = [[0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
+      const opts = [[0.8, 0], [-0.8, 0], [0, 0.8], [0, -0.8]];
       for (const [ox, oy] of opts) {
         if (!w.circleBlocked(this.floor, cx + 0.5 + ox, cy + 0.5 + oy, this.radius)) {
           this.x = cx + 0.5 + ox; this.y = cy + 0.5 + oy; break;
@@ -150,7 +167,7 @@ export class Player {
     const l = Math.hypot(dx, dy);
     if (l > 1e-6) {
       const px = -dy / l, py = dx / l;
-      const push = 2.6 * dt;
+      const push = 3.4 * dt;
       if (free(this.x + px * push, this.y + py * push)) { this.x += px * push; this.y += py * push; }
       else if (free(this.x - px * push, this.y - py * push)) { this.x -= px * push; this.y -= py * push; }
     }
@@ -160,4 +177,10 @@ export class Player {
     const amp = this.running ? 0.014 : 0.007;
     return Math.sin(this.bob) * amp * this.bobScale;
   }
+}
+
+function normAngle(a) {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
 }

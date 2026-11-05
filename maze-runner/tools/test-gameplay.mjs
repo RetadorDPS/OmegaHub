@@ -94,7 +94,7 @@ const doorTest = await page.evaluate(async () => {
   const g = window.__maze.game, w = g.world;
   g.player.floor = 0;
   const d = w.doors[0];
-  g.cycleT = 150; // fuerza el cambio a noche en el próximo update
+  g.cycleT = 240; // DAY_LEN v2: fuerza el cambio a noche en el próximo update
   await new Promise((r) => setTimeout(r, 2500));
   return { isNight: g.isNight, open: d.open, blocked: w.isBlocked(0, d.x, d.y) };
 });

@@ -116,8 +116,11 @@ const wallGlade = () => pixTex((x, y, u, v, n) => {
   r *= tone; g *= tone; bl *= tone * 0.96;
   if (b.mortar) { const m = 0.42; r *= m; g *= m; bl *= m; }
   r *= b.ao * 0.35 + 0.65; g *= b.ao * 0.35 + 0.65; bl *= b.ao * 0.35 + 0.65;
-  const moss = smooth(0.52, 0.86, n.n2 * (0.5 + v * 0.9));
-  r = lerp(r, 62, moss * 0.75); g = lerp(g, 104, moss * 0.75); bl = lerp(bl, 48, moss * 0.75);
+  const moss = smooth(0.40, 0.78, n.n2 * (0.55 + v * 0.85));
+  r = lerp(r, 58, moss * 0.82); g = lerp(g, 118, moss * 0.82); bl = lerp(bl, 44, moss * 0.82);
+  // hiedra colgante desde arriba, como los muros de la película
+  const vine = smooth(0.55, 0.88, n.n3 * (1.25 - v * 0.75)) * smooth(0.0, 0.08, Math.abs(n.n4 - 0.5));
+  r = lerp(r, 34, vine * 0.7); g = lerp(g, 88, vine * 0.7); bl = lerp(bl, 30, vine * 0.7);
   const damp = smooth(0.62, 0.95, n.n4) * (0.25 + 0.75 * v);
   r *= 1 - damp * 0.35; g *= 1 - damp * 0.30; bl *= 1 - damp * 0.22;
   return [r, g, bl];
@@ -130,8 +133,11 @@ const wallMoss = () => pixTex((x, y, u, v, n) => {
   r *= tone; g *= tone; bl *= tone * 0.95;
   if (b.mortar) { const m = 0.38; r *= m; g *= m; bl *= m; }
   r *= b.ao * 0.4 + 0.6; g *= b.ao * 0.4 + 0.6; bl *= b.ao * 0.4 + 0.6;
-  const moss = smooth(0.46, 0.80, n.n2 * (0.55 + v * 0.8));
-  r = lerp(r, 58, moss * 0.8); g = lerp(g, 98, moss * 0.8); bl = lerp(bl, 46, moss * 0.8);
+  const moss = smooth(0.36, 0.72, n.n2 * (0.6 + v * 0.75));
+  r = lerp(r, 52, moss * 0.85); g = lerp(g, 112, moss * 0.85); bl = lerp(bl, 42, moss * 0.85);
+  // hiedra colgante desde arriba
+  const vine = smooth(0.52, 0.86, n.n3 * (1.3 - v * 0.8)) * smooth(0.0, 0.1, Math.abs(n.n1 - 0.5));
+  r = lerp(r, 30, vine * 0.75); g = lerp(g, 82, vine * 0.75); bl = lerp(bl, 26, vine * 0.75);
   const dark = smooth(0.58, 0.92, n.n4) * (0.2 + 0.8 * v);
   r *= 1 - dark * 0.4; g *= 1 - dark * 0.36; bl *= 1 - dark * 0.3;
   return [r, g, bl];
@@ -418,6 +424,33 @@ function drawCode(ctx, s) {
   ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(64 * S, 68 * S, 40 * S, 0, Math.PI * 2); ctx.fill();
 }
 
+function drawNote(ctx, s) {
+  const S = s / 128;
+  ctx.clearRect(0, 0, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(64 * S, 112 * S, 26 * S, 6 * S, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(64 * S, 78 * S);
+  ctx.rotate(-0.12);
+  const g = ctx.createLinearGradient(-26 * S, -34 * S, 26 * S, 34 * S);
+  g.addColorStop(0, '#e8dcb8'); g.addColorStop(1, '#c9b685');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-26 * S, -34 * S); ctx.lineTo(18 * S, -34 * S); ctx.lineTo(26 * S, -26 * S);
+  ctx.lineTo(26 * S, 34 * S); ctx.lineTo(-26 * S, 34 * S); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#b7a06a';
+  ctx.beginPath(); ctx.moveTo(18 * S, -34 * S); ctx.lineTo(26 * S, -26 * S); ctx.lineTo(18 * S, -26 * S); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(90,70,40,0.55)'; ctx.lineWidth = 1.4 * S;
+  for (let i = 0; i < 5; i++) {
+    const ly = -18 * S + i * 11 * S;
+    ctx.beginPath(); ctx.moveTo(-18 * S, ly); ctx.lineTo(16 * S, ly); ctx.stroke();
+  }
+  ctx.restore();
+  const eg = ctx.createRadialGradient(64 * S, 70 * S, 0, 64 * S, 70 * S, 38 * S);
+  eg.addColorStop(0, 'rgba(255,225,150,0.35)'); eg.addColorStop(1, 'rgba(255,225,150,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(64 * S, 70 * S, 38 * S, 0, Math.PI * 2); ctx.fill();
+}
+
 function drawBeacon(ctx, s) {
   const S = s / 128;
   ctx.clearRect(0, 0, s, s);
@@ -502,6 +535,7 @@ export function buildSprites() {
     flare: spriteTex(drawFlare),
     medkit: spriteTex(drawMedkit),
     code: spriteTex(drawCode),
+    note: spriteTex(drawNote),
     beacon: spriteTex(drawBeacon),
   };
 }

@@ -27,7 +27,7 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
-  --mm: clamp(76px, 25vh, 148px);
+  --mm: clamp(92px, 30vh, 180px);
   --btn: clamp(50px, 13vh, 74px);
 }
 
@@ -104,13 +104,17 @@ html, body {
   position: absolute; left: 50%; transform: translateX(-50%);
   top: calc(6px + var(--safe-t)); text-align: center;
 }
-#clock { font-size: 20px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
-.chips-mini { display: flex; gap: 6px; justify-content: center; margin-top: 4px; }
+.clock-label { font-size: 9.5px; letter-spacing: 2.5px; color: var(--dim); text-transform: uppercase; }
+#clock { font-size: 22px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+#clock.urgent { color: var(--red); animation: clockPulse .55s infinite; }
+@keyframes clockPulse { 50% { opacity: .35; } }
+.chips-mini { display: flex; gap: 6px; justify-content: center; margin-top: 4px; flex-wrap: wrap; }
 .chip-mini {
   font-size: 10px; letter-spacing: .5px; padding: 2px 8px; border-radius: 10px;
   background: rgba(12,14,17,.72); border: 1px solid var(--line); color: var(--amber);
 }
 .chip-mini.dim { color: var(--dim); border-color: rgba(255,255,255,.12); }
+.chip-mini.note { color: #e8dcb8; border-color: rgba(232,220,184,.4); }
 
 /* --- superior derecha: sistema + minimapa --- */
 .hud-tr {
@@ -127,12 +131,21 @@ html, body {
 .sysbtn:active { background: rgba(232,163,60,.28); }
 
 #minimapWrap {
+  all: unset;
+  display: block; position: relative;
+  pointer-events: auto; cursor: pointer;
   width: var(--mm); height: var(--mm);
   border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
   background: rgba(8,10,12,.72);
   box-shadow: 0 6px 18px rgba(0,0,0,.5), inset 0 0 24px rgba(0,0,0,.6);
 }
+#minimapWrap:active { box-shadow: 0 0 0 2px var(--amber), 0 6px 18px rgba(0,0,0,.5); }
 #minimap { width: 100%; height: 100%; display: block; }
+.mm-hint {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  font-size: 8px; letter-spacing: 1.5px; text-align: center;
+  color: rgba(232,163,60,.95); background: rgba(5,6,8,.6); padding: 2px 0;
+}
 
 /* --- cruceta --- */
 #crosshair {
@@ -184,6 +197,16 @@ html, body {
   opacity: 0; transition: opacity .18s;
 }
 
+/* "aguijonazo": destello de memoria al recibir un golpe de Griever */
+#sting { position: absolute; inset: 0; pointer-events: none; z-index: 15; opacity: 0; }
+#sting.show { animation: stingFx .9s ease-out; }
+@keyframes stingFx {
+  0%   { opacity: 0;   filter: hue-rotate(0deg) saturate(1) blur(0px); background: radial-gradient(ellipse at center, rgba(130,60,210,0) 25%, rgba(100,30,180,.45) 100%); }
+  18%  { opacity: 1;   filter: hue-rotate(35deg) saturate(1.4) blur(1.5px); }
+  55%  { opacity: .6;  filter: hue-rotate(-15deg) saturate(1.1) blur(.4px); }
+  100% { opacity: 0;   filter: hue-rotate(0deg) saturate(1) blur(0px); }
+}
+
 /* ============================ CONTROLES ============================ */
 
 #touch { position: absolute; inset: 0; pointer-events: none; z-index: 13; }
@@ -212,12 +235,23 @@ html, body {
   box-shadow: 0 4px 14px rgba(0,0,0,.6), 0 0 18px rgba(232,163,60,.35);
 }
 
-/* botones de acción: rejilla 2x2, siempre visibles, sin solaparse */
+/* botones de acción: "mirar atrás" arriba, rejilla 2x2 debajo, sin solaparse */
 #buttons {
   position: absolute;
   right: calc(12px + var(--safe-r)); bottom: calc(12px + var(--safe-b));
-  display: grid; grid-template-columns: repeat(2, var(--btn)); gap: clamp(8px, 1.4vh, 14px);
+  display: grid; grid-template-columns: repeat(2, var(--btn));
+  grid-template-areas: "back back" "act flash" "flare run";
+  justify-items: center;
+  gap: clamp(8px, 1.4vh, 14px);
 }
+#btnLookBack { grid-area: back; }
+#btnAction { grid-area: act; }
+#btnFlash { grid-area: flash; }
+#btnFlare { grid-area: flare; }
+#btnRun { grid-area: run; }
+.tbtn.small { width: calc(var(--btn) * 0.68); height: calc(var(--btn) * 0.68); }
+.tbtn.small .ic { font-size: calc(var(--btn) * 0.68 * 0.4); }
+.tbtn.back { border-color: rgba(233,227,214,.35); }
 .tbtn {
   pointer-events: auto;
   width: var(--btn); height: var(--btn);
@@ -403,6 +437,27 @@ details > div, details > label { margin-top: 6px; }
   background-color: rgba(255,255,255,.03);
 }
 .end-art.win { box-shadow: inset 0 -30px 40px rgba(6,7,8,.9), 0 0 30px rgba(108,227,154,.25); }
+.rank { font-size: 13.5px; color: var(--amber); letter-spacing: .5px; margin-bottom: 6px; font-weight: 700; }
+
+/* --- mapa del corredor (pantalla completa) --- */
+.map-panel { width: min(96vw, 820px); }
+.map-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.map-head h2 { margin: 0; }
+#mapBig {
+  width: 100%; aspect-ratio: 1; max-height: 58vh; display: block; margin-top: 8px;
+  border-radius: 10px; border: 1px solid var(--line); background: #05070a;
+}
+.map-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 10px 0; font-size: 11px; color: var(--dim); }
+.map-legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.sw-floor { background: #6a8a53; } .sw-wall { background: #2a3324; } .sw-door { background: #d8a53a; }
+.sw-hatch { background: #39c6d6; } .sw-exit { background: #5cff9d; }
+
+/* --- bitácora del corredor --- */
+.lore-list { display: flex; flex-direction: column; gap: 8px; max-height: 54vh; overflow: auto; margin: 10px 0; }
+.lore-entry {
+  background: rgba(232,220,184,.08); border-left: 3px solid #c9b685;
+  padding: 10px 13px; font-size: 12.5px; line-height: 1.55; color: #e8dcb8; border-radius: 0 8px 8px 0;
+}
 
 /* ============================ ADAPTACIONES ============================ */
 
@@ -437,6 +492,7 @@ details > div, details > label { margin-top: 6px; }
   <canvas id="view"></canvas>
   <div id="vignette"></div>
   <div id="damage"></div>
+  <div id="sting"></div>
 
   <!-- ===================== HUD ===================== -->
   <div id="hud" class="hidden">
@@ -454,19 +510,25 @@ details > div, details > label { margin-top: 6px; }
     </div>
 
     <div class="hud-tc">
+      <div id="clockLabel" class="clock-label">Anochece en</div>
       <div id="clock">00:00</div>
       <div class="chips-mini">
         <span id="codesChip" class="chip-mini">Códigos 0/3</span>
+        <span id="notesChip" class="chip-mini note hidden">📖 0/8</span>
         <span id="cycleChip" class="chip-mini dim">☀ Día</span>
       </div>
     </div>
 
     <div class="hud-tr">
       <div class="sys-row">
+        <button id="btnLore" class="sysbtn" type="button" title="Bitácora">📖</button>
         <button id="btnFull" class="sysbtn" type="button" title="Pantalla completa">⛶</button>
         <button id="btnPause" class="sysbtn" type="button" title="Pausa">⏸</button>
       </div>
-      <div id="minimapWrap"><canvas id="minimap" width="200" height="200"></canvas></div>
+      <button id="minimapWrap" type="button" title="Toca para ver el mapa completo">
+        <canvas id="minimap" width="200" height="200"></canvas>
+        <span class="mm-hint">MAPA ⤢</span>
+      </button>
     </div>
 
     <div id="crosshair"></div>
@@ -480,9 +542,10 @@ details > div, details > label { margin-top: 6px; }
     <div id="stickHint"><span>MOVER</span></div>
     <div id="stick"><div id="stickBase"></div><div id="stickKnob"></div></div>
     <div id="buttons">
+      <button id="btnLookBack" class="tbtn small back" type="button"><span class="ic">↩</span><span class="lb">ATRÁS</span></button>
       <button id="btnAction" class="tbtn act" type="button"><span class="ic">⚡</span><span class="lb">USAR</span></button>
-      <button id="btnFlash" class="tbtn" type="button"><span class="ic">🔦</span><span class="lb">LUZ</span></button>
-      <button id="btnFlare" class="tbtn" type="button"><span class="ic">🔥</span><span class="lb">FUEGO</span></button>
+      <button id="btnFlash" class="tbtn flash" type="button"><span class="ic">🔦</span><span class="lb">LUZ</span></button>
+      <button id="btnFlare" class="tbtn flare" type="button"><span class="ic">🔥</span><span class="lb">FUEGO</span></button>
       <button id="btnRun" class="tbtn run" type="button"><span class="ic">🏃</span><span class="lb">CORRER</span></button>
     </div>
   </div>
@@ -632,6 +695,7 @@ details > div, details > label { margin-top: 6px; }
     <section id="panelEnd" class="panel hidden">
       <div id="endArt" class="end-art"></div>
       <h2 id="endTitle">FIN</h2>
+      <div id="endRank" class="rank"></div>
       <div id="endBody"></div>
       <div class="scores" id="endScores"></div>
       <div class="row wrap">
@@ -639,6 +703,28 @@ details > div, details > label { margin-top: 6px; }
         <button id="btnNewSeed" class="ghost" type="button">Semilla nueva</button>
         <button id="btnMenu" class="ghost" type="button">Menú</button>
       </div>
+    </section>
+
+    <section id="panelMap" class="panel map-panel hidden">
+      <div class="map-head">
+        <h2>MAPA DEL CORREDOR</h2>
+        <span id="mapPct" class="chip-mini">0% cartografiado</span>
+      </div>
+      <canvas id="mapBig" width="900" height="900"></canvas>
+      <div class="map-legend">
+        <span><i class="sw sw-floor"></i> explorado</span>
+        <span><i class="sw sw-wall"></i> muro</span>
+        <span><i class="sw sw-door"></i> puerta</span>
+        <span><i class="sw sw-hatch"></i> escotilla</span>
+        <span><i class="sw sw-exit"></i> salida</span>
+      </div>
+      <button class="ghost" data-resume type="button">Cerrar</button>
+    </section>
+
+    <section id="panelLore" class="panel hidden">
+      <h2>BITÁCORA DEL CORREDOR</h2>
+      <div id="loreList" class="lore-list"></div>
+      <button class="ghost" data-resume type="button">Cerrar</button>
     </section>
   </div>
 </div>
@@ -1117,8 +1203,11 @@ const wallGlade = () => pixTex((x, y, u, v, n) => {
   r *= tone; g *= tone; bl *= tone * 0.96;
   if (b.mortar) { const m = 0.42; r *= m; g *= m; bl *= m; }
   r *= b.ao * 0.35 + 0.65; g *= b.ao * 0.35 + 0.65; bl *= b.ao * 0.35 + 0.65;
-  const moss = smooth(0.52, 0.86, n.n2 * (0.5 + v * 0.9));
-  r = lerp(r, 62, moss * 0.75); g = lerp(g, 104, moss * 0.75); bl = lerp(bl, 48, moss * 0.75);
+  const moss = smooth(0.40, 0.78, n.n2 * (0.55 + v * 0.85));
+  r = lerp(r, 58, moss * 0.82); g = lerp(g, 118, moss * 0.82); bl = lerp(bl, 44, moss * 0.82);
+  // hiedra colgante desde arriba, como los muros de la película
+  const vine = smooth(0.55, 0.88, n.n3 * (1.25 - v * 0.75)) * smooth(0.0, 0.08, Math.abs(n.n4 - 0.5));
+  r = lerp(r, 34, vine * 0.7); g = lerp(g, 88, vine * 0.7); bl = lerp(bl, 30, vine * 0.7);
   const damp = smooth(0.62, 0.95, n.n4) * (0.25 + 0.75 * v);
   r *= 1 - damp * 0.35; g *= 1 - damp * 0.30; bl *= 1 - damp * 0.22;
   return [r, g, bl];
@@ -1131,8 +1220,11 @@ const wallMoss = () => pixTex((x, y, u, v, n) => {
   r *= tone; g *= tone; bl *= tone * 0.95;
   if (b.mortar) { const m = 0.38; r *= m; g *= m; bl *= m; }
   r *= b.ao * 0.4 + 0.6; g *= b.ao * 0.4 + 0.6; bl *= b.ao * 0.4 + 0.6;
-  const moss = smooth(0.46, 0.80, n.n2 * (0.55 + v * 0.8));
-  r = lerp(r, 58, moss * 0.8); g = lerp(g, 98, moss * 0.8); bl = lerp(bl, 46, moss * 0.8);
+  const moss = smooth(0.36, 0.72, n.n2 * (0.6 + v * 0.75));
+  r = lerp(r, 52, moss * 0.85); g = lerp(g, 112, moss * 0.85); bl = lerp(bl, 42, moss * 0.85);
+  // hiedra colgante desde arriba
+  const vine = smooth(0.52, 0.86, n.n3 * (1.3 - v * 0.8)) * smooth(0.0, 0.1, Math.abs(n.n1 - 0.5));
+  r = lerp(r, 30, vine * 0.75); g = lerp(g, 82, vine * 0.75); bl = lerp(bl, 26, vine * 0.75);
   const dark = smooth(0.58, 0.92, n.n4) * (0.2 + 0.8 * v);
   r *= 1 - dark * 0.4; g *= 1 - dark * 0.36; bl *= 1 - dark * 0.3;
   return [r, g, bl];
@@ -1419,6 +1511,33 @@ function drawCode(ctx, s) {
   ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(64 * S, 68 * S, 40 * S, 0, Math.PI * 2); ctx.fill();
 }
 
+function drawNote(ctx, s) {
+  const S = s / 128;
+  ctx.clearRect(0, 0, s, s);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(64 * S, 112 * S, 26 * S, 6 * S, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(64 * S, 78 * S);
+  ctx.rotate(-0.12);
+  const g = ctx.createLinearGradient(-26 * S, -34 * S, 26 * S, 34 * S);
+  g.addColorStop(0, '#e8dcb8'); g.addColorStop(1, '#c9b685');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-26 * S, -34 * S); ctx.lineTo(18 * S, -34 * S); ctx.lineTo(26 * S, -26 * S);
+  ctx.lineTo(26 * S, 34 * S); ctx.lineTo(-26 * S, 34 * S); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#b7a06a';
+  ctx.beginPath(); ctx.moveTo(18 * S, -34 * S); ctx.lineTo(26 * S, -26 * S); ctx.lineTo(18 * S, -26 * S); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(90,70,40,0.55)'; ctx.lineWidth = 1.4 * S;
+  for (let i = 0; i < 5; i++) {
+    const ly = -18 * S + i * 11 * S;
+    ctx.beginPath(); ctx.moveTo(-18 * S, ly); ctx.lineTo(16 * S, ly); ctx.stroke();
+  }
+  ctx.restore();
+  const eg = ctx.createRadialGradient(64 * S, 70 * S, 0, 64 * S, 70 * S, 38 * S);
+  eg.addColorStop(0, 'rgba(255,225,150,0.35)'); eg.addColorStop(1, 'rgba(255,225,150,0)');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(64 * S, 70 * S, 38 * S, 0, Math.PI * 2); ctx.fill();
+}
+
 function drawBeacon(ctx, s) {
   const S = s / 128;
   ctx.clearRect(0, 0, s, s);
@@ -1503,6 +1622,7 @@ function buildSprites() {
     flare: spriteTex(drawFlare),
     medkit: spriteTex(drawMedkit),
     code: spriteTex(drawCode),
+    note: spriteTex(drawNote),
     beacon: spriteTex(drawBeacon),
   };
 }
@@ -1510,10 +1630,19 @@ function buildSprites() {
 
 /* ==================== world.js ==================== */
 /* =============================================================
-   Maze Runner Mobile — Generación y consultas del mundo
-   3×3 bloques: El Área (centro, segura) + 8 sectores en anillo
-   (biomas A/B/C) + Piso −1 (subsuelo CRUEL). Laberinto por
-   backtracking recursivo + trenzado (bucles). Determinista.
+   Maze Runner Mobile — Generación y consultas del mundo (v2)
+
+   El laberinto se genera dos veces:
+   1) "Lógico": el backtracking recursivo + trenzado de siempre,
+      sobre una rejilla compacta (una celda = una decisión).
+   2) "Dilatado": cada celda lógica se expande a un bloque de
+      DIL×DIL celdas físicas. El resultado son pasillos anchos
+      (como la avenida de la Gladero en la película) separados
+      por muros gruesos y colosales — y un mundo bastante más
+      grande — sin complicar el algoritmo de generación en sí.
+
+   El resto del juego (jugador, Grievers, render, minimapa) sólo
+   ve la rejilla FÍSICA (this.W, this.H, this.grid, ...).
    ============================================================= */
 
 
@@ -1522,8 +1651,11 @@ const FL = { SURFACE: 0, UNDER: 1 };
 const BIOME = { GLADE: 0, A: 1, B: 2, C: 3, CRUEL: 4 };
 const BIOME_NAME = ['El Área', 'Clásico', 'Industrial', 'Ruinas', 'CRUEL'];
 
-/** Altura de muro/techo por bioma, en 1/16 de celda (ver GUIA_MAESTRA §6.2/§7). */
-const HEIGHTS = [38, 19, 27, 21, 14];
+/** Celdas físicas por celda lógica — pasillos de 3 unidades de ancho. */
+const DIL = 3;
+
+/** Altura de muro/techo por bioma, en 1/16 de celda. Muros colosales. */
+const HEIGHTS = [88, 54, 67, 48, 18];
 
 const SECTOR_DEF = [
   { n: 1, r: 0, c: 1, biome: BIOME.A },
@@ -1544,14 +1676,23 @@ class World {
     this.build();
   }
 
-  /* ---------------------------------------------------------- generación */
-
   build() {
+    this.buildLogical();
+    this.dilate();
+    this.buildCellLists();
+  }
+
+  /* ============================================================
+     FASE 1 — generación lógica (idéntica en espíritu a la v1,
+     pero todo vive en this.l* hasta que dilate() la expande)
+     ============================================================ */
+
+  buildLogical() {
     const rng = this.rng;
-    const colW = [15 + 2 * rng.int(3), 15 + 2 * rng.int(3), 15 + 2 * rng.int(3)];
-    const rowH = [15 + 2 * rng.int(3), 15 + 2 * rng.int(3), 15 + 2 * rng.int(3)];
-    const W = colW[0] + colW[1] + colW[2], H = rowH[0] + rowH[1] + rowH[2];
-    this.W = W; this.H = H;
+    const colW = [13 + 2 * rng.int(3), 13 + 2 * rng.int(3), 13 + 2 * rng.int(3)];
+    const rowH = [13 + 2 * rng.int(3), 13 + 2 * rng.int(3), 13 + 2 * rng.int(3)];
+    const lw = colW[0] + colW[1] + colW[2], lh = rowH[0] + rowH[1] + rowH[2];
+    this.lw = lw; this.lh = lh;
     const xs = [0, colW[0], colW[0] + colW[1]];
     const ys = [0, rowH[0], rowH[0] + rowH[1]];
 
@@ -1566,28 +1707,22 @@ class World {
       }
     }
 
-    const N = W * H;
-    this.grid = [new Uint8Array(N).fill(T.WALL), new Uint8Array(N).fill(T.WALL)];
-    this.region = [new Uint8Array(N), new Uint8Array(N)];
-    this.biome = [new Uint8Array(N), new Uint8Array(N)];
-    this.sky = [new Uint8Array(N), new Uint8Array(N)];
-    this.wallH = [new Uint8Array(N), new Uint8Array(N)];
-    this.ceilH = [new Uint8Array(N), new Uint8Array(N)];
-    this.doorIdx = [new Int16Array(N).fill(-1), new Int16Array(N).fill(-1)];
+    const N = lw * lh;
+    this.lgrid = [new Uint8Array(N).fill(T.WALL), new Uint8Array(N).fill(T.WALL)];
+    this.lregion = [new Uint8Array(N), new Uint8Array(N)];
+    this.lbiome = [new Uint8Array(N), new Uint8Array(N)];
+    this.lsky = [new Uint8Array(N), new Uint8Array(N)];
+    this.ldoorIdx = [new Int16Array(N).fill(-1), new Int16Array(N).fill(-1)];
     this.doors = [];
 
     for (const b of this.blocks) {
       for (let y = b.y0; y < b.y0 + b.h; y++) {
         for (let x = b.x0; x < b.x0 + b.w; x++) {
-          const i = y * W + x;
-          this.region[FL.SURFACE][i] = b.sector;
-          this.biome[FL.SURFACE][i] = b.biome;
-          this.wallH[FL.SURFACE][i] = HEIGHTS[b.biome];
-          this.ceilH[FL.SURFACE][i] = HEIGHTS[b.biome];
-          this.region[FL.UNDER][i] = b.sector;
-          this.biome[FL.UNDER][i] = BIOME.CRUEL;
-          this.wallH[FL.UNDER][i] = HEIGHTS[BIOME.CRUEL];
-          this.ceilH[FL.UNDER][i] = HEIGHTS[BIOME.CRUEL];
+          const i = y * lw + x;
+          this.lregion[FL.SURFACE][i] = b.sector;
+          this.lbiome[FL.SURFACE][i] = b.biome;
+          this.lregion[FL.UNDER][i] = b.sector;
+          this.lbiome[FL.UNDER][i] = BIOME.CRUEL;
         }
       }
     }
@@ -1603,13 +1738,13 @@ class World {
       if (b.biome !== BIOME.C) continue;
       const n = 1 + rng.int(2);
       for (let k = 0; k < n; k++) {
-        const px = b.x0 + 3 + rng.int(Math.max(1, b.w - 7));
-        const py = b.y0 + 3 + rng.int(Math.max(1, b.h - 7));
-        for (let y = py; y < Math.min(b.y0 + b.h - 1, py + 4); y++) {
-          for (let x = px; x < Math.min(b.x0 + b.w - 1, px + 4); x++) {
-            const i = y * W + x;
-            if (this.grid[FL.SURFACE][i] === T.WALL) this.grid[FL.SURFACE][i] = T.FLOOR;
-            this.sky[FL.SURFACE][i] = 1;
+        const px = b.x0 + 3 + rng.int(Math.max(1, b.w - 5));
+        const py = b.y0 + 3 + rng.int(Math.max(1, b.h - 5));
+        for (let y = py; y < Math.min(b.y0 + b.h - 1, py + 2); y++) {
+          for (let x = px; x < Math.min(b.x0 + b.w - 1, px + 2); x++) {
+            const i = y * lw + x;
+            if (this.lgrid[FL.SURFACE][i] === T.WALL) this.lgrid[FL.SURFACE][i] = T.FLOOR;
+            this.lsky[FL.SURFACE][i] = 1;
           }
         }
       }
@@ -1618,21 +1753,10 @@ class World {
     this.placeDoors();
     this.placeHatches();
     this.placeExit();
-    this.buildCellLists();
-
-    const gb = this.blocks[GLADE];
-    this.spawn = { x: gb.x0 + gb.w / 2, y: gb.y0 + gb.h / 2, dir: -Math.PI / 2, floor: FL.SURFACE };
-
-    // campo de flujo (BFS compartido): estructuras reutilizables
-    this.flowDist = new Int32Array(N);
-    this.flowStamp = new Int32Array(N).fill(-1);
-    this.flowQueue = new Int32Array(N);
-    this.flowStampId = 0;
-    this.flowValidFloor = -1;
   }
 
   carveMaze(floor, block, braid = 0.08) {
-    const g = this.grid[floor], W = this.W, rng = this.rng;
+    const g = this.lgrid[floor], W = this.lw, rng = this.rng;
     const { x0, y0, w, h } = block;
     const startX = x0 + 1, startY = y0 + 1;
     g[startY * W + startX] = T.FLOOR;
@@ -1665,19 +1789,17 @@ class World {
   }
 
   carveGlade(block) {
-    const g = this.grid[FL.SURFACE], W = this.W, rng = this.rng;
+    const g = this.lgrid[FL.SURFACE], W = this.lw, rng = this.rng;
     const { x0, y0, w, h } = block;
     for (let y = y0 + 1; y < y0 + h - 1; y++) {
       for (let x = x0 + 1; x < x0 + w - 1; x++) {
         g[y * W + x] = T.FLOOR;
-        this.sky[FL.SURFACE][y * W + x] = 1;
+        this.lsky[FL.SURFACE][y * W + x] = 1;
       }
     }
     // el punto de aparición cae en el centro geométrico exacto del bloque:
-    // los pilares decorativos deben evitarlo (y cualquier obstáculo sólido
-    // centrado también, o bloquearían el spawn — ver tools/test-world.mjs).
+    // los pilares decorativos deben evitarlo.
     const cx = x0 + (w >> 1), cy = y0 + (h >> 1);
-    // pilares sueltos
     for (let k = 0; k < 4; k++) {
       const px = x0 + 2 + rng.int(Math.max(1, w - 4));
       const py = y0 + 2 + rng.int(Math.max(1, h - 4));
@@ -1686,7 +1808,7 @@ class World {
   }
 
   carveUnderground() {
-    const g = this.grid[FL.UNDER], W = this.W, H = this.H, rng = this.rng;
+    const g = this.lgrid[FL.UNDER], W = this.lw, H = this.lh, rng = this.rng;
     g[1 * W + 1] = T.FLOOR;
     const stack = [[1, 1]];
     while (stack.length) {
@@ -1723,7 +1845,7 @@ class World {
   }
 
   carveDoorAxis(x, y, axis) {
-    const g = this.grid[FL.SURFACE], W = this.W;
+    const g = this.lgrid[FL.SURFACE], W = this.lw;
     const set = (xx, yy) => { if (g[yy * W + xx] === T.WALL) g[yy * W + xx] = T.FLOOR; };
     if (axis === 'v') { set(x, y - 1); set(x, y - 2); set(x, y + 1); set(x, y + 2); }
     else { set(x - 1, y); set(x - 2, y); set(x + 1, y); set(x + 2, y); }
@@ -1748,14 +1870,11 @@ class World {
     }
     this.carveDoorAxis(x, y, axis);
 
-    const W = this.W, i = y * W + x;
-    const h = Math.max(HEIGHTS[A.biome], HEIGHTS[B.biome]);
+    const i = y * this.lw + x;
     const d = { x, y, open: 1, target: 1, id: this.doors.length };
     this.doors.push(d);
-    this.grid[FL.SURFACE][i] = T.DOOR;
-    this.doorIdx[FL.SURFACE][i] = d.id;
-    this.wallH[FL.SURFACE][i] = h;
-    this.ceilH[FL.SURFACE][i] = h;
+    this.lgrid[FL.SURFACE][i] = T.DOOR;
+    this.ldoorIdx[FL.SURFACE][i] = d.id;
   }
 
   placeDoors() {
@@ -1765,7 +1884,7 @@ class World {
   }
 
   randomFloorInBlock(floor, block) {
-    const g = this.grid[floor], W = this.W, rng = this.rng;
+    const g = this.lgrid[floor], W = this.lw, rng = this.rng;
     for (let tries = 0; tries < 400; tries++) {
       const x = block.x0 + 1 + rng.int(Math.max(1, block.w - 2));
       const y = block.y0 + 1 + rng.int(Math.max(1, block.h - 2));
@@ -1776,15 +1895,15 @@ class World {
 
   placeHatches() {
     this.hatches = [];
-    const W = this.W;
+    const W = this.lw;
     const addHatch = (block) => {
       const { x, y } = this.randomFloorInBlock(FL.SURFACE, block);
-      this.grid[FL.SURFACE][y * W + x] = T.HATCH_DOWN;
-      this.grid[FL.UNDER][y * W + x] = T.HATCH_UP;
+      this.lgrid[FL.SURFACE][y * W + x] = T.HATCH_DOWN;
+      this.lgrid[FL.UNDER][y * W + x] = T.HATCH_UP;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const ni = (y + dy) * W + (x + dx);
-        if (this.grid[FL.SURFACE][ni] === T.WALL) this.grid[FL.SURFACE][ni] = T.FLOOR;
-        if (this.grid[FL.UNDER][ni] === T.WALL) this.grid[FL.UNDER][ni] = T.FLOOR;
+        if (this.lgrid[FL.SURFACE][ni] === T.WALL) this.lgrid[FL.SURFACE][ni] = T.FLOOR;
+        if (this.lgrid[FL.UNDER][ni] === T.WALL) this.lgrid[FL.UNDER][ni] = T.FLOOR;
       }
       this.hatches.push({ x, y });
     };
@@ -1800,7 +1919,7 @@ class World {
     const block = this.rng.pick(corners);
     const gb = this.blocks[GLADE];
     const gx = gb.x0 + (gb.w >> 1), gy = gb.y0 + (gb.h >> 1);
-    const g = this.grid[FL.SURFACE], W = this.W;
+    const g = this.lgrid[FL.SURFACE], W = this.lw;
     let best = null, bestD = -1;
     for (let y = block.y0 + 1; y < block.y0 + block.h - 1; y++) {
       for (let x = block.x0 + 1; x < block.x0 + block.w - 1; x++) {
@@ -1812,6 +1931,62 @@ class World {
     if (!best) best = this.randomFloorInBlock(FL.SURFACE, block);
     g[best.y * W + best.x] = T.EXIT;
     this.exit = { x: best.x, y: best.y, region: block.sector };
+  }
+
+  /* ============================================================
+     FASE 2 — dilatación: cada celda lógica -> bloque DIL×DIL físico
+     ============================================================ */
+
+  dilate() {
+    const lw = this.lw, lh = this.lh;
+    const W = lw * DIL, H = lh * DIL;
+    this.W = W; this.H = H;
+    const N = W * H;
+    this.grid = [new Uint8Array(N), new Uint8Array(N)];
+    this.region = [new Uint8Array(N), new Uint8Array(N)];
+    this.biome = [new Uint8Array(N), new Uint8Array(N)];
+    this.sky = [new Uint8Array(N), new Uint8Array(N)];
+    this.wallH = [new Uint8Array(N), new Uint8Array(N)];
+    this.ceilH = [new Uint8Array(N), new Uint8Array(N)];
+    this.doorIdx = [new Int16Array(N).fill(-1), new Int16Array(N).fill(-1)];
+
+    for (let f = 0; f < 2; f++) {
+      const lgrid = this.lgrid[f], lregion = this.lregion[f], lbiome = this.lbiome[f], lsky = this.lsky[f], ldoorIdx = this.ldoorIdx[f];
+      const grid = this.grid[f], region = this.region[f], biome = this.biome[f], sky = this.sky[f], wallH = this.wallH[f], ceilH = this.ceilH[f], doorIdx = this.doorIdx[f];
+      for (let ly = 0; ly < lh; ly++) {
+        for (let lx = 0; lx < lw; lx++) {
+          const li = ly * lw + lx;
+          const t = lgrid[li], bio = lbiome[li], reg = lregion[li], skyv = lsky[li], did = ldoorIdx[li];
+          const h = HEIGHTS[bio];
+          const py0 = ly * DIL, px0 = lx * DIL;
+          for (let dy = 0; dy < DIL; dy++) {
+            const rowBase = (py0 + dy) * W + px0;
+            for (let dx = 0; dx < DIL; dx++) {
+              const pi = rowBase + dx;
+              grid[pi] = t; region[pi] = reg; biome[pi] = bio; sky[pi] = skyv;
+              wallH[pi] = h; ceilH[pi] = h;
+              if (did >= 0) doorIdx[pi] = did;
+            }
+          }
+        }
+      }
+    }
+
+    // remapea a coordenadas físicas todo lo que se calculó en fase lógica
+    this.hatches = this.hatches.map((h) => ({ x: h.x * DIL, y: h.y * DIL }));
+    this.exit = { x: this.exit.x * DIL, y: this.exit.y * DIL, region: this.exit.region };
+    for (const d of this.doors) { d.x *= DIL; d.y *= DIL; }
+    for (const b of this.blocks) { b.x0 *= DIL; b.y0 *= DIL; b.w *= DIL; b.h *= DIL; }
+
+    const gb = this.blocks[GLADE];
+    this.spawn = { x: gb.x0 + gb.w / 2, y: gb.y0 + gb.h / 2, dir: -Math.PI / 2, floor: FL.SURFACE };
+
+    // campo de flujo (BFS compartido): estructuras reutilizables, a tamaño físico
+    this.flowDist = new Int32Array(N);
+    this.flowStamp = new Int32Array(N).fill(-1);
+    this.flowQueue = new Int32Array(N);
+    this.flowStampId = 0;
+    this.flowValidFloor = -1;
   }
 
   buildCellLists() {
@@ -1861,11 +2036,11 @@ class World {
     return false;
   }
 
-  hasLineOfSight(floor, x0, y0, x1, y1) {
+  hasLineOfSight(floor, x0, y0, x1, y1, maxDist = 40) {
     const dx = x1 - x0, dy = y1 - y0;
     const dist = Math.hypot(dx, dy);
-    if (dist > 20) return false;
-    const steps = Math.max(1, Math.ceil(dist * 6));
+    if (dist > maxDist) return false;
+    const steps = Math.max(1, Math.ceil(dist * 4));
     const sx = dx / steps, sy = dy / steps;
     let x = x0, y = y0;
     for (let i = 0; i < steps; i++) {
@@ -1904,7 +2079,7 @@ class World {
 
   /* ---------------------------------------------------------- IA: campo de flujo */
 
-  computeFlow(floor, tx, ty, radius = 26) {
+  computeFlow(floor, tx, ty, radius = 70) {
     const W = this.W, H = this.H;
     let cx = Math.max(0, Math.min(W - 1, Math.floor(tx)));
     let cy = Math.max(0, Math.min(H - 1, Math.floor(ty)));
@@ -1978,14 +2153,21 @@ class World {
 /* ==================== entities.js ==================== */
 /* =============================================================
    Maze Runner Mobile — Entidades: Grievers, objetos y bengalas
+
+   v2: ciclo de peligro día/noche fiel a la película — de día los
+   Grievers son evitables (sentidos cortos, lentos, se rinden
+   rápido); de noche son la amenaza real (perciben mucho más,
+   corren casi tanto como tú y no sueltan la presa). Así se puede
+   explorar de día sin morir constantemente, y el reloj importa.
    ============================================================= */
 
 
 const ITEM_DEFS = {
-  battery: { sprite: 'battery', h: 0.55, yBase: 0.02, label: 'Batería (+45% linterna)' },
-  flare: { sprite: 'flare', h: 0.55, yBase: 0.02, label: 'Bengala (+1)' },
-  medkit: { sprite: 'medkit', h: 0.5, yBase: 0.02, label: 'Botiquín (+35 vida)' },
-  code: { sprite: 'code', h: 0.5, yBase: 0.25, label: 'Código CRUEL' },
+  battery: { sprite: 'battery', h: 0.8, yBase: 0.03, label: 'Batería (+45% linterna)' },
+  flare: { sprite: 'flare', h: 0.8, yBase: 0.03, label: 'Bengala (+1)' },
+  medkit: { sprite: 'medkit', h: 0.75, yBase: 0.03, label: 'Botiquín (+35 vida)' },
+  code: { sprite: 'code', h: 0.75, yBase: 0.35, label: 'Código CRUEL' },
+  note: { sprite: 'note', h: 0.6, yBase: 0.05, label: 'Página de la bitácora' },
 };
 
 class Item {
@@ -2001,7 +2183,7 @@ class Flare {
   constructor(x, y, floor, vx, vy) {
     this.x = x; this.y = y; this.floor = floor;
     this.vx = vx; this.vy = vy;
-    this.life = 28;
+    this.life = 32;
     this.intensity = 1;
     this.dead = false;
   }
@@ -2009,8 +2191,8 @@ class Flare {
     this.life -= dt;
     if (this.life <= 0) { this.dead = true; return; }
     const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt;
-    if (!world.circleBlocked(this.floor, nx, this.y, 0.12)) this.x = nx; else this.vx *= -0.4;
-    if (!world.circleBlocked(this.floor, this.x, ny, 0.12)) this.y = ny; else this.vy *= -0.4;
+    if (!world.circleBlocked(this.floor, nx, this.y, 0.15)) this.x = nx; else this.vx *= -0.4;
+    if (!world.circleBlocked(this.floor, this.x, ny, 0.15)) this.y = ny; else this.vy *= -0.4;
     this.vx *= 0.86; this.vy *= 0.86;
     const t = this.life;
     this.intensity = t > 3 ? 1 : Math.max(0, t / 3) * (0.6 + 0.4 * Math.sin(performance.now() * 0.02));
@@ -2018,6 +2200,12 @@ class Flare {
 }
 
 const PATROL = 0, CHASE = 1, SEARCH = 2;
+
+// sentidos y velocidad por franja horaria (unidades de mundo = pasillo de 3u)
+const SENSE = {
+  day: { see: 13, hearRun: 15, hearWalk: 5, chase: 3.4, search: 2.3, patrol: 1.6, alert: 3.0, dmg: 10 },
+  night: { see: 26, hearRun: 28, hearWalk: 12, chase: 5.6, search: 3.6, patrol: 2.0, alert: 7.5, dmg: 20 },
+};
 
 class Griever {
   constructor(x, y, floor, id) {
@@ -2044,21 +2232,22 @@ class Griever {
     if (this.floor !== p.floor) return;
     if (game.time < game.graceTime) return;   // gracia inicial: nadie persigue al empezar
 
+    const S = game.isNight ? SENSE.night : SENSE.day;
     const dx = p.x - this.x, dy = p.y - this.y;
     const d = Math.hypot(dx, dy);
 
     // streaming: fuera de rango, latente
-    if (d > 34) { this.state = PATROL; return; }
+    if (d > 85) { this.state = PATROL; return; }
 
-    // sentidos
-    const seeRange = game.isNight ? 12.5 : 9;
-    const sees = d < seeRange && w.hasLineOfSight(this.floor, this.x, this.y, p.x, p.y);
-    const noiseR = p.running ? 12 : (p.moving ? 5 : 0);
-    const hears = noiseR > 0 && d < noiseR;
+    // sentidos (el subsuelo, siempre oscuro, oye y ve un poco más)
+    const underBoost = this.floor === FL.UNDER ? 1.12 : 1;
+    const sees = d < S.see * underBoost && w.hasLineOfSight(this.floor, this.x, this.y, p.x, p.y);
+    const noiseR = p.running ? S.hearRun : (p.moving ? S.hearWalk : 0);
+    const hears = noiseR > 0 && d < noiseR * underBoost;
 
     if (sees || hears) {
       this.state = CHASE;
-      this.alertTimer = 4.2;
+      this.alertTimer = S.alert;
       this.lastX = p.x; this.lastY = p.y;
     } else if (this.alertTimer > 0) {
       this.alertTimer -= dt;
@@ -2069,12 +2258,12 @@ class Griever {
     if (this.state === CHASE) { tx = p.x; ty = p.y; }
     else if (this.state === SEARCH) {
       tx = this.lastX; ty = this.lastY;
-      if (Math.hypot(tx - this.x, ty - this.y) < 1.2) this.state = PATROL;
+      if (Math.hypot(tx - this.x, ty - this.y) < 1.6) this.state = PATROL;
     } else {
       this.retarget -= dt;
-      if (!this.target || this.retarget <= 0 || Math.hypot(this.target.x - this.x, this.target.y - this.y) < 0.7) {
+      if (!this.target || this.retarget <= 0 || Math.hypot(this.target.x - this.x, this.target.y - this.y) < 1) {
         this.pickWander(w);
-        this.retarget = 4 + Math.random() * 4;
+        this.retarget = 5 + Math.random() * 5;
       }
       tx = this.target ? this.target.x : this.spawnX;
       ty = this.target ? this.target.y : this.spawnY;
@@ -2098,27 +2287,27 @@ class Griever {
       if (o === this || o.floor !== this.floor) continue;
       const ox = this.x - o.x, oy = this.y - o.y;
       const od = Math.hypot(ox, oy);
-      if (od > 0.001 && od < 1.1) { dirX += (ox / od) * 0.7; dirY += (oy / od) * 0.7; }
+      if (od > 0.001 && od < 1.6) { dirX += (ox / od) * 0.7; dirY += (oy / od) * 0.7; }
     }
-    // huyen ligeramente de las bengalas
+    // huyen de las bengalas
     for (const f of game.flares) {
       if (f.floor !== this.floor) continue;
       const fx = this.x - f.x, fy = this.y - f.y;
       const fd = Math.hypot(fx, fy);
-      if (fd > 0.001 && fd < 4) { dirX += (fx / fd) * 0.5; dirY += (fy / fd) * 0.5; }
+      if (fd > 0.001 && fd < 5.5) { dirX += (fx / fd) * 0.6; dirY += (fy / fd) * 0.6; }
     }
 
     const dl = Math.hypot(dirX, dirY) || 1;
     dirX /= dl; dirY /= dl;
 
-    let sp = this.state === CHASE ? (game.isNight ? 3.25 : 2.85) : this.state === SEARCH ? 1.9 : 1.3;
-    if (this.floor === FL.UNDER) sp *= 1.08;
+    let sp = this.state === CHASE ? S.chase : this.state === SEARCH ? S.search : S.patrol;
+    if (this.floor === FL.UNDER) sp *= 1.05;
 
     const nx = this.x + dirX * sp * dt;
     const ny = this.y + dirY * sp * dt;
     const before = this.x + this.y;
-    if (!w.circleBlocked(this.floor, nx, this.y, 0.32)) this.x = nx;
-    if (!w.circleBlocked(this.floor, this.x, ny, 0.32)) this.y = ny;
+    if (!w.circleBlocked(this.floor, nx, this.y, 0.5)) this.x = nx;
+    if (!w.circleBlocked(this.floor, this.x, ny, 0.5)) this.y = ny;
     if (Math.abs(this.x + this.y - before) < 0.0005) {
       this.stuck += dt;
       if (this.stuck > 0.8) { this.pickWander(w); this.stuck = 0; }
@@ -2126,14 +2315,14 @@ class Griever {
 
     // ataque
     const nd = Math.hypot(p.x - this.x, p.y - this.y);
-    if (nd < 0.78 && this.attackCd <= 0) {
-      this.attackCd = 1.1;
-      game.damagePlayer(game.isNight ? 20 : 16, (p.x - this.x) / (nd || 1), (p.y - this.y) / (nd || 1));
+    if (nd < 1.05 && this.attackCd <= 0) {
+      this.attackCd = 1.3;
+      game.damagePlayer(S.dmg, (p.x - this.x) / (nd || 1), (p.y - this.y) / (nd || 1));
     }
     // gruñido
     if (this.state === CHASE && this.growlCd <= 0) {
       this.growlCd = 1.6 + Math.random() * 2.2;
-      game.audio.growl(Math.max(0, 1 - nd / 16));
+      game.audio.growl(Math.max(0, 1 - nd / 20));
     }
     // indicador de amenaza en el HUD: el perseguidor más cercano
     if (this.state === CHASE) {
@@ -2144,9 +2333,9 @@ class Griever {
   pickWander(w) {
     for (let k = 0; k < 12; k++) {
       const a = Math.random() * Math.PI * 2;
-      const r = 2 + Math.random() * 6;
+      const r = 5 + Math.random() * 14;
       const x = this.x + Math.cos(a) * r, y = this.y + Math.sin(a) * r;
-      if (!w.circleBlocked(this.floor, x, y, 0.4)) { this.target = { x, y }; return; }
+      if (!w.circleBlocked(this.floor, x, y, 0.6)) { this.target = { x, y }; return; }
     }
     this.target = { x: this.spawnX, y: this.spawnY };
   }
@@ -2156,13 +2345,17 @@ class Griever {
 /* ==================== player.js ==================== */
 /* =============================================================
    Maze Runner Mobile — Jugador (movimiento, stamina, linterna)
-   Movimiento con asistencia: deslizamiento por muros, esquinas
-   redondeadas, empuje lateral y centrado en el pasillo.
+
+   v2: recalibrado para pasillos de 3 unidades de ancho — el radio
+   y las velocidades ya no pelean con el espacio disponible, así
+   que la asistencia es un remate, no un parche. Incluye un giro
+   rápido de 180° ("mirar atrás") para la huida fluida que pedía
+   la jugabilidad de la película.
    ============================================================= */
 
 
-const WALK = 2.7;
-const RUN = 4.4;
+const WALK = 3.6;
+const RUN = 6.2;
 
 class Player {
   constructor(world) {
@@ -2171,12 +2364,14 @@ class Player {
     this.y = world.spawn.y;
     this.floor = FL.SURFACE;
     this.dir = world.spawn.dir ?? -Math.PI / 2;
+    this.turnTarget = null;      // giro rápido en curso (mirar atrás)
     this.pitch = 0;
     this.health = 100;
     this.stamina = 100;
     this.battery = 100;
     this.flares = 3;
     this.codes = 0;
+    this.notes = 0;
     this.flashOn = true;
     this.running = false;
     this.moving = false;
@@ -2185,7 +2380,7 @@ class Player {
     this.bobScale = 0.5;   // 0..1, ajustable en opciones
     this.hurtT = 0;
     this.regenT = 0;
-    this.radius = 0.20;
+    this.radius = 0.34;    // pasillo de 3u de ancho => sobra espacio de sobra
     this.assist = true;    // asistencia de movimiento, ajustable en opciones
   }
 
@@ -2199,9 +2394,20 @@ class Player {
   update(dt, input, game) {
     const w = this.world;
 
-    // --- mirada ---
-    this.dir += input.consumeLookX();
-    this.pitch = Math.max(-0.35, Math.min(0.35, this.pitch + input.consumeLookY()));
+    // --- giro rápido (mirar atrás): toma el control de la mirada mientras dura ---
+    if (this.turnTarget != null) {
+      const diff = normAngle(this.turnTarget - this.dir);
+      const step = Math.sign(diff) * Math.min(Math.abs(diff), 9.5 * dt);
+      this.dir += step;
+      if (Math.abs(diff) < 0.03) { this.dir = this.turnTarget; this.turnTarget = null; }
+      input.consumeLookX(); input.consumeLookY(); // descarta el arrastre acumulado durante el giro
+    } else {
+      this.dir += input.consumeLookX();
+      if (input.consume('lookBack')) {
+        this.turnTarget = normAngle(this.dir + Math.PI);
+      }
+    }
+    this.pitch = Math.max(-0.6, Math.min(0.6, this.pitch + input.consumeLookY()));
 
     // --- movimiento deseado ---
     let fwd = -input.moveY;
@@ -2227,13 +2433,13 @@ class Player {
       if (vlen > 0.01) {
         const ux = vx / vlen, uy = vy / vlen;
         const perpX = -uy, perpY = ux;
-        const R = 0.20, maxP = 0.45, step = 0.1;
+        const R = 0.3, maxP = 1.3, step = 0.18;
         let l = 0, r = 0;
         while (l < maxP && !w.circleBlocked(this.floor, this.x - perpX * l, this.y - perpY * l, R)) l += step;
         while (r < maxP && !w.circleBlocked(this.floor, this.x + perpX * r, this.y + perpY * r, R)) r += step;
         const diff = r - l;
-        if (Math.abs(diff) > 0.08) {
-          const corr = Math.min(0.6, Math.abs(diff)) * Math.sign(diff) * speed * 0.6;
+        if (Math.abs(diff) > 0.15) {
+          const corr = Math.min(1.1, Math.abs(diff)) * Math.sign(diff) * speed * 0.45;
           vx += perpX * corr; vy += perpY * corr;
         }
       }
@@ -2242,21 +2448,21 @@ class Player {
     this.moveWithAssist(vx * dt, vy * dt, w, dt);
 
     // --- stamina ---
-    if (this.running) this.stamina -= 18 * dt;
-    else this.stamina += 12 * dt;
+    if (this.running) this.stamina -= 15 * dt;
+    else this.stamina += 13 * dt;
     this.stamina = Math.max(0, Math.min(100, this.stamina));
 
     // --- linterna ---
     if (this.flashOn && this.battery > 0) {
-      const drain = this.floor === FL.UNDER ? 1.7 : 1.05;
+      const drain = this.floor === FL.UNDER ? 1.5 : 0.85;
       this.battery = Math.max(0, this.battery - drain * dt);
       if (this.battery === 0) game.toast?.('⚠ Linterna sin batería', 2.2);
     }
 
-    // --- regeneración leve tras 12 s sin daño ---
+    // --- regeneración leve tras 8 s sin daño ---
     if (this.hurtT > 0) this.hurtT -= dt;
     this.regenT = this.hurtT > 0 ? 0 : this.regenT + dt;
-    if (this.regenT > 12 && this.health < 100) this.health = Math.min(100, this.health + 1.4 * dt);
+    if (this.regenT > 8 && this.health < 100) this.health = Math.min(100, this.health + 1.6 * dt);
 
     // --- balanceo de cámara ---
     if (this.moving) {
@@ -2267,7 +2473,7 @@ class Player {
     // --- si una puerta se cierra encima, expulsa al corredor ---
     const cx = Math.floor(this.x), cy = Math.floor(this.y);
     if (w.isBlocked(this.floor, cx, cy)) {
-      const opts = [[0.7, 0], [-0.7, 0], [0, 0.7], [0, -0.7]];
+      const opts = [[0.8, 0], [-0.8, 0], [0, 0.8], [0, -0.8]];
       for (const [ox, oy] of opts) {
         if (!w.circleBlocked(this.floor, cx + 0.5 + ox, cy + 0.5 + oy, this.radius)) {
           this.x = cx + 0.5 + ox; this.y = cy + 0.5 + oy; break;
@@ -2305,7 +2511,7 @@ class Player {
     const l = Math.hypot(dx, dy);
     if (l > 1e-6) {
       const px = -dy / l, py = dx / l;
-      const push = 2.6 * dt;
+      const push = 3.4 * dt;
       if (free(this.x + px * push, this.y + py * push)) { this.x += px * push; this.y += py * push; }
       else if (free(this.x - px * push, this.y - py * push)) { this.x -= px * push; this.y -= py * push; }
     }
@@ -2315,6 +2521,12 @@ class Player {
     const amp = this.running ? 0.014 : 0.007;
     return Math.sin(this.bob) * amp * this.bobScale;
   }
+}
+
+function normAngle(a) {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
 }
 
 
@@ -2328,16 +2540,19 @@ class Player {
 
 
 const RTS = 128;
-const FLASH_I = 2.6;
+const FLASH_I = 3.1;
 const COS_IN = Math.cos(0.32), COS_OUT = Math.cos(0.62);
+// alcance de la linterna/sentidos: pasillos de 3u => la luz debe llegar lejos
+const FLASH_K1 = 0.11, FLASH_K2 = 0.024;
 
 // ambiente, niebla y color de niebla por bioma (0 Área,1 A,2 B,3 C,4 CRUEL)
+// niebla rebajada respecto a v1: el mundo es ~2.6x más grande y hay que verlo.
 const BIOME_LIGHT = [
-  { amb: 0.62, fog: 0.045, fr: 34, fg: 44, fb: 30 },
-  { amb: 0.34, fog: 0.095, fr: 15, fg: 17, fb: 15 },
-  { amb: 0.30, fog: 0.125, fr: 12, fg: 14, fb: 18 },
-  { amb: 0.46, fog: 0.055, fr: 58, fg: 48, fb: 36 },
-  { amb: 0.26, fog: 0.200, fr: 4, fg: 5, fb: 7 },
+  { amb: 0.62, fog: 0.024, fr: 34, fg: 44, fb: 30 },
+  { amb: 0.36, fog: 0.050, fr: 15, fg: 17, fb: 15 },
+  { amb: 0.32, fog: 0.065, fr: 12, fg: 14, fb: 18 },
+  { amb: 0.48, fog: 0.028, fr: 58, fg: 48, fb: 36 },
+  { amb: 0.26, fog: 0.110, fr: 4, fg: 5, fb: 7 },
 ];
 
 class Renderer {
@@ -2346,7 +2561,7 @@ class Renderer {
     this.ctx = canvas.getContext('2d', { alpha: false });
     this.tex = buildTextures();
     this.sprites = buildSprites();
-    this.vScale = 0.85;
+    this.vScale = 0.74;        // FOV más abierto: ver los muros colosales y los ángulos
     this.ceilSmooth = 1.2;
     this.resize(canvas.clientWidth || 360, canvas.clientHeight || 200, 0.5);
   }
@@ -2412,7 +2627,7 @@ class Renderer {
         if (fl.floor !== f) continue;
         const dx = wx - fl.x, dy = wy - fl.y;
         const d2 = dx * dx + dy * dy;
-        if (d2 < 49) s += (fl.intensity || 1) * 2.2 / (1 + 0.5 * d2);
+        if (d2 < 110) s += (fl.intensity || 1) * 2.6 / (1 + 0.22 * d2);
       }
       return s;
     };
@@ -2489,7 +2704,7 @@ class Renderer {
         const blW = BIOME_LIGHT[this.texId[x]];
         const fogA = Math.min(1, 1 - Math.exp(-perp * fogDensity));
         const shade = this.side[x] === 1 ? 0.78 : 1;
-        let lum = blW.amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + 0.22 * perp + 0.085 * perp * perp) + flareLight(hitX, hitY);
+        let lum = blW.amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + FLASH_K1 * perp + FLASH_K2 * perp * perp) + flareLight(hitX, hitY);
         lum = Math.min(1.35, lum);
         this.wallA[x] = lum * (1 - fogA) * shade;
         this.wallB[x] = fogA;
@@ -2514,7 +2729,7 @@ class Renderer {
       const stepY = (rowDist * (rayDir1Y - rayDir0Y)) / rw;
       let fx = px + rowDist * rayDir0X, fy = py + rowDist * rayDir0Y;
       const fogA = Math.min(1, 1 - Math.exp(-rowDist * fogDensity));
-      const flashFall = flashOn ? FLASH_I / (1 + 0.22 * rowDist + 0.085 * rowDist * rowDist) : 0;
+      const flashFall = flashOn ? FLASH_I / (1 + FLASH_K1 * rowDist + FLASH_K2 * rowDist * rowDist) : 0;
 
       for (let x = 0; x < rw; x++) {
         if (y >= this.drawStart[x] && y < this.drawEnd[x]) { fx += stepX; fy += stepY; continue; }
@@ -2550,14 +2765,16 @@ class Renderer {
         if (isFloor) {
           const ct = grid[ci];
           if (ct === T.HATCH_DOWN || ct === T.HATCH_UP) {
-            const hx = fx - cx, hy = fy - cy;
-            if (hx < 0.12 || hx > 0.88 || hy < 0.12 || hy > 0.88) { r = 110; g = 195; bch = 210; lum = Math.max(lum, 0.55); }
-          } else if (ct === T.EXIT) {
-            const ex = fx - cx - 0.5, ey = fy - cy - 0.5;
-            if (ex * ex + ey * ey < 0.16) {
+            // plataforma de la escotilla: tinte uniforme (ocupa DIL×DIL celdas)
+            r = r * 0.5 + 55; g = g * 0.5 + 125; bch = bch * 0.5 + 140;
+            lum = Math.max(lum, 0.6);
+          } else if (ct === T.EXIT && w.exit) {
+            const ecx = w.exit.x + DIL / 2, ecy = w.exit.y + DIL / 2;
+            const ex = fx - ecx, ey = fy - ecy;
+            if (ex * ex + ey * ey < 1.1) {
               const pulse = 0.65 + 0.35 * Math.sin((game.time || 0) * 4);
               r = 110 * pulse; g = 255 * pulse; bch = 175 * pulse;
-              lum = Math.max(lum, 1.05);
+              lum = Math.max(lum, 1.1);
             }
           }
         }
@@ -2630,7 +2847,7 @@ class Renderer {
         const step = tex.h / unit;
         let texPos = (ds - topF) * step;
         const fogA = Math.min(1, 1 - Math.exp(-perp * fogDensity));
-        const lum = Math.min(1.2, BIOME_LIGHT[biomeHere].amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + 0.22 * perp + 0.085 * perp * perp));
+        const lum = Math.min(1.2, BIOME_LIGHT[biomeHere].amb * ambMul * adaptMul + this.cone[x] * FLASH_I / (1 + FLASH_K1 * perp + FLASH_K2 * perp * perp));
         const a = lum * (1 - fogA), b = fogA;
         for (let y = ds; y < de; y++) {
           let ty = texPos | 0; ty = ((ty % tex.h) + tex.h) % tex.h;
@@ -2652,7 +2869,7 @@ class Renderer {
     for (const g of game.grievers || []) {
       if (g.floor !== f) continue;
       const frame = Math.floor(g.animT * 6) % 2;
-      list.push({ x: g.x, y: g.y, tex: this.sprites.griever[frame], h: 1.0, yBase: 0, emissive: true });
+      list.push({ x: g.x, y: g.y, tex: this.sprites.griever[frame], h: 1.5, yBase: 0, emissive: true });
     }
     for (const it of game.items || []) {
       if (it.taken || it.floor !== f) continue;
@@ -2665,7 +2882,7 @@ class Renderer {
       list.push({ x: fl.x, y: fl.y, tex: this.sprites.flare, h: 0.3, yBase: 0.02, emissive: true });
     }
     if (w.exit && w.exit.region != null) {
-      list.push({ x: w.exit.x + 0.5, y: w.exit.y + 0.5, tex: this.sprites.beacon, h: 1.5, yBase: 0, emissive: true, floorOnly: f === FL.SURFACE });
+      list.push({ x: w.exit.x + DIL / 2, y: w.exit.y + DIL / 2, tex: this.sprites.beacon, h: 3.2, yBase: 0, emissive: true, floorOnly: f === FL.SURFACE });
     }
 
     list.sort((s1, s2) => {
@@ -2700,7 +2917,7 @@ class Renderer {
       }
       const fogA = Math.min(1, 1 - Math.exp(-dist * fogDensity));
       const biomeAtS = w.biomeAt(f, s.x, s.y);
-      let lum = Math.min(1.3, BIOME_LIGHT[biomeAtS].amb * ambMul * adaptMul + coneV * FLASH_I / (1 + 0.22 * dist + 0.085 * dist * dist) + flareLight(s.x, s.y));
+      let lum = Math.min(1.3, BIOME_LIGHT[biomeAtS].amb * ambMul * adaptMul + coneV * FLASH_I / (1 + FLASH_K1 * dist + FLASH_K2 * dist * dist) + flareLight(s.x, s.y));
       const a = lum * (1 - fogA), b = fogA;
 
       const xs0 = Math.max(0, x0), xs1 = Math.min(rw, x1);
@@ -2734,21 +2951,27 @@ class Renderer {
 }
 
 const ITEM_H = {
-  battery: { h: 0.55, yBase: 0.02 },
-  flare: { h: 0.55, yBase: 0.02 },
-  medkit: { h: 0.5, yBase: 0.02 },
-  code: { h: 0.5, yBase: 0.25 },
+  battery: { h: 0.8, yBase: 0.03 },
+  flare: { h: 0.8, yBase: 0.03 },
+  medkit: { h: 0.75, yBase: 0.03 },
+  code: { h: 0.75, yBase: 0.35 },
+  note: { h: 0.6, yBase: 0.05 },
 };
 
 
 /* ==================== minimap.js ==================== */
 /* =============================================================
    Maze Runner Mobile — Minimapa con niebla de guerra
+
+   v2: radio de revelado y alcance del abanico de visión escalados
+   al mundo ancho (DIL). Admite un modo "etiquetas" para el panel
+   de Mapa del Corredor a pantalla completa (números de sector,
+   leyenda) además del minimapa compacto de la esquina.
    ============================================================= */
 
 
 const COLORS = {
-  floor: ['#5d7a4a', '#4a453c', '#3f454d', '#96865f', '#2b2f35'],
+  floor: ['#6a8a53', '#55503f', '#474e58', '#a8966b', '#2f343b'],
   wall: ['#2a3324', '#221f1b', '#1e2228', '#413a2b', '#14171b'],
 };
 
@@ -2759,13 +2982,14 @@ class Minimap {
     this.world = world;
     const N = world.W * world.H;
     this.seen = [new Uint8Array(N), new Uint8Array(N)];
+    this._floorTotal = null;
   }
 
   reveal(game) {
     const w = this.world, p = game.player, f = p.floor;
     const seen = this.seen[f];
     const px = p.x, py = p.y, W = w.W, H = w.H;
-    const R = 7;
+    const R = 16;
     const x0 = Math.max(0, Math.floor(px - R)), x1 = Math.min(W - 1, Math.ceil(px + R));
     const y0 = Math.max(0, Math.floor(py - R)), y1 = Math.min(H - 1, Math.ceil(py + R));
     for (let y = y0; y <= y1; y++) {
@@ -2774,12 +2998,12 @@ class Minimap {
         if (dx * dx + dy * dy <= R * R) seen[y * W + x] = 1;
       }
     }
-    // abanico de visión
-    for (let i = 0; i < 44; i++) {
-      const a = p.dir + (i / 44 - 0.5) * 1.9;
-      const rx = Math.cos(a) * 0.28, ry = Math.sin(a) * 0.28;
+    // abanico de visión a lo largo de los pasillos (más alcance: son 3u de ancho)
+    for (let i = 0; i < 50; i++) {
+      const a = p.dir + (i / 50 - 0.5) * 2.0;
+      const rx = Math.cos(a) * 0.55, ry = Math.sin(a) * 0.55;
       let x = px, y = py;
-      for (let s = 0; s < 22; s++) {
+      for (let s = 0; s < 44; s++) {
         x += rx; y += ry;
         const cx = Math.floor(x), cy = Math.floor(y);
         if (cx < 0 || cy < 0 || cx >= W || cy >= H) break;
@@ -2789,14 +3013,31 @@ class Minimap {
     }
   }
 
-  draw(game) {
+  /** Fracción (0..1) del laberinto ya cartografiado, en ambos pisos. */
+  percentExplored() {
+    const w = this.world;
+    if (this._floorTotal == null) {
+      let total = 0;
+      for (let f = 0; f < 2; f++) { const g = w.grid[f]; for (let i = 0; i < g.length; i++) if (g[i] === T.FLOOR) total++; }
+      this._floorTotal = total || 1;
+    }
+    let seenCount = 0;
+    for (let f = 0; f < 2; f++) {
+      const g = w.grid[f], s = this.seen[f];
+      for (let i = 0; i < g.length; i++) if (g[i] === T.FLOOR && s[i]) seenCount++;
+    }
+    return Math.min(1, seenCount / this._floorTotal);
+  }
+
+  draw(game, opts = {}) {
+    const labels = !!opts.labels;
     const w = this.world, p = game.player, f = p.floor;
     const cv = this.cv, ctx = this.ctx;
     const W = cv.width, H = cv.height;
     const cell = Math.min(W / w.W, H / w.H);
     const ox = (W - cell * w.W) / 2, oy = (H - cell * w.H) / 2;
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#07090a';
+    ctx.fillStyle = '#05070a';
     ctx.fillRect(0, 0, W, H);
 
     const seen = this.seen[f];
@@ -2819,17 +3060,32 @@ class Minimap {
       }
     }
 
-    // rejilla de sectores
-    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    // rejilla de sectores (+ números si se piden etiquetas, para el mapa grande)
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 1;
-    for (const b of w.blocks) ctx.strokeRect(ox + b.x0 * cell, oy + b.y0 * cell, b.w * cell, b.h * cell);
+    for (const b of w.blocks) {
+      ctx.strokeRect(ox + b.x0 * cell, oy + b.y0 * cell, b.w * cell, b.h * cell);
+      if (!labels) continue;
+      const anySeen = (() => {
+        for (let y = b.y0; y < b.y0 + b.h; y += Math.max(1, b.h >> 2)) {
+          for (let x = b.x0; x < b.x0 + b.w; x += Math.max(1, b.w >> 2)) if (seen[y * w.W + x]) return true;
+        }
+        return false;
+      })();
+      if (!anySeen) continue;
+      ctx.fillStyle = 'rgba(232,163,60,0.85)';
+      ctx.font = `${Math.max(10, cell * 3)}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const lbl = b.isGlade ? '⌂' : String(b.sector);
+      ctx.fillText(lbl, ox + (b.x0 + b.w / 2) * cell, oy + (b.y0 + b.h / 2) * cell);
+    }
 
     // objetos conocidos
     for (const it of game.items) {
       if (it.taken || it.floor !== f) continue;
       const i = Math.floor(it.y) * w.W + Math.floor(it.x);
-      if (!seen[i] && Math.hypot(it.x - p.x, it.y - p.y) > 7) continue;
-      ctx.fillStyle = it.type === 'code' ? '#5ff0ff' : it.type === 'medkit' ? '#ff6b6b' : it.type === 'battery' ? '#7dff9c' : '#ffb04a';
+      if (!seen[i] && Math.hypot(it.x - p.x, it.y - p.y) > 16) continue;
+      ctx.fillStyle = it.type === 'code' ? '#5ff0ff' : it.type === 'note' ? '#e8dcb8' : it.type === 'medkit' ? '#ff6b6b' : it.type === 'battery' ? '#7dff9c' : '#ffb04a';
       ctx.beginPath();
       ctx.arc(ox + it.x * cell, oy + it.y * cell, Math.max(1.6, cell * 0.4), 0, Math.PI * 2);
       ctx.fill();
@@ -2839,8 +3095,8 @@ class Minimap {
     for (const g of game.grievers) {
       if (g.floor !== f) continue;
       const d = Math.hypot(g.x - p.x, g.y - p.y);
-      if (d > 15) continue;
-      ctx.fillStyle = `rgba(255,70,40,${Math.max(0.25, 1 - d / 15)})`;
+      if (d > 32) continue;
+      ctx.fillStyle = `rgba(255,70,40,${Math.max(0.25, 1 - d / 32)})`;
       ctx.beginPath();
       ctx.arc(ox + g.x * cell, oy + g.y * cell, Math.max(1.8, cell * 0.45), 0, Math.PI * 2);
       ctx.fill();
@@ -2850,7 +3106,7 @@ class Minimap {
     if (w.exit && (game.player.codes >= 3 || seen[Math.floor(w.exit.y) * w.W + Math.floor(w.exit.x)])) {
       ctx.strokeStyle = '#5cff9d'; ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(ox + (w.exit.x + 0.5) * cell, oy + (w.exit.y + 0.5) * cell, Math.max(3, cell * 1.1), 0, Math.PI * 2);
+      ctx.arc(ox + (w.exit.x + DIL / 2) * cell, oy + (w.exit.y + DIL / 2) * cell, Math.max(3, cell * 1.4), 0, Math.PI * 2);
       ctx.stroke();
     }
 
@@ -2861,7 +3117,7 @@ class Minimap {
     ctx.rotate(p.dir + Math.PI / 2);
     ctx.fillStyle = '#ffe9a8';
     ctx.beginPath();
-    ctx.moveTo(0, -cell * 1.5); ctx.lineTo(cell * 0.9, cell * 0.9); ctx.lineTo(0, cell * 0.35); ctx.lineTo(-cell * 0.9, cell * 0.9);
+    ctx.moveTo(0, -cell * 1.6); ctx.lineTo(cell * 1.0, cell * 1.0); ctx.lineTo(0, cell * 0.4); ctx.lineTo(-cell * 1.0, cell * 1.0);
     ctx.closePath(); ctx.fill();
     ctx.restore();
   }
@@ -2882,7 +3138,7 @@ class Input {
     this.moveX = 0; this.moveY = 0;
     this.run = false;
     this.lookX = 0; this.lookY = 0;
-    this.press = { flash: false, flare: false, use: false };
+    this.press = { flash: false, flare: false, use: false, lookBack: false };
     this.keys = new Set();
     this.stickId = null;
     this.lookId = null;
@@ -2961,10 +3217,15 @@ class Input {
 
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
+      // no interceptar atajos de juego mientras se escribe en un campo de texto
+      // (nombre del corredor, semilla manual, URL/clave de Supabase…)
+      const tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       this.keys.add(e.code);
       if (e.code === 'KeyF') this.press.flash = true;
       if (e.code === 'KeyG') this.press.flare = true;
       if (e.code === 'KeyE' || e.code === 'Space') this.press.use = true;
+      if (e.code === 'KeyQ' || e.code === 'KeyC') this.press.lookBack = true;
       if (e.code === 'Escape' && this.onPause) this.onPause();
       if (e.code === 'KeyM' && this.onToggleMap) this.onToggleMap();
     });
@@ -3003,6 +3264,7 @@ class Input {
     bind(this.els.btnFlash, 'flash', false);
     bind(this.els.btnFlare, 'flare', false);
     bind(this.els.btnAction, 'use', false);
+    bind(this.els.btnLookBack, 'lookBack', false);
   }
 
   _up(e) {
@@ -3062,11 +3324,22 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+function runnerRank(kind, data) {
+  const notes = data.notes || 0, mapped = data.mapped || 0;
+  if (kind === 'win') {
+    if (data.time < 200 && notes >= 4) return '🏆 Corredor Legendario';
+    if (data.sector >= 6 || mapped > 0.55) return '⭐ Corredor Veterano';
+    return '🏃 Corredor de El Área';
+  }
+  if (data.sector >= 5 || mapped > 0.4) return '💀 Casi lo logras — Corredor Caído';
+  return '🔰 Novato del Laberinto';
+}
+
 class UI {
   constructor(game) {
     this.game = game;
     this.el = (id) => document.getElementById(id);
-    this.panels = ['panelTitle', 'panelHelp', 'panelScores', 'panelPause', 'panelEnd'];
+    this.panels = ['panelTitle', 'panelHelp', 'panelScores', 'panelPause', 'panelEnd', 'panelMap', 'panelLore'];
     this.seedMode = 'daily';
     this.lastOpts = null;
     this.toastTimer = null;
@@ -3083,8 +3356,61 @@ class UI {
 
     game.on.toast = (m, d) => this.toast(m, d);
     game.on.end = (kind, data) => this.showEnd(kind, data);
+    game.on.sting = () => this.sting();
     game.input.onPause = () => this.togglePause();
-    game.input.onToggleMap = () => this.el('minimapWrap')?.classList.toggle('hidden');
+    game.input.onToggleMap = () => this.openMap();
+  }
+
+  /** Pausa la partida y muestra un panel por encima (mapa, bitácora…). */
+  pauseInto(panel) {
+    const g = this.game;
+    this._cameFrom = g.state;
+    if (g.state === 'play') g.pause();
+    this.showPanel(panel);
+  }
+
+  resumeFromOverlay() {
+    this.game.resume();
+    this.showPanel(null);
+  }
+
+  openMap() {
+    this.renderBigMap();
+    this.pauseInto('panelMap');
+  }
+
+  openLore() {
+    this.renderLore();
+    this.pauseInto('panelLore');
+  }
+
+  renderBigMap() {
+    const g = this.game, mm = g.minimap, big = this.el('mapBig');
+    if (!mm || !big) return;
+    const origCv = mm.cv, origCtx = mm.ctx;
+    mm.cv = big; mm.ctx = big.getContext('2d');
+    mm.draw(g, { labels: true });
+    mm.cv = origCv; mm.ctx = origCtx;
+    const pct = Math.round(mm.percentExplored() * 100);
+    this.el('mapPct').textContent = `${pct}% cartografiado`;
+  }
+
+  renderLore() {
+    const log = this.game.player?.loreLog || [];
+    const el = this.el('loreList');
+    if (!el) return;
+    if (!log.length) { el.innerHTML = '<div class="tiny-note">Aún no has encontrado ninguna página. Están repartidas por los sectores y el subsuelo.</div>'; return; }
+    el.innerHTML = log.map((line) => `<div class="lore-entry">${escapeHtml(line)}</div>`).join('');
+  }
+
+  sting() {
+    const el = this.el('sting');
+    if (!el) return;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    clearTimeout(this._stingTimer);
+    this._stingTimer = setTimeout(() => el.classList.remove('show'), 900);
   }
 
   /* ---------------------------------------------------------- paneles */
@@ -3114,6 +3440,10 @@ class UI {
     this.el('btnHelp').addEventListener('click', () => this.showPanel('panelHelp'));
     this.el('btnScores').addEventListener('click', () => { this.renderScores('scoreList'); this.showPanel('panelScores'); });
     for (const b of document.querySelectorAll('[data-back]')) b.addEventListener('click', () => this.showPanel('panelTitle'));
+    for (const b of document.querySelectorAll('[data-resume]')) b.addEventListener('click', () => this.resumeFromOverlay());
+
+    this.el('minimapWrap')?.addEventListener('click', () => this.openMap());
+    this.el('btnLore')?.addEventListener('click', () => this.openLore());
 
     this.el('btnRefreshScores')?.addEventListener('click', () => this.renderScores('scoreList'));
     this.el('btnClearScores')?.addEventListener('click', () => { Store.clearScores(); this.renderScores('scoreList'); });
@@ -3248,12 +3578,16 @@ class UI {
     const g = this.game, win = kind === 'win';
     this.el('endTitle').textContent = win ? '🟢 ¡HAS ESCAPADO DEL LABERINTO!' : '☠ TE HAN ATRAPADO';
     this.el('endArt').classList.toggle('win', win);
+    const rank = this.el('endRank');
+    if (rank) rank.textContent = runnerRank(kind, data);
     this.el('endBody').innerHTML = `
       <div class="stats">
         <div class="stat"><div class="k">CORREDOR</div><div class="v">${escapeHtml(g.runName)}</div></div>
         <div class="stat"><div class="k">TIEMPO</div><div class="v">${fmt(data.time)}</div></div>
         <div class="stat"><div class="k">SECTOR</div><div class="v">${data.sector}/8</div></div>
         <div class="stat"><div class="k">CÓDIGOS</div><div class="v">${g.player.codes}/3</div></div>
+        <div class="stat"><div class="k">BITÁCORA</div><div class="v">${data.notes || 0}/8</div></div>
+        <div class="stat"><div class="k">CARTOGRAFIADO</div><div class="v">${Math.round((data.mapped || 0) * 100)}%</div></div>
       </div>
       <div class="tiny-note">Semilla: ${seedLabel(g.seed)}${win ? '' : ' — reinténtala con «Repetir semilla»'}</div>`;
     this.renderScores('endScores');
@@ -3299,11 +3633,39 @@ class UI {
 /* ==================== game.js ==================== */
 /* =============================================================
    Maze Runner Mobile — bucle de juego, ciclo día/noche y reglas
+
+   v2: de día el peligro es manejable — se puede explorar, mapear
+   y recoger objetos sin morir cada minuto. De noche cambia todo:
+   sentidos y velocidad de los Grievers se disparan y las puertas
+   quedan cerradas. El reloj del HUD cuenta ahora hacia ese
+   instante, como el de la película. Además: bitácora de notas
+   coleccionables (lore original) y un "aguijonazo" narrativo al
+   recibir daño de un Griever.
    ============================================================= */
 
 
-const DAY_LEN = 150;
-const NIGHT_LEN = 90;
+const DAY_LEN = 240;
+const NIGHT_LEN = 120;
+
+const LORE = [
+  'Página 1: Desperté sin nombre, solo el eco metálico de la Caja cerrándose sobre mí.',
+  'Página 2: Dicen que el Área lleva siglos aquí. Yo llevo tres días y ya no estoy seguro de nada.',
+  'Página 3: Los muros se mueven de noche. Lo he visto. Nadie me cree, pero lo he visto.',
+  'Página 4: CRUEL no es un nombre, es una promesa. Alguien la escribió con sangre en la piedra.',
+  'Página 5: Un Corredor no vuelve dos veces del mismo pasillo. O aprende el patrón, o se queda en él.',
+  'Página 6: Soñé con un lugar sin muros. Desperté llorando sin saber por qué.',
+  'Página 7: Las puertas se abren cada mañana. Cada mañana, un poco menos de nosotros vuelve a cruzarlas.',
+  'Página 8: Si encuentras esto, Corredor: la salida existe. Yo no la encontré. Tú puedes.',
+];
+
+const FLASHBACKS = [
+  'una voz dice tu nombre… pero no la recuerdas',
+  'un pasillo blanco, una puerta, un grito que no es tuyo',
+  'el zumbido de una máquina, antes de todo esto',
+  'alguien te sostiene la mano. no sabes quién',
+  '«CRUEL es bueno». ¿por qué no te lo crees?',
+  'el Área ardiendo, en otra vida que no fue la tuya',
+];
 
 class Game {
   constructor() {
@@ -3316,9 +3678,10 @@ class Game {
       btnFlash: document.getElementById('btnFlash'),
       btnFlare: document.getElementById('btnFlare'),
       btnAction: document.getElementById('btnAction'),
+      btnLookBack: document.getElementById('btnLookBack'),
     });
     this.audio = new Sfx();
-    this.on = { toast: null, end: null, region: null };
+    this.on = { toast: null, end: null, region: null, sting: null };
 
     this.hudEl = {
       sectorName: document.getElementById('sectorName'),
@@ -3328,7 +3691,9 @@ class Game {
       barBattery: document.getElementById('barBattery'),
       flareCount: document.getElementById('flareCount'),
       clock: document.getElementById('clock'),
+      clockLabel: document.getElementById('clockLabel'),
       codesChip: document.getElementById('codesChip'),
+      notesChip: document.getElementById('notesChip'),
       cycleChip: document.getElementById('cycleChip'),
       interactHint: document.getElementById('interactHint'),
       damage: document.getElementById('damage'),
@@ -3349,8 +3714,8 @@ class Game {
     this.cycleT = 0;
     this.isNight = false;
     this.dayFactor = 1;
-    this.warned = false;
-    this.graceTime = 7;
+    this.warnStage = 0;
+    this.graceTime = 18;
     this.darkAdapt = 0;
     this.adaptMsg = false;
     this.maxSector = 1;
@@ -3413,7 +3778,7 @@ class Game {
     this.grievers = []; this.items = []; this.flares = [];
     this.spawnEntities();
 
-    this.time = 0; this.cycleT = 0; this.isNight = false; this.dayFactor = 1; this.warned = false;
+    this.time = 0; this.cycleT = 0; this.isNight = false; this.dayFactor = 1; this.warnStage = 0;
     this.darkAdapt = 0; this.adaptMsg = false; this.maxSector = 1; this.threat = null; this.lastRegionLabel = null;
     this.input.enabled = true;
     this.input.reset();
@@ -3447,7 +3812,7 @@ class Game {
       this._addItem(s, FL.SURFACE, 'battery');
       this._addItem(s, FL.SURFACE, 'battery');
       this._addItem(s, FL.SURFACE, 'flare');
-      if (w.rng.chance(0.65)) this._addItem(s, FL.SURFACE, 'medkit');
+      if (w.rng.chance(0.75)) this._addItem(s, FL.SURFACE, 'medkit');
     }
     for (let k = 0; k < 7; k++) this._spawnGriever(w.rng.int(9), FL.UNDER);
     for (let k = 0; k < 5; k++) this._addItem(w.rng.int(9), FL.UNDER, 'battery');
@@ -3459,6 +3824,11 @@ class Game {
     this._addItem(order[0], FL.SURFACE, 'code');
     this._addItem(order[1], FL.SURFACE, 'code');
     this._addItem(w.rng.int(9), FL.UNDER, 'code');
+
+    // bitácora del corredor: páginas sueltas por el laberinto
+    for (let k = 2; k < 8; k++) this._addItem(order[k], FL.SURFACE, 'note');
+    this._addItem(w.rng.int(9), FL.UNDER, 'note');
+    this._addItem(w.rng.int(9), FL.UNDER, 'note');
   }
 
   _spawnGriever(region, floor) {
@@ -3503,6 +3873,15 @@ class Game {
       case 'flare': p.flares++; this.audio.pickup(); break;
       case 'medkit': p.health = Math.min(100, p.health + 35); this.audio.pickup(); break;
       case 'code': p.codes++; this.audio.code(); this.toast(`🔷 Código CRUEL ${p.codes}/3`, 3); break;
+      case 'note': {
+        const line = LORE[Math.min(p.notes, LORE.length - 1)];
+        p.notes++;
+        p.loreLog = p.loreLog || [];
+        p.loreLog.push(line);
+        this.audio.code();
+        this.toast(`📖 ${line}`, 5.5);
+        break;
+      }
       default: break;
     }
     item.taken = true;
@@ -3516,9 +3895,13 @@ class Game {
     this.damageFlash = 1;
     this.audio.hurt();
     const w = this.world;
-    const nx = p.x - kx * 0.22, ny = p.y - ky * 0.22;
+    const nx = p.x - kx * 0.3, ny = p.y - ky * 0.3;
     if (!w.circleBlocked(p.floor, nx, p.y, p.radius)) p.x = nx;
     if (!w.circleBlocked(p.floor, p.x, ny, p.radius)) p.y = ny;
+    // "aguijonazo": un destello de memoria, como en la película
+    const line = FLASHBACKS[(Math.random() * FLASHBACKS.length) | 0];
+    this.on.sting?.(line);
+    this.toast(`⚡ ${line}…`, 2.6);
   }
 
   win() {
@@ -3529,7 +3912,7 @@ class Game {
     const entry = { name: this.runName, time: this.time, sector: this.maxSector, date: new Date().toISOString().slice(0, 10) };
     Store.addScore(entry);
     if (this.cfg && this.cfg.url && this.cfg.key) Store.sbSubmit(this.cfg, entry);
-    this.on.end?.('win', { time: this.time, sector: this.maxSector });
+    this.on.end?.('win', { time: this.time, sector: this.maxSector, notes: this.player.notes, mapped: this.minimap?.percentExplored() ?? 0 });
   }
 
   die() {
@@ -3537,7 +3920,7 @@ class Game {
     this.state = 'dead';
     this.input.enabled = false;
     this.audio.lose();
-    this.on.end?.('dead', { time: this.time, sector: this.maxSector });
+    this.on.end?.('dead', { time: this.time, sector: this.maxSector, notes: this.player.notes, mapped: this.minimap?.percentExplored() ?? 0 });
   }
 
   /* ---------------------------------------------------------- bucle */
@@ -3570,16 +3953,16 @@ class Game {
     if (this.darkAdapt >= 0.97 && !this.adaptMsg) { this.adaptMsg = true; this.toast('👁 Tus ojos se adaptan a la oscuridad', 2.6); }
     if (!dark) this.adaptMsg = false;
 
-    // campo de flujo compartido (BFS) hacia el jugador
+    // campo de flujo compartido (BFS) hacia el jugador — radio grande: pasillos de 3u
     this.flowT -= dt;
-    if (this.flowT <= 0) { this.flowT = 0.35; w.computeFlow(p.floor, p.x, p.y, 26); }
+    if (this.flowT <= 0) { this.flowT = 0.35; w.computeFlow(p.floor, p.x, p.y, 70); }
 
     for (const g of this.grievers) g.update(dt, this);
 
     for (const it of this.items) {
       if (it.taken) continue;
       it.update(dt);
-      if (it.floor === p.floor && Math.hypot(it.x - p.x, it.y - p.y) < 0.6) this.pickup(it);
+      if (it.floor === p.floor && Math.hypot(it.x - p.x, it.y - p.y) < 0.9) this.pickup(it);
     }
 
     for (const fl of this.flares) fl.update(dt, w);
@@ -3610,11 +3993,13 @@ class Game {
       this.isNight = night;
       for (const d of this.world.doors) d.target = night ? 0 : 1;
       this.audio.door(night);
-      this.toast(night ? '☾ Anochece: las puertas se cierran' : '☀ Amanece: las puertas se abren', 3);
-      this.warned = false;
+      this.toast(night ? '☾ ANOCHECE — las puertas grandes se cierran. No hay refugio fuera de El Área.' : '☀ Amanece: las puertas se abren de nuevo', 3.5);
+      this.warnStage = 0;
     }
-    if (!this.isNight && !this.warned && DAY_LEN - this.cycleT < 20) {
-      this.warned = true; this.toast('⚠ Las puertas se cierran en 20 s', 2.8);
+    if (!this.isNight) {
+      const left = DAY_LEN - this.cycleT;
+      if (this.warnStage === 0 && left < 60) { this.warnStage = 1; this.toast('⚠ Queda un minuto: busca refugio antes de que anochezca', 3); }
+      else if (this.warnStage === 1 && left < 20) { this.warnStage = 2; this.toast('⚠ ¡Las puertas se cierran en 20 s!', 2.8); }
     }
 
     const fade = 15;
@@ -3625,7 +4010,7 @@ class Game {
 
     for (const d of this.world.doors) {
       if (d.open === d.target) continue;
-      const speed = 0.55 * dt;
+      const speed = 0.4 * dt;
       if (d.open < d.target) d.open = Math.min(d.target, d.open + speed);
       else d.open = Math.max(d.target, d.open - speed);
     }
@@ -3639,6 +4024,7 @@ class Game {
     this.hudT = 0.1;
 
     const p = this.player, w = this.world, e = this.hudEl;
+    const total = DAY_LEN + NIGHT_LEN;
     if (e.sectorName) e.sectorName.textContent = w.regionLabel(p.floor, p.x, p.y);
     if (e.doorState) {
       const anyClosing = this.world.doors.some((d) => d.open < 0.9);
@@ -3648,9 +4034,19 @@ class Game {
     if (e.barStamina) e.barStamina.style.width = `${Math.max(0, p.stamina)}%`;
     if (e.barBattery) e.barBattery.style.width = `${Math.max(0, p.battery)}%`;
     if (e.flareCount) e.flareCount.textContent = `x${p.flares}`;
-    const t = Math.floor(this.time);
-    if (e.clock) e.clock.textContent = `${String(((t / 60) | 0)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+
+    // reloj: cuenta atrás hasta el próximo cambio de ciclo (como en la película)
+    const secsLeft = Math.max(0, Math.ceil(this.isNight ? total - this.cycleT : DAY_LEN - this.cycleT));
+    if (e.clock) {
+      e.clock.textContent = `${String((secsLeft / 60) | 0).padStart(2, '0')}:${String(secsLeft % 60).padStart(2, '0')}`;
+      e.clock.classList.toggle('urgent', !this.isNight && secsLeft < 20);
+    }
+    if (e.clockLabel) e.clockLabel.textContent = this.isNight ? 'Amanece en' : 'Anochece en';
     if (e.codesChip) e.codesChip.textContent = `Códigos ${p.codes}/3`;
+    if (e.notesChip) {
+      e.notesChip.classList.toggle('hidden', !p.notes);
+      if (p.notes) e.notesChip.textContent = `📖 ${p.notes}/8`;
+    }
     if (e.cycleChip) e.cycleChip.textContent = this.isNight ? '☾ Noche' : '☀ Día';
 
     const cx = Math.floor(p.x), cy = Math.floor(p.y);
@@ -3666,9 +4062,9 @@ class Game {
         const dx = this.threat.x - p.x, dy = this.threat.y - p.y;
         const rel = Math.atan2(dy, dx) - p.dir;
         if (e.threatArrow) e.threatArrow.style.transform = `rotate(${rel}rad)`;
-        if (e.threatLbl) e.threatLbl.textContent = this.threat.d < 5.5 ? '¡ENCIMA!' : 'TE PERSIGUE';
+        if (e.threatLbl) e.threatLbl.textContent = this.threat.d < 8 ? '¡ENCIMA!' : 'TE PERSIGUE';
         e.threat.classList.remove('hidden');
-        e.threat.classList.toggle('near', this.threat.d < 5.5);
+        e.threat.classList.toggle('near', this.threat.d < 8);
       } else {
         e.threat.classList.add('hidden');
       }

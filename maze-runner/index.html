@@ -14,6 +14,7 @@
   <canvas id="view"></canvas>
   <div id="vignette"></div>
   <div id="damage"></div>
+  <div id="sting"></div>
 
   <!-- ===================== HUD ===================== -->
   <div id="hud" class="hidden">
@@ -31,19 +32,25 @@
     </div>
 
     <div class="hud-tc">
+      <div id="clockLabel" class="clock-label">Anochece en</div>
       <div id="clock">00:00</div>
       <div class="chips-mini">
         <span id="codesChip" class="chip-mini">Códigos 0/3</span>
+        <span id="notesChip" class="chip-mini note hidden">📖 0/8</span>
         <span id="cycleChip" class="chip-mini dim">☀ Día</span>
       </div>
     </div>
 
     <div class="hud-tr">
       <div class="sys-row">
+        <button id="btnLore" class="sysbtn" type="button" title="Bitácora">📖</button>
         <button id="btnFull" class="sysbtn" type="button" title="Pantalla completa">⛶</button>
         <button id="btnPause" class="sysbtn" type="button" title="Pausa">⏸</button>
       </div>
-      <div id="minimapWrap"><canvas id="minimap" width="200" height="200"></canvas></div>
+      <button id="minimapWrap" type="button" title="Toca para ver el mapa completo">
+        <canvas id="minimap" width="200" height="200"></canvas>
+        <span class="mm-hint">MAPA ⤢</span>
+      </button>
     </div>
 
     <div id="crosshair"></div>
@@ -57,9 +64,10 @@
     <div id="stickHint"><span>MOVER</span></div>
     <div id="stick"><div id="stickBase"></div><div id="stickKnob"></div></div>
     <div id="buttons">
+      <button id="btnLookBack" class="tbtn small back" type="button"><span class="ic">↩</span><span class="lb">ATRÁS</span></button>
       <button id="btnAction" class="tbtn act" type="button"><span class="ic">⚡</span><span class="lb">USAR</span></button>
-      <button id="btnFlash" class="tbtn" type="button"><span class="ic">🔦</span><span class="lb">LUZ</span></button>
-      <button id="btnFlare" class="tbtn" type="button"><span class="ic">🔥</span><span class="lb">FUEGO</span></button>
+      <button id="btnFlash" class="tbtn flash" type="button"><span class="ic">🔦</span><span class="lb">LUZ</span></button>
+      <button id="btnFlare" class="tbtn flare" type="button"><span class="ic">🔥</span><span class="lb">FUEGO</span></button>
       <button id="btnRun" class="tbtn run" type="button"><span class="ic">🏃</span><span class="lb">CORRER</span></button>
     </div>
   </div>
@@ -209,6 +217,7 @@
     <section id="panelEnd" class="panel hidden">
       <div id="endArt" class="end-art"></div>
       <h2 id="endTitle">FIN</h2>
+      <div id="endRank" class="rank"></div>
       <div id="endBody"></div>
       <div class="scores" id="endScores"></div>
       <div class="row wrap">
@@ -216,6 +225,28 @@
         <button id="btnNewSeed" class="ghost" type="button">Semilla nueva</button>
         <button id="btnMenu" class="ghost" type="button">Menú</button>
       </div>
+    </section>
+
+    <section id="panelMap" class="panel map-panel hidden">
+      <div class="map-head">
+        <h2>MAPA DEL CORREDOR</h2>
+        <span id="mapPct" class="chip-mini">0% cartografiado</span>
+      </div>
+      <canvas id="mapBig" width="900" height="900"></canvas>
+      <div class="map-legend">
+        <span><i class="sw sw-floor"></i> explorado</span>
+        <span><i class="sw sw-wall"></i> muro</span>
+        <span><i class="sw sw-door"></i> puerta</span>
+        <span><i class="sw sw-hatch"></i> escotilla</span>
+        <span><i class="sw sw-exit"></i> salida</span>
+      </div>
+      <button class="ghost" data-resume type="button">Cerrar</button>
+    </section>
+
+    <section id="panelLore" class="panel hidden">
+      <h2>BITÁCORA DEL CORREDOR</h2>
+      <div id="loreList" class="lore-list"></div>
+      <button class="ghost" data-resume type="button">Cerrar</button>
     </section>
   </div>
 </div>

@@ -1,8 +1,17 @@
 /* =============================================================
-   Maze Runner Mobile — Generación y consultas del mundo
-   3×3 bloques: El Área (centro, segura) + 8 sectores en anillo
-   (biomas A/B/C) + Piso −1 (subsuelo CRUEL). Laberinto por
-   backtracking recursivo + trenzado (bucles). Determinista.
+   Maze Runner Mobile — Generación y consultas del mundo (v2)
+
+   El laberinto se genera dos veces:
+   1) "Lógico": el backtracking recursivo + trenzado de siempre,
+      sobre una rejilla compacta (una celda = una decisión).
+   2) "Dilatado": cada celda lógica se expande a un bloque de
+      DIL×DIL celdas físicas. El resultado son pasillos anchos
+      (como la avenida de la Gladero en la película) separados
+      por muros gruesos y colosales — y un mundo bastante más
+      grande — sin complicar el algoritmo de generación en sí.
+
+   El resto del juego (jugador, Grievers, render, minimapa) sólo
+   ve la rejilla FÍSICA (this.W, this.H, this.grid, ...).
    ============================================================= */
 
 import { makeRng } from './rng.js';
@@ -12,8 +21,11 @@ export const FL = { SURFACE: 0, UNDER: 1 };
 export const BIOME = { GLADE: 0, A: 1, B: 2, C: 3, CRUEL: 4 };
 export const BIOME_NAME = ['El Área', 'Clásico', 'Industrial', 'Ruinas', 'CRUEL'];
 
-/** Altura de muro/techo por bioma, en 1/16 de celda (ver GUIA_MAESTRA §6.2/§7). */
-export const HEIGHTS = [38, 19, 27, 21, 14];
+/** Celdas físicas por celda lógica — pasillos de 3 unidades de ancho. */
+export const DIL = 3;
+
+/** Altura de muro/techo por bioma, en 1/16 de celda. Muros colosales. */
+export const HEIGHTS = [88, 54, 67, 48, 18];
 
 const SECTOR_DEF = [
   { n: 1, r: 0, c: 1, biome: BIOME.A },
@@ -34,14 +46,23 @@ export class World {
     this.build();
   }
 
-  /* ---------------------------------------------------------- generación */
-
   build() {
+    this.buildLogical();
+    this.dilate();
+    this.buildCellLists();
+  }
+
+  /* ============================================================
+     FASE 1 — generación lógica (idéntica en espíritu a la v1,
+     pero todo vive en this.l* hasta que dilate() la expande)
+     ============================================================ */
+
+  buildLogical() {
     const rng = this.rng;
-    const colW = [15 + 2 * rng.int(3), 15 + 2 * rng.int(3), 15 + 2 * rng.int(3)];
-    const rowH = [15 + 2 * rng.int(3), 15 + 2 * rng.int(3), 15 + 2 * rng.int(3)];
-    const W = colW[0] + colW[1] + colW[2], H = rowH[0] + rowH[1] + rowH[2];
-    this.W = W; this.H = H;
+    const colW = [13 + 2 * rng.int(3), 13 + 2 * rng.int(3), 13 + 2 * rng.int(3)];
+    const rowH = [13 + 2 * rng.int(3), 13 + 2 * rng.int(3), 13 + 2 * rng.int(3)];
+    const lw = colW[0] + colW[1] + colW[2], lh = rowH[0] + rowH[1] + rowH[2];
+    this.lw = lw; this.lh = lh;
     const xs = [0, colW[0], colW[0] + colW[1]];
     const ys = [0, rowH[0], rowH[0] + rowH[1]];
 
@@ -56,28 +77,22 @@ export class World {
       }
     }
 
-    const N = W * H;
-    this.grid = [new Uint8Array(N).fill(T.WALL), new Uint8Array(N).fill(T.WALL)];
-    this.region = [new Uint8Array(N), new Uint8Array(N)];
-    this.biome = [new Uint8Array(N), new Uint8Array(N)];
-    this.sky = [new Uint8Array(N), new Uint8Array(N)];
-    this.wallH = [new Uint8Array(N), new Uint8Array(N)];
-    this.ceilH = [new Uint8Array(N), new Uint8Array(N)];
-    this.doorIdx = [new Int16Array(N).fill(-1), new Int16Array(N).fill(-1)];
+    const N = lw * lh;
+    this.lgrid = [new Uint8Array(N).fill(T.WALL), new Uint8Array(N).fill(T.WALL)];
+    this.lregion = [new Uint8Array(N), new Uint8Array(N)];
+    this.lbiome = [new Uint8Array(N), new Uint8Array(N)];
+    this.lsky = [new Uint8Array(N), new Uint8Array(N)];
+    this.ldoorIdx = [new Int16Array(N).fill(-1), new Int16Array(N).fill(-1)];
     this.doors = [];
 
     for (const b of this.blocks) {
       for (let y = b.y0; y < b.y0 + b.h; y++) {
         for (let x = b.x0; x < b.x0 + b.w; x++) {
-          const i = y * W + x;
-          this.region[FL.SURFACE][i] = b.sector;
-          this.biome[FL.SURFACE][i] = b.biome;
-          this.wallH[FL.SURFACE][i] = HEIGHTS[b.biome];
-          this.ceilH[FL.SURFACE][i] = HEIGHTS[b.biome];
-          this.region[FL.UNDER][i] = b.sector;
-          this.biome[FL.UNDER][i] = BIOME.CRUEL;
-          this.wallH[FL.UNDER][i] = HEIGHTS[BIOME.CRUEL];
-          this.ceilH[FL.UNDER][i] = HEIGHTS[BIOME.CRUEL];
+          const i = y * lw + x;
+          this.lregion[FL.SURFACE][i] = b.sector;
+          this.lbiome[FL.SURFACE][i] = b.biome;
+          this.lregion[FL.UNDER][i] = b.sector;
+          this.lbiome[FL.UNDER][i] = BIOME.CRUEL;
         }
       }
     }
@@ -93,13 +108,13 @@ export class World {
       if (b.biome !== BIOME.C) continue;
       const n = 1 + rng.int(2);
       for (let k = 0; k < n; k++) {
-        const px = b.x0 + 3 + rng.int(Math.max(1, b.w - 7));
-        const py = b.y0 + 3 + rng.int(Math.max(1, b.h - 7));
-        for (let y = py; y < Math.min(b.y0 + b.h - 1, py + 4); y++) {
-          for (let x = px; x < Math.min(b.x0 + b.w - 1, px + 4); x++) {
-            const i = y * W + x;
-            if (this.grid[FL.SURFACE][i] === T.WALL) this.grid[FL.SURFACE][i] = T.FLOOR;
-            this.sky[FL.SURFACE][i] = 1;
+        const px = b.x0 + 3 + rng.int(Math.max(1, b.w - 5));
+        const py = b.y0 + 3 + rng.int(Math.max(1, b.h - 5));
+        for (let y = py; y < Math.min(b.y0 + b.h - 1, py + 2); y++) {
+          for (let x = px; x < Math.min(b.x0 + b.w - 1, px + 2); x++) {
+            const i = y * lw + x;
+            if (this.lgrid[FL.SURFACE][i] === T.WALL) this.lgrid[FL.SURFACE][i] = T.FLOOR;
+            this.lsky[FL.SURFACE][i] = 1;
           }
         }
       }
@@ -108,21 +123,10 @@ export class World {
     this.placeDoors();
     this.placeHatches();
     this.placeExit();
-    this.buildCellLists();
-
-    const gb = this.blocks[GLADE];
-    this.spawn = { x: gb.x0 + gb.w / 2, y: gb.y0 + gb.h / 2, dir: -Math.PI / 2, floor: FL.SURFACE };
-
-    // campo de flujo (BFS compartido): estructuras reutilizables
-    this.flowDist = new Int32Array(N);
-    this.flowStamp = new Int32Array(N).fill(-1);
-    this.flowQueue = new Int32Array(N);
-    this.flowStampId = 0;
-    this.flowValidFloor = -1;
   }
 
   carveMaze(floor, block, braid = 0.08) {
-    const g = this.grid[floor], W = this.W, rng = this.rng;
+    const g = this.lgrid[floor], W = this.lw, rng = this.rng;
     const { x0, y0, w, h } = block;
     const startX = x0 + 1, startY = y0 + 1;
     g[startY * W + startX] = T.FLOOR;
@@ -155,19 +159,17 @@ export class World {
   }
 
   carveGlade(block) {
-    const g = this.grid[FL.SURFACE], W = this.W, rng = this.rng;
+    const g = this.lgrid[FL.SURFACE], W = this.lw, rng = this.rng;
     const { x0, y0, w, h } = block;
     for (let y = y0 + 1; y < y0 + h - 1; y++) {
       for (let x = x0 + 1; x < x0 + w - 1; x++) {
         g[y * W + x] = T.FLOOR;
-        this.sky[FL.SURFACE][y * W + x] = 1;
+        this.lsky[FL.SURFACE][y * W + x] = 1;
       }
     }
     // el punto de aparición cae en el centro geométrico exacto del bloque:
-    // los pilares decorativos deben evitarlo (y cualquier obstáculo sólido
-    // centrado también, o bloquearían el spawn — ver tools/test-world.mjs).
+    // los pilares decorativos deben evitarlo.
     const cx = x0 + (w >> 1), cy = y0 + (h >> 1);
-    // pilares sueltos
     for (let k = 0; k < 4; k++) {
       const px = x0 + 2 + rng.int(Math.max(1, w - 4));
       const py = y0 + 2 + rng.int(Math.max(1, h - 4));
@@ -176,7 +178,7 @@ export class World {
   }
 
   carveUnderground() {
-    const g = this.grid[FL.UNDER], W = this.W, H = this.H, rng = this.rng;
+    const g = this.lgrid[FL.UNDER], W = this.lw, H = this.lh, rng = this.rng;
     g[1 * W + 1] = T.FLOOR;
     const stack = [[1, 1]];
     while (stack.length) {
@@ -213,7 +215,7 @@ export class World {
   }
 
   carveDoorAxis(x, y, axis) {
-    const g = this.grid[FL.SURFACE], W = this.W;
+    const g = this.lgrid[FL.SURFACE], W = this.lw;
     const set = (xx, yy) => { if (g[yy * W + xx] === T.WALL) g[yy * W + xx] = T.FLOOR; };
     if (axis === 'v') { set(x, y - 1); set(x, y - 2); set(x, y + 1); set(x, y + 2); }
     else { set(x - 1, y); set(x - 2, y); set(x + 1, y); set(x + 2, y); }
@@ -238,14 +240,11 @@ export class World {
     }
     this.carveDoorAxis(x, y, axis);
 
-    const W = this.W, i = y * W + x;
-    const h = Math.max(HEIGHTS[A.biome], HEIGHTS[B.biome]);
+    const i = y * this.lw + x;
     const d = { x, y, open: 1, target: 1, id: this.doors.length };
     this.doors.push(d);
-    this.grid[FL.SURFACE][i] = T.DOOR;
-    this.doorIdx[FL.SURFACE][i] = d.id;
-    this.wallH[FL.SURFACE][i] = h;
-    this.ceilH[FL.SURFACE][i] = h;
+    this.lgrid[FL.SURFACE][i] = T.DOOR;
+    this.ldoorIdx[FL.SURFACE][i] = d.id;
   }
 
   placeDoors() {
@@ -255,7 +254,7 @@ export class World {
   }
 
   randomFloorInBlock(floor, block) {
-    const g = this.grid[floor], W = this.W, rng = this.rng;
+    const g = this.lgrid[floor], W = this.lw, rng = this.rng;
     for (let tries = 0; tries < 400; tries++) {
       const x = block.x0 + 1 + rng.int(Math.max(1, block.w - 2));
       const y = block.y0 + 1 + rng.int(Math.max(1, block.h - 2));
@@ -266,15 +265,15 @@ export class World {
 
   placeHatches() {
     this.hatches = [];
-    const W = this.W;
+    const W = this.lw;
     const addHatch = (block) => {
       const { x, y } = this.randomFloorInBlock(FL.SURFACE, block);
-      this.grid[FL.SURFACE][y * W + x] = T.HATCH_DOWN;
-      this.grid[FL.UNDER][y * W + x] = T.HATCH_UP;
+      this.lgrid[FL.SURFACE][y * W + x] = T.HATCH_DOWN;
+      this.lgrid[FL.UNDER][y * W + x] = T.HATCH_UP;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const ni = (y + dy) * W + (x + dx);
-        if (this.grid[FL.SURFACE][ni] === T.WALL) this.grid[FL.SURFACE][ni] = T.FLOOR;
-        if (this.grid[FL.UNDER][ni] === T.WALL) this.grid[FL.UNDER][ni] = T.FLOOR;
+        if (this.lgrid[FL.SURFACE][ni] === T.WALL) this.lgrid[FL.SURFACE][ni] = T.FLOOR;
+        if (this.lgrid[FL.UNDER][ni] === T.WALL) this.lgrid[FL.UNDER][ni] = T.FLOOR;
       }
       this.hatches.push({ x, y });
     };
@@ -290,7 +289,7 @@ export class World {
     const block = this.rng.pick(corners);
     const gb = this.blocks[GLADE];
     const gx = gb.x0 + (gb.w >> 1), gy = gb.y0 + (gb.h >> 1);
-    const g = this.grid[FL.SURFACE], W = this.W;
+    const g = this.lgrid[FL.SURFACE], W = this.lw;
     let best = null, bestD = -1;
     for (let y = block.y0 + 1; y < block.y0 + block.h - 1; y++) {
       for (let x = block.x0 + 1; x < block.x0 + block.w - 1; x++) {
@@ -302,6 +301,62 @@ export class World {
     if (!best) best = this.randomFloorInBlock(FL.SURFACE, block);
     g[best.y * W + best.x] = T.EXIT;
     this.exit = { x: best.x, y: best.y, region: block.sector };
+  }
+
+  /* ============================================================
+     FASE 2 — dilatación: cada celda lógica -> bloque DIL×DIL físico
+     ============================================================ */
+
+  dilate() {
+    const lw = this.lw, lh = this.lh;
+    const W = lw * DIL, H = lh * DIL;
+    this.W = W; this.H = H;
+    const N = W * H;
+    this.grid = [new Uint8Array(N), new Uint8Array(N)];
+    this.region = [new Uint8Array(N), new Uint8Array(N)];
+    this.biome = [new Uint8Array(N), new Uint8Array(N)];
+    this.sky = [new Uint8Array(N), new Uint8Array(N)];
+    this.wallH = [new Uint8Array(N), new Uint8Array(N)];
+    this.ceilH = [new Uint8Array(N), new Uint8Array(N)];
+    this.doorIdx = [new Int16Array(N).fill(-1), new Int16Array(N).fill(-1)];
+
+    for (let f = 0; f < 2; f++) {
+      const lgrid = this.lgrid[f], lregion = this.lregion[f], lbiome = this.lbiome[f], lsky = this.lsky[f], ldoorIdx = this.ldoorIdx[f];
+      const grid = this.grid[f], region = this.region[f], biome = this.biome[f], sky = this.sky[f], wallH = this.wallH[f], ceilH = this.ceilH[f], doorIdx = this.doorIdx[f];
+      for (let ly = 0; ly < lh; ly++) {
+        for (let lx = 0; lx < lw; lx++) {
+          const li = ly * lw + lx;
+          const t = lgrid[li], bio = lbiome[li], reg = lregion[li], skyv = lsky[li], did = ldoorIdx[li];
+          const h = HEIGHTS[bio];
+          const py0 = ly * DIL, px0 = lx * DIL;
+          for (let dy = 0; dy < DIL; dy++) {
+            const rowBase = (py0 + dy) * W + px0;
+            for (let dx = 0; dx < DIL; dx++) {
+              const pi = rowBase + dx;
+              grid[pi] = t; region[pi] = reg; biome[pi] = bio; sky[pi] = skyv;
+              wallH[pi] = h; ceilH[pi] = h;
+              if (did >= 0) doorIdx[pi] = did;
+            }
+          }
+        }
+      }
+    }
+
+    // remapea a coordenadas físicas todo lo que se calculó en fase lógica
+    this.hatches = this.hatches.map((h) => ({ x: h.x * DIL, y: h.y * DIL }));
+    this.exit = { x: this.exit.x * DIL, y: this.exit.y * DIL, region: this.exit.region };
+    for (const d of this.doors) { d.x *= DIL; d.y *= DIL; }
+    for (const b of this.blocks) { b.x0 *= DIL; b.y0 *= DIL; b.w *= DIL; b.h *= DIL; }
+
+    const gb = this.blocks[GLADE];
+    this.spawn = { x: gb.x0 + gb.w / 2, y: gb.y0 + gb.h / 2, dir: -Math.PI / 2, floor: FL.SURFACE };
+
+    // campo de flujo (BFS compartido): estructuras reutilizables, a tamaño físico
+    this.flowDist = new Int32Array(N);
+    this.flowStamp = new Int32Array(N).fill(-1);
+    this.flowQueue = new Int32Array(N);
+    this.flowStampId = 0;
+    this.flowValidFloor = -1;
   }
 
   buildCellLists() {
@@ -351,11 +406,11 @@ export class World {
     return false;
   }
 
-  hasLineOfSight(floor, x0, y0, x1, y1) {
+  hasLineOfSight(floor, x0, y0, x1, y1, maxDist = 40) {
     const dx = x1 - x0, dy = y1 - y0;
     const dist = Math.hypot(dx, dy);
-    if (dist > 20) return false;
-    const steps = Math.max(1, Math.ceil(dist * 6));
+    if (dist > maxDist) return false;
+    const steps = Math.max(1, Math.ceil(dist * 4));
     const sx = dx / steps, sy = dy / steps;
     let x = x0, y = y0;
     for (let i = 0; i < steps; i++) {
@@ -394,7 +449,7 @@ export class World {
 
   /* ---------------------------------------------------------- IA: campo de flujo */
 
-  computeFlow(floor, tx, ty, radius = 26) {
+  computeFlow(floor, tx, ty, radius = 70) {
     const W = this.W, H = this.H;
     let cx = Math.max(0, Math.min(W - 1, Math.floor(tx)));
     let cy = Math.max(0, Math.min(H - 1, Math.floor(ty)));
