@@ -101,6 +101,21 @@ class QuadBuilder {
     this.uv.push(ua, va, ub, vb, uc, vc, ua, va, uc, vc, ud, vd);
     for (let i = 0; i < 6; i++) this.col.push(r, g, b);
   }
+  /** Cuadrilátero "calcomanía" independiente: UV propia 0..1 (no teselada
+      por unidad de mundo, como las paredes) — para enredaderas y adornos
+      colgantes pegados a una cara de pared ya existente. */
+  addDecalQuad(ax, ay, az, bx, by, bz, h, nx, ny, nz, r = 1, g = 1, b = 1) {
+    const ux = bx - ax, uy = by - ay, uz = bz - az;
+    const vx = 0, vy = h, vz = 0;
+    const cx = uy * vz - uz * vy, cy = uz * vx - ux * vz, cz = ux * vy - uy * vx;
+    const dot = cx * nx + cy * ny + cz * nz;
+    let p0x = ax, p0y = ay, p0z = az, p1x = bx, p1y = by, p1z = bz;
+    if (dot < 0) { p0x = bx; p0y = by; p0z = bz; p1x = ax; p1y = ay; p1z = az; }
+    this._quad(
+      p0x, p0y, p0z, p1x, p1y, p1z, p1x, p1y + h, p1z, p0x, p0y + h, p0z,
+      nx, ny, nz, 0, 1, 1, 1, 1, 0, 0, 0, r, g, b,
+    );
+  }
   toGeometry() {
     if (!this.pos.length) return null;
     const g = new THREE.BufferGeometry();
@@ -215,6 +230,52 @@ function buildWallGeoms(world, floor) {
   return builders;
 }
 
+// hiedra/lianas colgando de los muros, según favorezca el bioma: mucha en
+// El Área (biome 0) y en las Ruinas a cielo abierto (biome 3, recuperadas
+// por la vegetación), algo menos en el bioma "Clásico" (1), nada en el
+// metal Industrial (2) ni en el subsuelo CRUEL (4) — no pintan ahí.
+const VINE_CHANCE = [0.4, 0.1, 0, 0.2, 0];
+const VINE_TINT = [
+  [0.8, 1, 0.68], [0.72, 0.95, 0.66], [1, 1, 1], [0.95, 0.88, 0.58], [1, 1, 1],
+];
+const VINE_DIRS = [[1, 0, 1, 0], [-1, 0, -1, 0], [0, 1, 0, 1], [0, -1, 0, -1]];
+
+function buildVineDecor(world, floor, rng) {
+  const W = world.W, H = world.H;
+  const grid = world.grid[floor], biome = world.biome[floor], wallH = world.wallH[floor];
+  const qb = new QuadBuilder();
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (grid[i] !== T.WALL) continue;
+      const bio = biome[i];
+      const chance = VINE_CHANCE[bio];
+      if (chance <= 0) continue;
+      const h = (wallH[i] || 19) / 16;
+      for (const [dx, dy, nx, nz] of VINE_DIRS) {
+        const nxp = x + dx, nyp = y + dy;
+        if (nxp < 0 || nyp < 0 || nxp >= W || nyp >= H || grid[nyp * W + nxp] === T.WALL) continue;
+        if (!rng.chance(chance)) continue;
+        const [r, g, b] = VINE_TINT[bio];
+        const width = 0.4 + rng.range(0, 0.3);
+        const dropLen = Math.min(h - 0.2, 0.9 + rng.range(0, Math.max(1.6, h * 0.55)));
+        const topY = h - rng.range(0, Math.max(0.1, h * 0.3));
+        // centro de la cara del muro hacia ese lado + un pequeño desvío
+        // lateral aleatorio dentro de la celda, separado ~3cm para que no
+        // se confunda con la textura de la pared (z-fighting).
+        const cx = x + 0.5 + dx * 0.5 - nz * rng.range(-0.3, 0.3);
+        const cz = y + 0.5 + dy * 0.5 + nx * rng.range(-0.3, 0.3);
+        const ox = nx * 0.03, oz = nz * 0.03;
+        const tx = -nz, tz = nx; // a lo largo del muro
+        const ax = cx - tx * width / 2 + ox, az = cz - tz * width / 2 + oz;
+        const bx = cx + tx * width / 2 + ox, bz = cz + tz * width / 2 + oz;
+        qb.addDecalQuad(ax, topY - dropLen, az, bx, topY - dropLen, bz, dropLen, nx, 0, nz, r, g, b);
+      }
+    }
+  }
+  return qb.toGeometry();
+}
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -293,6 +354,40 @@ export class Renderer {
       map: makeTexture(this.tex.walls[5], this.renderer), roughness: 0.9, metalness: 0.15,
       transparent: true, alphaTest: 0.1, side: THREE.DoubleSide,
     });
+    this.vineMat = new THREE.MeshLambertMaterial({
+      map: this._vineTexture(), vertexColors: true, fog: true,
+      transparent: true, alphaTest: 0.25, side: THREE.DoubleSide,
+    });
+  }
+
+  /** Textura de hiedra/liana: tallo ondulado + hojas, fondo transparente. */
+  _vineTexture() {
+    const w = 48, h = 128;
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = '#3c5a2a'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath();
+    let sx = w / 2;
+    ctx.moveTo(sx, 0);
+    for (let y = 6; y <= h; y += 6) { sx = w / 2 + Math.sin(y * 0.3) * 4; ctx.lineTo(sx, y); }
+    ctx.stroke();
+    const leafColors = ['#4c7a34', '#5c8f3e', '#3f6628', '#689a46'];
+    for (let y = 6; y < h; y += 8) {
+      const lx = w / 2 + Math.sin(y * 0.3) * 4;
+      const side = Math.floor(y / 8) % 2 === 0 ? 1 : -1;
+      ctx.fillStyle = leafColors[Math.floor(y / 6) % leafColors.length];
+      ctx.save();
+      ctx.translate(lx + side * 6, y);
+      ctx.rotate(side * 0.55);
+      ctx.beginPath(); ctx.ellipse(0, 0, 5.5, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.needsUpdate = true;
+    return t;
   }
 
   _buildLights() {
@@ -535,6 +630,9 @@ export class Renderer {
         grp.add(m); wallMeshes.push(m);
       }
       this.wallMeshesByFloor[f] = wallMeshes;
+
+      const vineGeo = buildVineDecor(world, f, world.rng);
+      if (vineGeo) grp.add(new THREE.Mesh(vineGeo, this.vineMat));
 
       if (f === FL.SURFACE) {
         for (const d of world.doors) {
