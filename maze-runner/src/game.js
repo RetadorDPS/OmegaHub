@@ -78,6 +78,7 @@ export class Game {
       threatArrow: document.querySelector('#threat .arrow'),
       threatLbl: document.querySelector('#threat .lbl'),
       minimapWrap: document.getElementById('minimapWrap'),
+      compass: document.getElementById('compass'),
     };
 
     this.state = 'menu';
@@ -436,6 +437,7 @@ export class Game {
       if (p.notes) e.notesChip.textContent = `📖 ${p.notes}/8`;
     }
     if (e.cycleChip) e.cycleChip.textContent = this.isNight ? '☾ Noche' : '☀ Día';
+    this.minimap?.drawCompass(e.compass, this);
 
     const cx = Math.floor(p.x), cy = Math.floor(p.y);
     const ct = w.typeAt(p.floor, cx, cy);

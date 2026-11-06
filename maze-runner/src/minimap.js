@@ -232,4 +232,65 @@ export class Minimap {
     ctx.closePath(); ctx.fill();
     ctx.restore();
   }
+
+  /** Franja de rumbo arriba del HUD: cardinales + marcas de salida/amenaza. */
+  drawCompass(cv, game) {
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const w = cv.width, h = cv.height;
+    const p = game.player, world = this.world;
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
+    ctx.fillStyle = 'rgba(8,10,12,0.5)'; ctx.fillRect(0, 0, w, h);
+
+    const heading = (((-p.dir) * 180 / Math.PI) + 90 + 360) % 360; // 0=N 90=E 180=S 270=O
+    const range = 75;
+    const pxPerDeg = (w / 2) / range;
+    const NAMES = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SO', 270: 'O', 315: 'NO' };
+
+    for (let d = -range; d <= range; d += 15) {
+      let deg = Math.round(heading + d);
+      deg = ((deg % 360) + 360) % 360;
+      const x = w / 2 + d * pxPerDeg;
+      const cardinal = deg % 45 === 0;
+      ctx.strokeStyle = cardinal ? 'rgba(232,163,60,0.7)' : 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = cardinal ? 1.6 : 1;
+      ctx.beginPath(); ctx.moveTo(x, h * 0.58); ctx.lineTo(x, cardinal ? h * 0.95 : h * 0.78); ctx.stroke();
+      if (cardinal) {
+        ctx.fillStyle = deg === 0 ? '#ffd27a' : 'rgba(232,220,200,0.85)';
+        ctx.font = '600 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(NAMES[deg] || '', x, h * 0.3);
+      }
+    }
+
+    const bearingOf = (tx, ty) => {
+      const ang = Math.atan2(ty - p.y, tx - p.x);
+      return (((-ang) * 180 / Math.PI) + 90 + 360) % 360;
+    };
+    const delta = (a, b) => (((a - b + 540) % 360) - 180);
+    const mark = (x, color, glyph) => {
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, h * 0.2, 6.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(glyph, x, h * 0.2 + 1);
+    };
+
+    if (world.exit) {
+      const ex = world.exit.x + DIL / 2, ey = world.exit.y + DIL / 2;
+      const known = p.codes >= 3 || this.seen[p.floor][Math.floor(ey) * world.W + Math.floor(ex)];
+      if (known) {
+        const b = delta(bearingOf(ex, ey), heading);
+        if (Math.abs(b) <= range) mark(w / 2 + b * pxPerDeg, '#5cff9d', '✦');
+      }
+    }
+    if (game.threat) {
+      const b = delta(bearingOf(game.threat.x, game.threat.y), heading);
+      if (Math.abs(b) <= range) mark(w / 2 + b * pxPerDeg, '#ff5a48', '!');
+    }
+
+    ctx.fillStyle = '#ffe9a8';
+    ctx.beginPath(); ctx.moveTo(w / 2, 1); ctx.lineTo(w / 2 - 5, 9); ctx.lineTo(w / 2 + 5, 9); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
 }

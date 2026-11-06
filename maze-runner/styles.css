@@ -95,6 +95,10 @@ html, body {
   position: absolute; left: 50%; transform: translateX(-50%);
   top: calc(6px + var(--safe-t)); text-align: center;
 }
+.compass {
+  display: block; width: min(300px, 46vw); height: 28px; margin: 0 auto 2px;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.7));
+}
 .clock-label { font-size: 9.5px; letter-spacing: 2.5px; color: var(--dim); text-transform: uppercase; }
 #clock { font-size: 22px; font-weight: 700; letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
 #clock.urgent { color: var(--red); animation: clockPulse .55s infinite; }
