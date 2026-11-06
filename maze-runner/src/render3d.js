@@ -42,7 +42,9 @@ function makeTexture(tex, renderer) {
   const t = new THREE.CanvasTexture(texToCanvas(tex));
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = renderer ? renderer.capabilities.getMaxAnisotropy() : 1;
+  // anisotropía topada: el máximo del dispositivo (hasta 16x) cuesta mucho
+  // más de lo que se nota en texturas de 128px ya difuminadas por niebla.
+  t.anisotropy = renderer ? Math.min(4, renderer.capabilities.getMaxAnisotropy()) : 1;
   t.needsUpdate = true;
   return t;
 }
@@ -51,6 +53,7 @@ function makeSpriteTexture(tex) {
   const t = new THREE.CanvasTexture(texToCanvas(tex));
   t.colorSpace = THREE.SRGBColorSpace;
   t.needsUpdate = true;
+  t.userData.ar = tex.w / tex.h; // cacheado: evita recalcularlo cada fotograma por entidad
   return t;
 }
 
@@ -252,7 +255,7 @@ export class Renderer {
     this.entitySprites = new Map(); // entidad -> THREE.Sprite
     this.beaconSprite = null;
     this.flarePool = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       const pl = new THREE.PointLight(0xffac55, 0, 9, 1.7);
       this.scene.add(pl);
       this.flarePool.push(pl);
@@ -270,8 +273,13 @@ export class Renderer {
   /* ---------------------------------------------------------- materiales/luces */
 
   _buildMaterials() {
-    const mat = (tex, extra) => new THREE.MeshStandardMaterial({
-      map: makeTexture(tex, this.renderer), roughness: 0.96, metalness: 0.02, vertexColors: true, fog: true, ...extra,
+    // Lambert (difuso puro) en vez de Standard/PBR para las superficies de
+    // mayor recuento de fragmentos (paredes/suelo/techo fusionados cubren
+    // toda la pantalla casi siempre): con roughness≈0.95 el specular de
+    // Standard apenas se nota, así que el ahorro de cómputo por píxel en
+    // móviles de gama baja sale casi gratis visualmente.
+    const mat = (tex, extra) => new THREE.MeshLambertMaterial({
+      map: makeTexture(tex, this.renderer), vertexColors: true, fog: true, ...extra,
     });
     this.wallMat = this.tex.walls.slice(0, 5).map((t) => mat(t));
     this.floorMat = this.tex.floors.map((t) => mat(t));
@@ -499,7 +507,7 @@ export class Renderer {
       seen.add(gv);
       s.material.map = tex;
       s.visible = gv.floor === f;
-      const h = 1.5, ar = tex.image.width / tex.image.height;
+      const h = 1.5, ar = tex.userData.ar;
       s.scale.set(h * ar, h, 1);
       s.position.set(gv.x, h / 2, gv.y);
     }
@@ -511,7 +519,7 @@ export class Renderer {
       const def = ITEM_DEFS[it.type] || { h: 0.5, yBase: 0.1 };
       const bob = Math.sin(it.bob || 0) * 0.08;
       s.visible = it.floor === f;
-      const ar = tex.image.width / tex.image.height;
+      const ar = tex.userData.ar;
       s.scale.set(def.h * ar, def.h, 1);
       s.position.set(it.x, def.yBase + bob + def.h / 2, it.y);
     }
@@ -520,7 +528,7 @@ export class Renderer {
       const s = this._spriteFor(fl, tex, false);
       seen.add(fl);
       s.visible = fl.floor === f;
-      const ar = tex.image.width / tex.image.height;
+      const ar = tex.userData.ar;
       s.scale.set(0.5 * ar, 0.5, 1);
       s.position.set(fl.x, 0.25, fl.y);
     }
@@ -532,7 +540,7 @@ export class Renderer {
         this.beaconSprite = new THREE.Sprite(mat);
         this.scene.add(this.beaconSprite);
       }
-      const ar = this.spriteTex.beacon.image.width / this.spriteTex.beacon.image.height;
+      const ar = this.spriteTex.beacon.userData.ar;
       this.beaconSprite.scale.set(3.2 * ar, 3.2, 1);
       this.beaconSprite.position.set(w.exit.x + DIL / 2, 1.6, w.exit.y + DIL / 2);
       this.beaconSprite.visible = f === FL.SURFACE;

@@ -87,6 +87,13 @@ export class Input {
     cv.addEventListener('pointermove', move, { passive: false });
     cv.addEventListener('pointerup', (e) => this._up(e), { passive: false });
     cv.addEventListener('pointercancel', (e) => this._up(e), { passive: false });
+    // red de seguridad: si el SO se traga el pointerup/cancel del canvas (gesto
+    // del sistema, cambio de app, captura perdida…) el stick se quedaba "pegado"
+    // para siempre — ningún toque nuevo lo liberaba porque stickId ya no era null.
+    window.addEventListener('pointerup', (e) => this._up(e));
+    window.addEventListener('pointercancel', (e) => this._up(e));
+    window.addEventListener('blur', () => this._releaseAll());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this._releaseAll(); });
 
     window.addEventListener('keydown', (e) => {
       if (e.repeat) return;
@@ -150,6 +157,13 @@ export class Input {
     if (e.pointerId === this.lookId) { this.lookId = null; this.lookPrev = null; }
   }
 
+  /** Suelta el stick/mirada sin esperar al evento del navegador — ver _bind(). */
+  _releaseAll() {
+    this.stickId = null; this.lookId = null; this.lookPrev = null;
+    this.moveX = 0; this.moveY = 0;
+    if (this.els.stick) this.els.stick.style.display = 'none';
+  }
+
   _setKnob(dx, dy) {
     if (!this.els.knob) return;
     this.els.knob.style.transform = `translate(${dx}px, ${dy}px)`;
@@ -178,7 +192,9 @@ export class Input {
   consume(k) { const v = this.press[k]; this.press[k] = false; return v; }
 
   reset() {
-    this.moveX = this.moveY = 0;
+    // además de los acumuladores: suelta cualquier stick/mirada que se haya
+    // quedado "pegado" de la partida anterior (ver _releaseAll más arriba).
+    this._releaseAll();
     this.lookX = this.lookY = 0;
     this.run = false; this.runToggle = false;
     this.press.flash = this.press.flare = this.press.use = false;
