@@ -76,7 +76,7 @@ export class UI {
     if (!mm || !big) return;
     const origCv = mm.cv, origCtx = mm.ctx;
     mm.cv = big; mm.ctx = big.getContext('2d');
-    mm.draw(g, { labels: true });
+    mm.draw(g, { labels: true, full: true });
     mm.cv = origCv; mm.ctx = origCtx;
     const pct = Math.round(mm.percentExplored() * 100);
     this.el('mapPct').textContent = `${pct}% cartografiado`;

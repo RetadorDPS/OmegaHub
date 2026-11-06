@@ -131,6 +131,19 @@ html, body {
   box-shadow: 0 6px 18px rgba(0,0,0,.5), inset 0 0 24px rgba(0,0,0,.6);
 }
 #minimapWrap:active { box-shadow: 0 0 0 2px var(--amber), 0 6px 18px rgba(0,0,0,.5); }
+#minimapWrap {
+  transform-origin: top right;
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+#minimapWrap.panic {
+  transform: scale(1.7);
+  box-shadow: 0 0 0 2px var(--red), 0 0 26px rgba(220,40,30,.6), 0 6px 18px rgba(0,0,0,.5);
+  animation: mmPanic 1s infinite;
+}
+@keyframes mmPanic {
+  0%, 100% { box-shadow: 0 0 0 2px var(--red), 0 0 26px rgba(220,40,30,.6), 0 6px 18px rgba(0,0,0,.5); }
+  50% { box-shadow: 0 0 0 3px var(--red), 0 0 40px rgba(220,40,30,.85), 0 6px 18px rgba(0,0,0,.5); }
+}
 #minimap { width: 100%; height: 100%; display: block; }
 .mm-hint {
   position: absolute; left: 0; right: 0; bottom: 0;

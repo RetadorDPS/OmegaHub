@@ -77,6 +77,7 @@ export class Game {
       threat: document.getElementById('threat'),
       threatArrow: document.querySelector('#threat .arrow'),
       threatLbl: document.querySelector('#threat .lbl'),
+      minimapWrap: document.getElementById('minimapWrap'),
     };
 
     this.state = 'menu';
@@ -349,8 +350,14 @@ export class Game {
     for (const fl of this.flares) fl.update(dt, w);
     this.flares = this.flares.filter((fl) => !fl.dead);
 
+    // modo pánico del minimapa: un perseguidor encima (no sólo "te vio de
+    // lejos") agranda el mapa de la esquina al vuelo, sin pausar la partida,
+    // con una flecha hacia el refugio más cercano conocido.
+    this.panic = !!(this.threat && this.threat.d < 13);
+    this.hudEl.minimapWrap?.classList.toggle('panic', this.panic);
+
     this.mmT -= dt;
-    if (this.mmT <= 0) { this.mmT = 0.12; this.minimap.reveal(this); this.minimap.draw(this); }
+    if (this.mmT <= 0) { this.mmT = 0.12; this.minimap.reveal(this); this.minimap.draw(this, { panic: this.panic }); }
 
     const region = w.regionAt(p.floor, p.x, p.y);
     if (p.floor === FL.SURFACE && region >= 1) this.maxSector = Math.max(this.maxSector, region);

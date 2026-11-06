@@ -219,8 +219,9 @@ export class Renderer {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = false;
 
-    this.camera = new THREE.PerspectiveCamera(76, 16 / 9, 0.06, 130);
+    this.camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.06, 130);
     this.camera.rotation.order = 'YXZ';
+    this.targetHFov = 100 * Math.PI / 180; // FOV horizontal objetivo, estable en cualquier pantalla
 
     this.scene = new THREE.Scene();
     this.fogObj = new THREE.FogExp2(0x05070a, 0.03);
@@ -260,6 +261,8 @@ export class Renderer {
     this._raycaster = new THREE.Raycaster();
     this._camPos = new THREE.Vector3();
     this._camFwd = new THREE.Vector3();
+    this._camOrigin = new THREE.Vector3();
+    this._lookAt = new THREE.Vector3();
 
     this.resize(canvas.clientWidth || 360, canvas.clientHeight || 200, 0.5);
   }
@@ -301,19 +304,91 @@ export class Renderer {
     this.scene.add(this.camera);
   }
 
+  /* --- personaje: nada de modelo humano importado (no hay pipeline de
+     assets ni red para traer uno con rig): un corredor estilizado de bajo
+     poligonaje con ropa de abrigo/mochila pintadas a mano en canvas, en el
+     mismo espíritu "cero assets externos" que el resto del juego. */
+
+  _charCanvasTex(size, draw) {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    draw(ctx, size);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.needsUpdate = true;
+    return t;
+  }
+
   _buildCharacter() {
     const g = new THREE.Group();
-    const skin = new THREE.MeshStandardMaterial({ color: 0xd9a876, roughness: 0.85 });
-    const cloth = new THREE.MeshStandardMaterial({ color: 0x4a5340, roughness: 0.95 });
-    const pack = new THREE.MeshStandardMaterial({ color: 0x5c4a30, roughness: 0.95 });
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.72, 4, 8), cloth);
+
+    // torso: chaqueta de faena verde musgo con cinturón y cremallera, UV
+    // cilíndrica de la cápsula -> una franja horizontal = una vuelta.
+    const jacketTex = this._charCanvasTex(128, (ctx, s) => {
+      ctx.fillStyle = '#4a5340'; ctx.fillRect(0, 0, s, s * 0.62);
+      ctx.fillStyle = '#39402f'; ctx.fillRect(0, s * 0.62, s, s * 0.1);
+      ctx.fillStyle = '#5c6b4a'; ctx.fillRect(0, s * 0.72, s, s * 0.28);
+      ctx.strokeStyle = 'rgba(20,22,16,0.55)'; ctx.lineWidth = Math.max(1, s * 0.012);
+      ctx.beginPath(); ctx.moveTo(s * 0.5, 0); ctx.lineTo(s * 0.5, s * 0.62); ctx.stroke();
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath(); ctx.arc(s * 0.5, s * (0.08 + i * 0.1), Math.max(1, s * 0.012), 0, Math.PI * 2);
+        ctx.fillStyle = '#1c1e18'; ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      for (let i = 0; i < 160; i++) ctx.fillRect(Math.random() * s, Math.random() * s, 1.5, 1.5);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = Math.max(1, s * 0.02);
+      ctx.beginPath(); ctx.moveTo(0, s * 0.62); ctx.lineTo(s, s * 0.62); ctx.stroke();
+    });
+    const jacket = new THREE.MeshStandardMaterial({ map: jacketTex, roughness: 0.92 });
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.72, 5, 10), jacket);
     body.position.y = 1.0;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), skin);
+
+    // cabeza: capucha/bandana oscura + rostro simple, UV esférica equirrect.
+    const headTex = this._charCanvasTex(96, (ctx, s) => {
+      ctx.fillStyle = '#caa177'; ctx.fillRect(0, 0, s, s);
+      ctx.fillStyle = '#2e2a24'; ctx.fillRect(0, 0, s, s * 0.4);
+      ctx.fillStyle = '#231f1a'; ctx.fillRect(0, s * 0.33, s, s * 0.09);
+      ctx.fillStyle = '#20201c';
+      ctx.fillRect(s * 0.28, s * 0.5, s * 0.1, s * 0.07);
+      ctx.fillRect(s * 0.62, s * 0.5, s * 0.1, s * 0.07);
+      ctx.strokeStyle = 'rgba(40,25,15,0.5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(s * 0.38, s * 0.66); ctx.lineTo(s * 0.62, s * 0.66); ctx.stroke();
+    });
+    const headMat = new THREE.MeshStandardMaterial({ map: headTex, roughness: 0.88 });
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 16, 14), headMat);
     head.position.y = 1.56;
-    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.42, 0.2), pack);
+    head.rotation.y = Math.PI / 2;
+
+    // mochila con correas y bolsillo lateral (caja: UV planar, una cara basta)
+    const packTex = this._charCanvasTex(96, (ctx, s) => {
+      ctx.fillStyle = '#5c4a30'; ctx.fillRect(0, 0, s, s);
+      ctx.fillStyle = '#4a3b26'; ctx.fillRect(s * 0.1, s * 0.55, s * 0.8, s * 0.35);
+      ctx.strokeStyle = '#2e2515'; ctx.lineWidth = s * 0.03;
+      ctx.beginPath(); ctx.moveTo(s * 0.22, 0); ctx.lineTo(s * 0.22, s); ctx.moveTo(s * 0.78, 0); ctx.lineTo(s * 0.78, s); ctx.stroke();
+      ctx.fillStyle = '#20180e';
+      ctx.fillRect(s * 0.4, s * 0.28, s * 0.2, s * 0.14);
+    });
+    const packMat = new THREE.MeshStandardMaterial({ map: packTex, roughness: 0.95 });
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.44, 0.2), packMat);
     bag.position.set(0, 1.05, 0.26);
+
     g.add(body, head, bag);
+    g.userData.body = body; g.userData.head = head; g.userData.bag = bag;
     return g;
+  }
+
+  /** Vende movimiento sin esqueleto: balanceo vertical + leve vaivén lateral
+      sincronizados con el mismo ciclo de paso que usa la cámara en 1ª persona. */
+  _animateCharacter(p) {
+    const g = this.charGroup;
+    if (!g.visible) return;
+    const walking = p.moving;
+    const bobY = walking ? Math.sin(p.bob) * (p.running ? 0.05 : 0.03) : Math.sin(p.bob * 0.4) * 0.01;
+    const lean = walking ? Math.sin(p.bob) * (p.running ? 0.09 : 0.05) : 0;
+    g.position.y = Math.max(0, bobY);
+    g.rotation.z = lean;
+    g.rotation.x = walking ? Math.cos(p.bob) * 0.03 : 0;
   }
 
   /* ---------------------------------------------------------- API pública */
@@ -323,7 +398,13 @@ export class Renderer {
     const w = Math.max(1, cssW || 360), h = Math.max(1, cssH || 200);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6) * scale);
     this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
+    const aspect = w / h;
+    this.camera.aspect = aspect;
+    // three.js fija el FOV *vertical*; sin compensar por aspecto, una pantalla
+    // panorámica infla el FOV horizontal real a un fisheye que distorsiona los
+    // giros. Se deriva el vertical de un horizontal objetivo estable.
+    const vFov = 2 * Math.atan(Math.tan(this.targetHFov / 2) / aspect);
+    this.camera.fov = Math.max(50, Math.min(92, vFov * 180 / Math.PI));
     this.camera.updateProjectionMatrix();
   }
 
@@ -495,6 +576,7 @@ export class Renderer {
       this.charGroup.visible = true;
       this.charGroup.position.set(p.x, 0, p.y);
       this.charGroup.rotation.y = -p.dir + Math.PI / 2;
+      this._animateCharacter(p);
 
       const ceilMargin = localCeil - 0.2;
       const camDist = 3.4, camHeight = Math.min(1.9, ceilMargin);
@@ -506,7 +588,8 @@ export class Renderer {
       this._camFwd.set(wantX - p.x, wantY - originY, wantZ - p.y);
       const dist = this._camFwd.length();
       this._camFwd.normalize();
-      this._raycaster.set(new THREE.Vector3(p.x, originY, p.y), this._camFwd);
+      this._camOrigin.set(p.x, originY, p.y);
+      this._raycaster.set(this._camOrigin, this._camFwd);
       this._raycaster.far = dist;
       const hits = this._raycaster.intersectObjects(this.wallMeshesByFloor[p.floor] || [], false);
       let finalDist = dist;
@@ -514,7 +597,8 @@ export class Renderer {
 
       const camY = Math.min(originY + this._camFwd.y * finalDist, ceilMargin);
       this.camera.position.set(p.x + this._camFwd.x * finalDist, camY, p.y + this._camFwd.z * finalDist);
-      const lookAt = new THREE.Vector3(p.x + dirX * 2, eyeH, p.y + dirZ * 2);
+      this._lookAt.set(p.x + dirX * 2, eyeH, p.y + dirZ * 2);
+      const lookAt = this._lookAt;
       this.camera.rotation.order = 'YXZ';
       const dx = lookAt.x - this.camera.position.x, dy = lookAt.y - this.camera.position.y, dz = lookAt.z - this.camera.position.z;
       this.camera.rotation.y = Math.atan2(dx, dz) + Math.PI;
