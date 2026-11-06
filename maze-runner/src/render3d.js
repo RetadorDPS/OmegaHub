@@ -379,7 +379,9 @@ export class Renderer {
     });
     const packMat = new THREE.MeshStandardMaterial({ map: packTex, roughness: 0.95 });
     const bag = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.44, 0.2), packMat);
-    bag.position.set(0, 1.05, 0.26);
+    // +Z local es hacia DELANTE (medido en vivo), así que la mochila va en -Z
+    // para quedar en la espalda, no en el pecho.
+    bag.position.set(0, 1.05, -0.26);
 
     g.add(body, head, bag);
     g.userData.body = body; g.userData.head = head; g.userData.bag = bag;
@@ -577,7 +579,12 @@ export class Renderer {
 
     if (this.mode === 'first') {
       this.camera.position.set(p.x, eyeH + bob, p.y);
-      this.camera.rotation.y = -p.dir;
+      // ¡OJO! -p.dir a secas apunta la cámara 90° a un lado de hacia donde
+      // de verdad camina el jugador (medido en vivo, no a mano): con sólo
+      // -p.dir, lo que ves "al frente" en pantalla es en realidad el strafe
+      // izquierdo físico — exactamente el "las direcciones están
+      // intercambiadas" que reportaron. Hace falta el -π/2 extra.
+      this.camera.rotation.y = -p.dir - Math.PI / 2;
       this.camera.rotation.x = p.pitch;
       this.charGroup.visible = false;
     } else {
