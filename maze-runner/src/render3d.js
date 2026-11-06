@@ -221,6 +221,11 @@ export class Renderer {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = false;
+    // tonemap cinematográfico: comprime altas luces y da más carácter al
+    // color sin coste extra real (es un remapeo final por píxel, no un
+    // efecto de postproceso aparte) — mismo gasto, mejor aspecto.
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.5;
 
     this.camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.06, 130);
     this.camera.rotation.order = 'YXZ';
@@ -255,7 +260,7 @@ export class Renderer {
     this.entitySprites = new Map(); // entidad -> THREE.Sprite
     this.beaconSprite = null;
     this.flarePool = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 2; i++) {
       const pl = new THREE.PointLight(0xffac55, 0, 9, 1.7);
       this.scene.add(pl);
       this.flarePool.push(pl);
@@ -299,8 +304,10 @@ export class Renderer {
     this.scene.add(this.sunTarget);
     this.sun.target = this.sunTarget;
     this.scene.add(this.sun);
-    this.ambient = new THREE.AmbientLight(0xffffff, 0.18);
-    this.scene.add(this.ambient);
+    // sin AmbientLight aparte: una luz uniforme más en el bucle de
+    // fragmentos del shader por cada píxel de la pantalla, por algo que la
+    // hemisférica ya puede cubrir subiendo su intensidad base — un ahorro
+    // fijo en cada fotograma, siempre, no sólo cuando hay poca luz.
 
     this.flashTarget = new THREE.Object3D();
     this.flashTarget.position.set(0, 0, -1);
@@ -328,11 +335,22 @@ export class Renderer {
     return t;
   }
 
+  /** Crea un miembro (brazo/pierna) que gira desde su articulación (hombro o
+      cadera) en vez de desde su propio centro, colgando hacia abajo desde un
+      pivote — así el balanceo al caminar se ve como un gozne real. */
+  _limb(pivotX, pivotY, pivotZ, geo, mat, length) {
+    const pivot = new THREE.Object3D();
+    pivot.position.set(pivotX, pivotY, pivotZ);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.y = -length / 2;
+    pivot.add(mesh);
+    return pivot;
+  }
+
   _buildCharacter() {
     const g = new THREE.Group();
 
-    // torso: chaqueta de faena verde musgo con cinturón y cremallera, UV
-    // cilíndrica de la cápsula -> una franja horizontal = una vuelta.
+    // chaqueta de faena verde musgo con cinturón y cremallera
     const jacketTex = this._charCanvasTex(128, (ctx, s) => {
       ctx.fillStyle = '#4a5340'; ctx.fillRect(0, 0, s, s * 0.62);
       ctx.fillStyle = '#39402f'; ctx.fillRect(0, s * 0.62, s, s * 0.1);
@@ -348,27 +366,53 @@ export class Renderer {
       ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = Math.max(1, s * 0.02);
       ctx.beginPath(); ctx.moveTo(0, s * 0.62); ctx.lineTo(s, s * 0.62); ctx.stroke();
     });
-    const jacket = new THREE.MeshStandardMaterial({ map: jacketTex, roughness: 0.92 });
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 0.72, 5, 10), jacket);
-    body.position.y = 1.0;
+    const jacket = new THREE.MeshStandardMaterial({ map: jacketTex, roughness: 0.9 });
 
-    // cabeza: capucha/bandana oscura + rostro simple, UV esférica equirrect.
-    const headTex = this._charCanvasTex(96, (ctx, s) => {
-      ctx.fillStyle = '#caa177'; ctx.fillRect(0, 0, s, s);
-      ctx.fillStyle = '#2e2a24'; ctx.fillRect(0, 0, s, s * 0.4);
-      ctx.fillStyle = '#231f1a'; ctx.fillRect(0, s * 0.33, s, s * 0.09);
-      ctx.fillStyle = '#20201c';
-      ctx.fillRect(s * 0.28, s * 0.5, s * 0.1, s * 0.07);
-      ctx.fillRect(s * 0.62, s * 0.5, s * 0.1, s * 0.07);
-      ctx.strokeStyle = 'rgba(40,25,15,0.5)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(s * 0.38, s * 0.66); ctx.lineTo(s * 0.62, s * 0.66); ctx.stroke();
+    const pantsTex = this._charCanvasTex(64, (ctx, s) => {
+      ctx.fillStyle = '#332e28'; ctx.fillRect(0, 0, s, s);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      for (let i = 0; i < 70; i++) ctx.fillRect(Math.random() * s, Math.random() * s, 1.4, 1.4);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, s); ctx.stroke();
     });
-    const headMat = new THREE.MeshStandardMaterial({ map: headTex, roughness: 0.88 });
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 16, 14), headMat);
-    head.position.y = 1.56;
-    head.rotation.y = Math.PI / 2;
+    const pants = new THREE.MeshStandardMaterial({ map: pantsTex, roughness: 0.95 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0xc89468, roughness: 0.85 });
+    const boot = new THREE.MeshStandardMaterial({ color: 0x1c1712, roughness: 0.8 });
+    const hairMat = new THREE.MeshStandardMaterial({ color: 0x2a241c, roughness: 0.9 });
 
-    // mochila con correas y bolsillo lateral (caja: UV planar, una cara basta)
+    // torso: caja ligeramente ahusada (más ancha de hombros) en vez de una
+    // cápsula sin aristas — una silueta cuadrada se lee como "persona" mucho
+    // mejor que un blob redondeado.
+    const torsoGeo = new THREE.BoxGeometry(0.46, 0.5, 0.26);
+    const torso = new THREE.Mesh(torsoGeo, jacket);
+    torso.position.y = 1.08;
+
+    // cabeza: caja con una cara pintada SÓLO en la cara +Z (medido en vivo
+    // que +Z local es "adelante"), así no hay que adivinar una costura UV
+    // esférica — la cara queda garantizada mirando hacia donde caminas.
+    const faceTex = this._charCanvasTex(64, (ctx, s) => {
+      ctx.fillStyle = '#c89468'; ctx.fillRect(0, 0, s, s);
+      ctx.fillStyle = '#241f18';
+      ctx.beginPath(); ctx.ellipse(s * 0.33, s * 0.46, s * 0.09, s * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(s * 0.67, s * 0.46, s * 0.09, s * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#17130e';
+      ctx.fillRect(s * 0.26, s * 0.3, s * 0.16, s * 0.045);
+      ctx.fillRect(s * 0.58, s * 0.3, s * 0.16, s * 0.045);
+      ctx.strokeStyle = 'rgba(30,18,10,0.65)'; ctx.lineWidth = s * 0.035; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(s * 0.4, s * 0.72); ctx.lineTo(s * 0.6, s * 0.72); ctx.stroke();
+      ctx.strokeStyle = 'rgba(140,95,60,0.4)'; ctx.lineWidth = s * 0.03;
+      ctx.beginPath(); ctx.moveTo(s * 0.5, s * 0.5); ctx.lineTo(s * 0.5, s * 0.6); ctx.stroke();
+    });
+    const faceMat = new THREE.MeshStandardMaterial({ map: faceTex, roughness: 0.85 });
+    // orden de caras de BoxGeometry: +X,-X,+Y,-Y,+Z,-Z — el índice 4 es +Z (adelante)
+    const headMats = [skin, skin, hairMat, skin, faceMat, skin];
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), headMats);
+    head.position.y = 1.56;
+    // mechón/capucha sobresaliendo por arriba, para que no sea un cubo liso
+    const hairCap = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.32), hairMat);
+    hairCap.position.y = 1.56 + 0.19;
+
+    // mochila: en -Z local (la espalda, confirmado en vivo)
     const packTex = this._charCanvasTex(96, (ctx, s) => {
       ctx.fillStyle = '#5c4a30'; ctx.fillRect(0, 0, s, s);
       ctx.fillStyle = '#4a3b26'; ctx.fillRect(s * 0.1, s * 0.55, s * 0.8, s * 0.35);
@@ -378,27 +422,53 @@ export class Renderer {
       ctx.fillRect(s * 0.4, s * 0.28, s * 0.2, s * 0.14);
     });
     const packMat = new THREE.MeshStandardMaterial({ map: packTex, roughness: 0.95 });
-    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.44, 0.2), packMat);
-    // +Z local es hacia DELANTE (medido en vivo), así que la mochila va en -Z
-    // para quedar en la espalda, no en el pecho.
-    bag.position.set(0, 1.05, -0.26);
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.4, 0.18), packMat);
+    bag.position.set(0, 1.1, -0.22);
 
-    g.add(body, head, bag);
-    g.userData.body = body; g.userData.head = head; g.userData.bag = bag;
+    // brazos y piernas: cada uno cuelga de un pivote en el hombro/cadera, así
+    // se pueden balancear de verdad al caminar en vez de quedar pegados.
+    const armGeo = new THREE.CylinderGeometry(0.055, 0.065, 0.5, 8);
+    const legGeo = new THREE.CylinderGeometry(0.075, 0.085, 0.58, 8);
+    const armL = this._limb(0.27, 1.32, 0, armGeo, jacket, 0.5);
+    const armR = this._limb(-0.27, 1.32, 0, armGeo, jacket, 0.5);
+    const legL = this._limb(0.13, 0.82, 0, legGeo, pants, 0.58);
+    const legR = this._limb(-0.13, 0.82, 0, legGeo, pants, 0.58);
+    const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.22), boot);
+    bootL.position.set(0, -0.58 - 0.05, 0.03); legL.children[0].add(bootL);
+    const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.1, 0.22), boot);
+    bootR.position.set(0, -0.58 - 0.05, 0.03); legR.children[0].add(bootR);
+    const handL = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), skin);
+    handL.position.y = -0.5 / 2 - 0.03; armL.children[0].add(handL);
+    const handR = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), skin);
+    handR.position.y = -0.5 / 2 - 0.03; armR.children[0].add(handR);
+
+    g.add(torso, head, hairCap, bag, armL, armR, legL, legR);
+    g.userData.armL = armL; g.userData.armR = armR; g.userData.legL = legL; g.userData.legR = legR;
+    g.userData.torso = torso; g.userData.head = head; g.userData.hairCap = hairCap;
     return g;
   }
 
-  /** Vende movimiento sin esqueleto: balanceo vertical + leve vaivén lateral
-      sincronizados con el mismo ciclo de paso que usa la cámara en 1ª persona. */
+  /** Ciclo de paso real sin esqueleto: piernas y brazos en contrafase
+      (opuestos en pares, como al caminar/correr), más balanceo del torso. */
   _animateCharacter(p) {
     const g = this.charGroup;
     if (!g.visible) return;
+    const u = g.userData;
     const walking = p.moving;
-    const bobY = walking ? Math.sin(p.bob) * (p.running ? 0.05 : 0.03) : Math.sin(p.bob * 0.4) * 0.01;
-    const lean = walking ? Math.sin(p.bob) * (p.running ? 0.09 : 0.05) : 0;
+    const amp = p.running ? 0.75 : 0.45;
+    const ph = walking ? p.bob : 0;
+    const swing = Math.sin(ph) * amp;
+
+    u.legL.rotation.x = swing;
+    u.legR.rotation.x = -swing;
+    u.armL.rotation.x = -swing * 0.85;
+    u.armR.rotation.x = swing * 0.85;
+
+    const bobY = walking ? Math.abs(Math.sin(ph)) * (p.running ? 0.06 : 0.035) : Math.sin(ph * 0.4) * 0.01;
+    const lean = walking ? Math.sin(ph) * (p.running ? 0.05 : 0.03) : 0;
     g.position.y = Math.max(0, bobY);
     g.rotation.z = lean;
-    g.rotation.x = walking ? Math.cos(p.bob) * 0.03 : 0;
+    g.rotation.x = walking ? (p.running ? 0.1 : 0.04) : 0; // se inclina hacia delante al moverse
   }
 
   /* ---------------------------------------------------------- API pública */
@@ -645,11 +715,13 @@ export class Renderer {
 
     // three.js >= r155 usa unidades fotométricas (lux/candela): valores bajos
     // se ven casi negros con MeshStandardMaterial, de ahí la escala generosa.
-    this.hemi.intensity = f === FL.UNDER ? 1.1 : (1.1 + 1.6 * dayFactor) * adaptMul;
-    this.sun.intensity = f === FL.UNDER ? 0 : 5.6 * dayFactor;
+    // La antigua AmbientLight se fundió aquí dentro (una luz uniforme menos
+    // que evaluar por píxel en cada fotograma, mismo resultado visual).
+    const ambientEq = Math.max(0.5, bl.amb * 1.8);
+    this.hemi.intensity = (f === FL.UNDER ? 1.1 : 1.1 + 1.6 * dayFactor) * adaptMul + ambientEq * adaptMul * 0.55;
+    this.sun.intensity = f === FL.UNDER ? 0 : 7.2 * dayFactor;
     this.sun.position.set(p.x + 20, 40, p.y + 14);
     this.sunTarget.position.set(p.x, 0, p.y);
-    this.ambient.intensity = Math.max(0.5, bl.amb * 1.8) * adaptMul;
 
     const flashOn = p.flashOn && p.battery > 0;
     this.flash.intensity = flashOn ? 14 : 0;
