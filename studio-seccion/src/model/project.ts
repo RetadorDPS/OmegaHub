@@ -191,5 +191,6 @@ export function migrateProject(raw: unknown): Project {
     rooms: Array.isArray(p.rooms) ? p.rooms : [],
     finishes: { ...DEFAULT_FINISHES, ...(p.finishes ?? {}) },
     presentation: { ...DEFAULT_PRESENTATION, ...(p.presentation ?? {}) },
+    ...(p.model ? { model: p.model } : {}),
   };
 }

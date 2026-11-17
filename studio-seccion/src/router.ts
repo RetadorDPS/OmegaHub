@@ -8,7 +8,8 @@ export type Route =
   | { name: 'proyecto'; id: string; view: 'plano' | '3d' }
   | { name: 'ver'; token: string }
   | { name: 'edificio' }
-  | { name: 'piso'; id: string };
+  | { name: 'piso'; id: string }
+  | { name: 'modelo'; id: string };
 
 export function parseRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
@@ -17,6 +18,7 @@ export function parseRoute(hash: string): Route {
   if (parts[0] === 'ver' && parts[1]) return { name: 'ver', token: parts[1] };
   if (parts[0] === 'edificio' && parts[1]) return { name: 'piso', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'edificio') return { name: 'edificio' };
+  if (parts[0] === 'modelo' && parts[1]) return { name: 'modelo', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'proyecto' && parts[1]) {
     return { name: 'proyecto', id: decodeURIComponent(parts[1]), view: parts[2] === '3d' ? '3d' : 'plano' };
   }
@@ -37,6 +39,8 @@ export function hrefFor(route: Route): string {
       return '#/edificio';
     case 'piso':
       return `#/edificio/${encodeURIComponent(route.id)}`;
+    case 'modelo':
+      return `#/modelo/${encodeURIComponent(route.id)}`;
     default:
       return '#/';
   }

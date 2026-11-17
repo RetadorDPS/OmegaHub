@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createProject } from '../model/project';
 import { hrefFor, navigate } from '../router';
-import { deleteProject, listProjects, saveProject, storageEstimate, type ProjectSummary } from '../storage/db';
+import { deleteProject, listProjects, savePlanFile, saveProject, storageEstimate, type ProjectSummary } from '../storage/db';
+import { GlbError, inspectGlb } from '../editor/glbFile';
 
 function Thumbnail({ outline }: { outline: ProjectSummary['outline'] }) {
   if (outline.length === 0) {
@@ -65,6 +66,21 @@ export default function ProjectsPage() {
     }
   };
 
+  const glbInput = useRef<HTMLInputElement>(null);
+  const importGlb = async (file: File) => {
+    setError(null);
+    try {
+      const data = await file.arrayBuffer();
+      inspectGlb(file.name, data);
+      const project = { ...createProject(file.name.replace(/\.glb$/i, '') || 'Modelo 3D'), model: { fileName: file.name, bytes: data.byteLength, units: 'm' as const } };
+      await saveProject(project);
+      await savePlanFile({ projectId: project.id, name: file.name, mime: 'model/gltf-binary', data });
+      navigate({ name: 'modelo', id: project.id });
+    } catch (e) {
+      setError(e instanceof GlbError ? e.message : (e as Error).message || 'No se pudo importar el modelo.');
+    }
+  };
+
   const remove = async (id: string) => {
     try {
       await deleteProject(id);
@@ -119,6 +135,24 @@ export default function ProjectsPage() {
           </button>
         </form>
         <p className="projects__scope">
+          ¿Ya tienes el modelo 3D hecho en SketchUp, Revit o Blender?{' '}
+          <button type="button" className="link" data-testid="importar-glb" onClick={() => glbInput.current?.click()}>
+            Importar un archivo GLB
+          </button>
+          <input
+            ref={glbInput}
+            type="file"
+            accept=".glb,model/gltf-binary"
+            className="sr-only"
+            data-testid="archivo-glb"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) void importGlb(f);
+            }}
+          />
+        </p>
+        <p className="projects__scope">
           Esta versión trabaja con proyectos de <b>una planta</b> trazados por ti sobre el plano. No convierte planos automáticamente ni importa DWG, DXF
           o IFC.
         </p>
@@ -147,11 +181,11 @@ export default function ProjectsPage() {
           <ul className="cards">
             {projects.map((p) => (
               <li key={p.id} className="card" data-testid="tarjeta-proyecto">
-                <a href={hrefFor({ name: 'proyecto', id: p.id, view: 'plano' })} className="card__open" data-testid="abrir-proyecto">
+                <a href={hrefFor(p.isModel ? { name: 'modelo', id: p.id } : { name: 'proyecto', id: p.id, view: 'plano' })} className="card__open" data-testid="abrir-proyecto">
                   <Thumbnail outline={p.outline} />
                   <span className="card__name">{p.name}</span>
                   <span className="card__meta">
-                    {p.walls} muros · {p.rooms} estancias · {when(p.updatedAt)}
+                    {p.isModel ? 'Modelo 3D importado' : `${p.walls} muros · ${p.rooms} estancias`} · {when(p.updatedAt)}
                   </span>
                 </a>
                 {confirming === p.id ? (

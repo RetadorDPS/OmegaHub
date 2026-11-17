@@ -1,17 +1,20 @@
 # Studio Sección
 
-Aplicación web para presentar proyectos de arquitectura como recorridos inmersivos. Tiene dos puertas de entrada desde la portada:
+Aplicación web para presentar proyectos de arquitectura e inmuebles como recorridos 3D. **En producción: <https://studio-seccion.vercel.app>.**
 
-- **Explorar el proyecto de muestra** — *Casa Mirador*, una vivienda original de una planta con visita guiada, exploración libre, maqueta y obra por etapas.
-- **Crear desde mi plano** — subes un PDF, PNG o JPG, calibras la escala, trazas muros, huecos, losa y estancias, y obtienes **otro** modelo 3D, el de tu plano, que puedes recorrer a pie.
+Desde la portada hay tres entradas:
 
-Interfaz en español. Sin cuentas, sin claves y sin servicios de terceros: todo ocurre en el navegador.
+- **Entrar al proyecto** — *Villa Mirador*, una villa de muestra de 187 m² con piscina: visita guiada, exploración libre a pie, maqueta, obra por etapas, foto realista y vídeo.
+- **Subir un plano** — subes un PDF, PNG o JPG de una planta, calibras la escala y trazas muros, huecos, losa y estancias. Obtienes **otro** modelo 3D, el de tu plano, que puedes recorrer, amueblar (de forma ilustrativa) y compartir por enlace.
+- **Ver una promoción de pisos** — *Residencial Alameda*, un edificio de ejemplo con 12 viviendas. El cliente elige su piso en la fachada y entra a recorrerlo a su altura real.
+
+Interfaz en español. Sin cuentas, sin claves y sin servidor propio: el trabajo ocurre en el navegador.
 
 ![Portada](docs/capturas/portada.png)
 
 | Interior de la demo | Proyecto propio (maqueta) |
 | --- | --- |
-| ![Salón de Casa Mirador](docs/capturas/interior-salon.png) | ![Maqueta del plano en L](docs/capturas/proyecto-propio-maqueta.png) |
+| ![Salón de Villa Mirador](docs/capturas/interior-salon.png) | ![Maqueta del plano en L](docs/capturas/proyecto-propio-maqueta.png) |
 
 | Editor del plano | Obra por etapas |
 | --- | --- |
@@ -88,27 +91,36 @@ Regenera el plano de prueba en `public/ejemplos/`.
 
 ---
 
-## Recorrido de validación (dos minutos)
+## Recorrido de validación
 
-**1. La casa de muestra**
+**1. La villa de muestra**
 
-1. Portada → **Entrar al proyecto**. Abre sin iniciar sesión, en el capítulo *Exterior*.
-2. Pulsa **▸** (o Espacio) o avanza con **›**, las flechas ← → o la rueda sobre la escena: *Exterior → Acercamiento → Terraza → Salón → Dormitorio*.
-3. A mitad de un tramo pulsa pausa y después **Explorar libre**: sigues en el mismo punto, con la insignia «Modo libre». Arrastra para mirar; camina con W A S D o las flechas (en táctil, con el mando). Los muros y la cristalera fija te paran; la corredera de la terraza y las puertas, no.
-4. **Volver a la guía** te devuelve al capítulo más cercano.
-5. **Maqueta** retira la cubierta y rotula estancias y cotas de muros.
-6. **Obra** → *Plano → Trazado y base → Estructura → Cerramientos y cubierta → Acabados*. Avanza, retrocede o salta a cualquier etapa: es la misma casa con geometría distinta en cada una.
+1. Portada → **Entrar al proyecto**. Abre sin iniciar sesión, en *Exterior*.
+2. Avanza con **▸**, **›**, las flechas ← → o la rueda sobre la escena: *Exterior → Acercamiento → Terraza → Salón → Cocina → Dormitorio*. Los tramos interiores entran por la corredera, cruzan el paso al pasillo y la puerta del dormitorio.
+3. Pausa a mitad de un tramo y pulsa **Explorar libre**: sigues en el mismo punto. Camina con W A S D, las flechas o el mando táctil. Muros, cristaleras fijas y piscina te paran; puertas y corredera, no.
+4. **Maqueta** retira la cubierta. **Obra** recorre *Plano → Trazado y base → Estructura → Cerramientos y cubierta → Acabados*.
+5. **Foto realista** calcula el encuadre actual con trazado de rayos y permite descargarlo en JPG. **Grabar vídeo** reproduce la visita y descarga el vídeo.
 
 **2. Tu propio plano**
 
-1. Portada → **Subir un plano** → escribe un nombre → **Crear proyecto**.
+1. Portada → **Subir un plano** → nombre → **Crear proyecto**.
 2. Sube `public/ejemplos/plano-en-L.pdf` o `plano-en-L.png` (o pulsa «Plano de ejemplo»).
-3. **Escala**: marca los dos extremos de la cota roja «REFERENCIA DE ESCALA · 4,00 m», escribe `4` y **Aplicar escala**.
-4. **Muro**: haz clic en las seis esquinas del contorno en L y vuelve al primer punto para cerrarlo. Después traza el tabique interior (de arriba abajo, 4 m).
-5. **Puerta**: clic sobre el tabique. **Losa** → *Proponer desde los muros*. **Estancia**: clic dentro de una habitación y ponle nombre.
-6. **Generar 3D**: exterior → maqueta sin cubierta → **Libre** → entra por la estancia. Pasas por la puerta y no por el muro.
-7. **Volver al plano**, selecciona la puerta, cambia «Distancia al inicio del muro» y vuelve a generar: el hueco y la colisión se han movido.
-8. Recarga la página o vuelve a *Mis proyectos*: el proyecto sigue ahí con el plano, la escala y los cambios.
+3. **Escala**: marca los extremos de la cota «REFERENCIA DE ESCALA · 4,00 m», escribe `4` y **Aplicar escala**.
+4. **Muro**: clic en las seis esquinas del contorno en L y vuelve al primero para cerrarlo; traza el tabique interior.
+5. **Puerta** sobre el tabique, **Losa** → *Proponer desde los muros*, **Estancia** en cada habitación con su nombre (salón, cocina, dormitorio, baño…).
+6. **Generar 3D**: exterior → maqueta → recorrido continuo entre estancias, pasando por las puertas. En el panel de acabados, *Presentación*: amueblar (ilustrativo), cubierta y día/atardecer.
+7. **Compartir** copia un enlace: quien lo abra ve el mismo modelo en su móvil, sin cuenta.
+8. Vuelve al plano, mueve la puerta y genera otra vez: hueco y colisión se mueven. Recarga: todo se conserva.
+
+**3. La promoción de pisos**
+
+1. Portada → **Ver una promoción de pisos**. El edificio muestra la disponibilidad por colores.
+2. Toca un piso en la fachada o en la lista: aparece su ficha (superficie, dormitorios, precio de ejemplo).
+3. **Entrar al piso**: recorrido amueblado a su altura, con salida al balcón y vistas al parque.
+
+**4. Un modelo 3D ya hecho**
+
+*Mis proyectos* → **Importar un archivo GLB** (exportado de SketchUp, Revit, Blender…). Se abre en órbita, con ambiente de día o atardecer, foto realista y captura. Si el archivo viene en centímetros o milímetros se detecta por el tamaño.
 
 ---
 
@@ -126,40 +138,56 @@ Resultados esperados: muros de 8 · 4 · 4 · 3 · 4 · 7 m, losa de 44 m² y ta
 
 ## Qué está implementado
 
-**Casa Mirador**
+**Calidad de imagen**
 
-- Portada con póster local y carga diferida del visor (Three.js no se descarga hasta entrar).
-- Visita guiada exterior → acercamiento → terraza → salón → dormitorio por tramos de curva con puntos intermedios, suavizado de arranque y llegada, altura de ojos de 1,60 m en interiores. Inicio, pausa, avance, retroceso, capítulos por botones, teclado y rueda (solo sobre el visor y solo en modo guía).
-- Exploración libre: órbita exterior y recorrido a pie con colisiones, mando táctil, reinicio de cámara y puntos de entrada seguros. Insignia visible de «Modo libre».
-- Maqueta sin cubierta con nombres de estancia y cotas.
-- Obra por etapas reversible con cinco grupos de geometría: plano/trazado, base, estructura (entramado con cargaderos y viguetas), cerramientos + carpinterías + cubierta, acabados + mobiliario.
-- Acabados predefinidos (paredes, fachada, pavimento) aplicados como color y mapa de detalle del material.
-- Niveles de calidad (alta/media/baja), render bajo demanda (en reposo no se dibuja ningún fotograma), `prefers-reduced-motion` (los travellings pasan a ser fundidos) y aviso claro si no hay WebGL.
+- Iluminación con cielos **HDRI** (selección CC0 de Poly Haven incluida en `@pmndrs/assets`), sol con sombras, luces interiores cálidas y luz de piscina.
+- Posprocesado en calidad media y alta: **oclusión ambiental** (N8AO), antialiasing SMAA, brillo suave en luminarias y mapeo de tonos **AgX**.
+- Texturas procedurales con **mapas de relieve** (juntas de tarima, poro del revoco y del hormigón), repetidas por metros reales.
+- **Foto realista**: trazado de rayos progresivo (three-gpu-pathtracer) del encuadre actual, con barra de progreso real y descarga en JPG.
+- **Guardar imagen** de cualquier vista y **Grabar vídeo** de la visita guiada (MP4 o WebM según el navegador).
 
-**Crear desde mi plano (una planta)**
+**Villa Mirador** (sustituye a la casa pequeña de la primera versión)
 
-- Carga local de PDF (PDF.js, con selector de página), PNG y JPG. Validación por firma binaria, límite de 40 MB y mensajes útiles para archivos inválidos, vacíos, demasiado grandes o protegidos.
-- Fondo 2D con zoom, desplazamiento, pellizco y opacidad. Opción de trazar sin fondo sobre cuadrícula de 1 m.
-- Calibración con dos puntos y una longitud real. Sin calibrar no se muestran cotas ni se puede trazar. Al recalibrar, lo trazado se reajusta al dibujo. La escala se invalida al cambiar de página o de archivo.
-- Muros por clics con imán a extremos, a cuerpo de muro (encuentros en T) y enderezado ortogonal. Largo, grosor y altura editables; mover extremos (las esquinas unidas se mueven juntas), mover y borrar.
-- Puertas y ventanas referidas a su muro por posición y dimensiones; se arrastran a lo largo del muro. No se aceptan huecos fuera de muro, superpuestos ni más altos que el muro.
-- Losa por contorno trazado o propuesto desde los muros y validado por el usuario; se rechazan contornos autointersectados.
-- Estancias con nombre y punto de cámara.
-- Deshacer/rehacer de toda la geometría (un arrastre = un paso).
-- Panel de comprobación que explica qué falta y lleva a la herramienta que lo corrige.
-- Generación 3D desde la geometría confirmada: losa extruida, muros con espesor real partidos en macizos, dinteles y antepechos, carpinterías con marco. Visita exterior → maqueta → interior validado; modo libre con colisiones derivadas de los mismos huecos.
-- Etapas para un plano propio: *Trazado → Losa → Muros y huecos → Acabados*, esta última marcada «Ilustrativo». No se inventan cimentación, estructura, cubierta ni mobiliario.
-- Guardado automático en IndexedDB (proyecto + archivo original), reapertura, eliminación y aviso de que el proyecto solo vive en ese navegador.
+- 187 m² en L: salón-comedor-cocina de 88 m² con chimenea e isla, dormitorio principal con baño, segundo dormitorio, estudio y pasillo; terraza de 118 m² con piscina iluminada, comedor exterior y voladizo.
+- Visita guiada de seis capítulos, exploración libre con colisiones (incluida la piscina), maqueta, obra por etapas con entramado de más de 300 piezas, acabados intercambiables y niveles de calidad.
 
-## Qué queda pendiente (no implementado)
+**Crear desde mi plano** (una planta)
 
-- Importación de **GLB** local para proyectos que ya tienen modelo 3D.
-- Importación **DXF / DWG / IFC** y proyectos de varias plantas.
-- Interpretación automática del plano (visión por IA): hoy el plano es solo un fondo para trazar.
-- Publicación, enlace compartible, colaboración y almacenamiento remoto.
-- Cubierta, mobiliario e iluminación interior para planos propios (el modelo generado es deliberadamente una maqueta abierta).
-- Recorrido guiado *continuo* entre estancias de un plano propio: entre puntos interiores se usa un fundido porque no hay un camino comprobado; el desplazamiento se hace en modo libre.
-- Exportación de imágenes o vídeo.
+- PDF (PDF.js, con selector de página), PNG y JPG; calibración por dos puntos; muros con imanes; puertas y ventanas sobre muro; losa trazada o propuesta; estancias con punto de cámara; deshacer/rehacer; validación que explica qué falta; guardado automático en IndexedDB.
+- Modelo 3D con muros de espesor real partidos en macizos, dinteles y antepechos; colisiones derivadas de los mismos huecos.
+- **Recorrido guiado continuo**: entre estancias se busca un camino a pie (A* sobre la rejilla de colisiones) que pasa por las puertas.
+- **Presentación**: amueblado automático *ilustrativo* según el nombre de cada estancia (cama y armario, sofá y mesa, cocina e isla, comedor, lavabo y ducha, escritorio). Los muebles se colocan sin tocar muros, tapar puertas ni ocupar puntos de cámara. También cubierta plana, luz por estancia y ambiente de día o atardecer. Todo se puede desactivar y se marca como ilustrativo.
+- **Compartir por enlace** sin servidor: la geometría, los acabados y la presentación viajan comprimidos en el fragmento de la URL (`#/ver/…`), que no se envía a ningún servidor. Una villa entera ocupa menos de 4.000 caracteres. Quien lo recibe puede guardar una copia propia.
+
+**Residencial Alameda** (uso inmobiliario, datos de ejemplo)
+
+- Edificio de 6 plantas y 12 pisos cuya fachada se genera a partir de los propios pisos, así que las ventanas de fuera son las de dentro.
+- Disponibilidad por colores, lista filtrable, ficha del piso, cámara que vuela hasta la vivienda elegida.
+- Recorrido del piso a su altura real, amueblado, con balcón transitable y vistas a un parque y a la ciudad.
+
+**Modelos GLB importados**
+
+- Validación de cabecera, límite de 150 MB y rechazo explicado de compresiones que exigirían decodificadores externos (Draco, Meshopt, KTX2) o de referencias a archivos externos.
+- Vista en órbita apoyada en el suelo, detección de unidades, ambiente, foto realista y captura. Sin colisiones ni etapas: el archivo no trae datos de navegación.
+
+## Qué queda pendiente
+
+- **DXF, DWG e IFC** y proyectos de **varias plantas** con escaleras.
+- **Interpretación automática del plano** (visión por IA): hoy el plano es un fondo para trazar.
+- **Almacenamiento en la nube y cuentas**: un catálogo real de inmuebles para una inmobiliaria necesita un servidor donde publicar los modelos. El enlace actual ya sirve para enviar un modelo concreto a un cliente.
+- **La vivienda «tal como está»**: un plano da la geometría, no el aspecto actual. Para eso hacen falta fotos 360°, fotogrametría o *Gaussian splatting* capturados en la vivienda (ver *Uso inmobiliario*).
+- Activos fotográficos (texturas escaneadas y mobiliario modelado en alta calidad): no fue posible descargarlos desde este entorno (ver *Decisiones técnicas*).
+
+## Uso inmobiliario
+
+Con lo que hay hoy, una agencia puede:
+
+1. Trazar el plano de cada inmueble (o importar el GLB que le dé el promotor) y elegir acabados y presentación.
+2. Enviar al cliente el **enlace** por WhatsApp o correo. El cliente lo abre en el móvil, ve el exterior, la maqueta y recorre el interior, sin instalar nada.
+3. Adjuntar **fotos realistas** y un **vídeo** del recorrido en el anuncio.
+4. Para obra nueva, montar una promoción como *Residencial Alameda*: el cliente toca su piso en el edificio y entra.
+
+Para un portal con miles de inmuebles harían falta un servidor con catálogo y buscador, y una forma rápida de crear cada modelo. Hay dos caminos: el trazado asistido por IA o la captura con el móvil (360° o *splatting*). El segundo es el que permite enseñar la vivienda tal como está hoy.
 
 ---
 
@@ -171,14 +199,15 @@ src/
   generate/   Generación paramétrica: muros→piezas, carpinterías, entramado, trazado, colisiones
   editor/     Editor 2D: estado + historial, imanes, lienzo SVG, carga de PDF/imagen
   viewer/     Visor 3D: definición de escena, cámara, materiales, texturas, lienzo R3F, interfaz
-  demo/       Casa Mirador: proyecto, piezas propias, recorrido y encuadres
+  demo/       Villa Mirador y Residencial Alameda: proyectos, piezas, recorridos
+  share/      Enlace para compartir (compresión en el fragmento de la URL)
   storage/    IndexedDB (proyectos y archivos)
   pages/      Portada, mis proyectos, espacio de trabajo
 scripts/      Plano de ejemplo, póster y pruebas de extremo a extremo
 ```
 
 - **Una sola fuente de verdad.** El proyecto guarda muros (segmento + grosor + altura), huecos (muro + posición + dimensiones), losa (contorno), estancias (punto de cámara), acabados y calibración. El editor 2D, la geometría 3D y las colisiones se derivan de ese estado; no hay una segunda copia que sincronizar.
-- **La demo usa el mismo modelo.** Casa Mirador es un `Project` más (`demo/casaMirador.ts`), con piezas añadidas (cubierta, terraza, mobiliario, entorno) declaradas como datos. Por eso la casa es la misma en todos los modos y las etapas solo muestran u ocultan capas.
+- **La demo usa el mismo modelo.** Villa Mirador es un `Project` más (`demo/villaMirador.ts`), con piezas añadidas (cubierta, terraza, mobiliario, entorno) declaradas como datos. Por eso la casa es la misma en todos los modos y las etapas solo muestran u ocultan capas.
 - **Huecos reales.** `generate/walls.ts` parte cada muro en macizos, dinteles y antepechos; `generate/collision.ts` usa esos mismos intervalos (todo bloquea salvo las puertas).
 - **Recorrido comprobable.** `viewer/tour.ts` no depende del DOM; `demo/tour.test.ts` muestrea las mismas curvas que dibuja el visor y comprueba que ningún tramo a pie toca muros, vidrios ni muebles.
 - **Esquema versionado** (`schemaVersion: 1`) con `migrateProject`, que rechaza datos ajenos o de versiones futuras con un mensaje legible.
@@ -186,29 +215,30 @@ scripts/      Plano de ejemplo, póster y pruebas de extremo a extremo
 
 ## Decisiones técnicas
 
-- **Stack:** React 19, TypeScript, Vite, Three.js + React Three Fiber, PDF.js, Zustand. El repositorio contenía otro producto (TrendHunter Pro, Next.js), incompatible con este encargo, así que Studio Sección vive aislado en `studio-seccion/` con su propio `package.json`; del proyecto existente solo se tocó `tsconfig.json` para excluir esta carpeta de su comprobación de tipos.
-- **Escena procedural, sin activos externos.** No había un pipeline para modelar y hornear iluminación, de modo que la demo es geometría paramétrica con materiales PBR, texturas dibujadas en canvas con repetición por metros reales, luz ambiente, sol con sombras suaves, luces interiores cálidas y entorno de reflexión generado en local. **No es un render fotorrealista**: faltan iluminación global horneada, texturas fotográficas con relieve, modelos de mobiliario detallados y oclusión ambiental. La dirección artística (atardecer azul, interior cálido, encuadres) está; el acabado de producción exigiría un modelo GLB con lightmaps. Tampoco se promete ese acabado para planos subidos.
-- **Sin posprocesado.** No hay bloom ni reflejos en pantalla; el aspecto depende de la geometría, la luz y el mapeo de tonos.
-- **Acabados editables no horneados:** el color está en el material y la textura es un mapa de detalle casi neutro.
-- **Cortes con fundido** siempre que un cambio de cámara atravesaría un interior (volver a la guía, entrar por una estancia, saltar de capítulo); los cambios entre vistas exteriores vuelan en arco alrededor del edificio.
-- **Privacidad:** el plano y el modelo no salen del navegador. No hay telemetría, fuentes remotas ni CDN; PDF.js y su *worker* se sirven desde la propia app y no siguen recursos externos del archivo.
-- **La losa es exactamente el contorno validado.** Si se traza a ejes de muro, la mitad exterior del muro vuela sobre el canto de la losa; no se corrige automáticamente para no inventar geometría.
+- **Stack:** React 19, TypeScript, Vite, Three.js + React Three Fiber, PDF.js, Zustand, postprocessing + N8AO, three-gpu-pathtracer. Studio Sección vive aislado en `studio-seccion/`; del proyecto existente (TrendHunter Pro) solo se tocó `tsconfig.json` y una nota en su README.
+- **Escena procedural.** La villa, el edificio y el mobiliario se generan en código con materiales PBR. Esto mantiene un único modelo de datos para demo y planos propios, y permite obra por etapas, colisiones y acabados editables. El realismo en tiempo real se apoya en HDRI, oclusión ambiental, relieve y mapeo de tonos; el fotorrealismo, en el modo de trazado de rayos.
+- **Diferencia con los vídeos de referencia.** Esos vídeos son renders precalculados (o generados por IA) con modelos y texturas escaneados de alta resolución. En tiempo real, en un móvil, no se alcanza ese nivel; la foto realista se acerca en imágenes fijas.
+- **Activos fotográficos.** Intenté descargar mobiliario, texturas y HDRI de Poly Haven y ambientCG (CC0). Abrí el acceso de red del entorno, pero el control de permisos de la sesión bloqueó la descarga. Se usaron los HDRI CC0 que ya vienen en un paquete npm. Con esos activos, la calidad del mobiliario y los materiales subiría notablemente.
+- **Render bajo demanda**: en reposo no se dibuja ningún fotograma; la foto realista mantiene el bucle activo solo mientras se calcula.
+- **Privacidad:** planos, modelos y proyectos no salen del navegador; el enlace compartido viaja en el fragmento de la URL. Sin telemetría ni CDN.
 
 ## Procedencia de activos y licencias
 
 | Activo | Origen | Licencia |
 | --- | --- | --- |
-| Casa Mirador (geometría, mobiliario, entorno) | Creada para este proyecto, en código | Propia |
-| Texturas (madera, revoco, hormigón, terrazo, césped…) | Procedurales, `viewer/textures.ts` | Propia |
+| Villa Mirador, Residencial Alameda y mobiliario | Creados para este proyecto, en código | Propia |
+| Texturas y mapas de relieve | Procedurales, `viewer/textures.ts` | Propia |
+| Cielos HDRI (sunset, park, sky…) | Poly Haven vía `@pmndrs/assets` | CC0 |
 | Póster de portada | Captura de la escena de la app (`npm run capturas`) | Propia |
-| Plano de prueba (PDF/PNG) | `scripts/generar-plano-ejemplo.mjs` | Propia |
-| Entorno de reflexión | `RoomEnvironment` de los ejemplos de Three.js, generado en ejecución | MIT |
-| Fraunces, Instrument Sans | Paquetes Fontsource, servidos en local | SIL OFL 1.1 |
-| IBM Plex Mono | Paquete Fontsource, servido en local | SIL OFL 1.1 |
+| Plano de prueba (PDF/PNG) y GLB de prueba | `scripts/` | Propia |
+| Fraunces, Instrument Sans, IBM Plex Mono | Fontsource, servidos en local | SIL OFL 1.1 |
 | Three.js, React Three Fiber, React, Zustand | npm | MIT |
+| postprocessing | npm | Zlib |
+| N8AO | npm | ISC |
+| three-gpu-pathtracer, three-mesh-bvh | npm | MIT |
 | PDF.js (`pdfjs-dist`) | npm | Apache-2.0 |
 
-No se empaquetan vídeos, imágenes ni modelos de terceros.
+No se empaquetan vídeos, imágenes ni modelos de terceros salvo los HDRI CC0 indicados.
 
 ---
 

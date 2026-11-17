@@ -26,6 +26,7 @@ export interface ProjectSummary {
   walls: number;
   rooms: number;
   hasPlan: boolean;
+  isModel: boolean;
   /** Segmentos de muro para la miniatura. */
   outline: { ax: number; ay: number; bx: number; by: number }[];
 }
@@ -156,6 +157,7 @@ export async function listProjects(): Promise<ProjectSummary[]> {
         walls: p.walls.length,
         rooms: p.rooms.length,
         hasPlan: !!p.plan,
+        isModel: !!p.model,
         outline: p.walls.map((w) => ({ ax: w.a.x, ay: w.a.y, bx: w.b.x, by: w.b.y })),
       });
     } catch {

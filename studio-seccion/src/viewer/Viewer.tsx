@@ -4,6 +4,8 @@ import type { Finishes } from '../model/types';
 import { ViewerController } from './controller';
 import { EXTERIOR_WALL_FINISHES, FLOOR_FINISHES, INTERIOR_WALL_FINISHES, type FinishPreset } from './finishes';
 import { MaterialSet } from './materials';
+import { canRecord, downloadBlob, startRecording, type Recording } from './recorder';
+import { PhotoPanel } from './PhotoPanel';
 import { SceneCanvas, hasWebGL } from './SceneCanvas';
 import type { SceneDef } from './sceneDef';
 import { prefersReducedMotion, resetViewerUI, showToast, useViewer, type Mode, type Quality } from './store';
@@ -150,6 +152,39 @@ export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishes
   const controller = useMemo(() => new ViewerController(def), [def]);
   const materials = useMemo(() => new MaterialSet(finishes, def.groundColor), [def]); // eslint-disable-line react-hooks/exhaustive-deps
   const [coarse, setCoarse] = useState(false);
+  const recording = useRef<Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+
+  const stopRecording = async () => {
+    const rec = recording.current;
+    if (!rec) return;
+    recording.current = null;
+    setIsRecording(false);
+    const { blob, ext } = await rec.stop();
+    downloadBlob(blob, `${def.title.replace(/[^\p{L}\p{N}]+/gu, '-')}-recorrido.${ext}`);
+    showToast(`Vídeo guardado (${(blob.size / (1024 * 1024)).toFixed(1).replace('.', ',')} MB).`, 4000);
+  };
+  const startRecordingTour = () => {
+    const canvas = document.querySelector<HTMLCanvasElement>('.viewer__stage canvas');
+    if (!canvas || !canRecord()) {
+      showToast('Este navegador no permite grabar vídeo del lienzo.', 4000);
+      return;
+    }
+    controller.goToStop(0);
+    window.setTimeout(() => {
+      recording.current = startRecording(canvas);
+      setIsRecording(true);
+      controller.play();
+    }, 700);
+  };
+  // La grabación termina sola al acabar la visita.
+  useEffect(() => {
+    if (isRecording && !ui.playing && !ui.moving && ui.stop === def.tour.stops.length - 1) {
+      const t = window.setTimeout(() => void stopRecording(), 1500);
+      return () => window.clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording, ui.playing, ui.moving, ui.stop]);
 
   useEffect(() => {
     resetViewerUI({ stage: 0 });
@@ -390,6 +425,18 @@ export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishes
               <button type="button" className="btn btn--ghost" data-testid="explorar-libre" onClick={() => controller.release()}>
                 Explorar libre
               </button>
+              {webgl && (
+                <button
+                  type="button"
+                  className="btn btn--ghost rec"
+                  data-recording={isRecording}
+                  data-testid="grabar-video"
+                  onClick={() => (isRecording ? void stopRecording() : startRecordingTour())}
+                >
+                  <span className="rec__dot" />
+                  {isRecording ? 'Detener vídeo' : 'Grabar vídeo'}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -570,48 +617,7 @@ export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishes
         </p>
       </aside>
 
-      {ui.photo !== 'off' && (
-        <div className="photo" role="dialog" aria-label="Foto realista" data-testid="panel-foto">
-          <div className="photo__card">
-            <p className="mono photo__kicker">Foto realista · trazado de rayos</p>
-            <p className="photo__status" data-testid="foto-estado">
-              {ui.photoTarget === 0
-                ? 'Preparando la escena…'
-                : ui.photo === 'done'
-                  ? `Listo · ${ui.photoSamples} muestras`
-                  : `Calculando la luz · ${ui.photoSamples} de ${ui.photoTarget} muestras`}
-            </p>
-            <div className="photo__bar" aria-hidden="true">
-              <span style={{ width: `${ui.photoTarget ? Math.min(100, (ui.photoSamples / ui.photoTarget) * 100) : 0}%` }} />
-            </div>
-            <p className="photo__hint">
-              La imagen se afina sola: cuantas más muestras, menos grano. Se calcula en tu dispositivo; en un móvil puede tardar un par de minutos.
-            </p>
-            <div className="photo__actions">
-              <button
-                type="button"
-                className="btn btn--light btn--small"
-                data-testid="descargar-foto"
-                disabled={ui.photoTarget === 0}
-                onClick={() => useViewer.setState({ capture: true, tick: ui.tick + 1 })}
-              >
-                Descargar imagen
-              </button>
-              <button
-                type="button"
-                className="btn btn--ghost btn--small"
-                data-testid="cerrar-foto"
-                onClick={() => {
-                  useViewer.setState({ photo: 'off', photoTarget: 0, photoSamples: 0 });
-                  controller.unfreeze();
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {ui.photo !== 'off' && <PhotoPanel onClose={() => controller.unfreeze()} />}
 
       {ui.toast && (
         <div className="toast" role="status" data-testid="aviso">

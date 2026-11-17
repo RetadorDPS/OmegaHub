@@ -10,6 +10,7 @@ const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const SharedPage = lazy(() => import('./pages/SharedPage'));
 const BuildingPage = lazy(() => import('./pages/BuildingPage'));
 const FlatPage = lazy(() => import('./pages/FlatPage'));
+const ModelPage = lazy(() => import('./pages/ModelPage'));
 
 function Loading({ what }: { what: string }) {
   return (
@@ -57,6 +58,12 @@ export function App() {
       return (
         <Suspense fallback={<Loading what="el piso" />}>
           <FlatPage key={route.id} id={route.id} />
+        </Suspense>
+      );
+    case 'modelo':
+      return (
+        <Suspense fallback={<Loading what="el modelo 3D" />}>
+          <ModelPage key={route.id} id={route.id} />
         </Suspense>
       );
     default:

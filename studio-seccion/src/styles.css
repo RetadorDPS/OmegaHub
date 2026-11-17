@@ -2327,3 +2327,37 @@ body:has(.workspace) {
     border-width: 1px 0 0;
   }
 }
+
+.rec__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e0604a;
+}
+
+.rec[data-recording='true'] {
+  border-color: #e0604a;
+}
+
+.rec[data-recording='true'] .rec__dot {
+  animation: rec-pulse 1s infinite alternate;
+}
+
+@keyframes rec-pulse {
+  to {
+    opacity: 0.25;
+  }
+}
+
+@media (max-width: 820px) {
+  .rec {
+    padding: 0 14px;
+  }
+}
+
+@media (max-width: 820px) {
+  .vfoot__controls {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}

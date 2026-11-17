@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { BASE_URL, launch } from './lib/browser.mjs';
 import { CONTORNO, fraccion, REFERENCIA, TABIQUE } from './lib/plano-ejemplo.mjs';
+import { sampleGlb } from './lib/glb-ejemplo.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const shots = join(root, 'docs', 'capturas');
@@ -62,6 +63,12 @@ const tourSettled = (page) =>
     { timeout: 300000 },
   );
 const text = (page, id) => page.textContent(`[data-testid="${id}"]`);
+/** Abre el panel de acabados solo si está cerrado. */
+async function openFinishes(page) {
+  const open = await page.$('aside.panel[aria-label="Acabados"][data-open="true"]');
+  if (!open) await click(page, 'abrir-acabados');
+  await page.waitForSelector('aside.panel[aria-label="Acabados"][data-open="true"]');
+}
 async function setQuality(page, q) {
   await page.click('[data-testid="abrir-ayuda"]');
   await page.click(`[data-testid="calidad-${q}"]`);
@@ -325,6 +332,7 @@ async function calibrate(page) {
 if (run('plano')) {
   section('Crear desde mi plano · imagen PNG');
   const { context, page } = await newPage();
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin });
   await createProject(page, 'Casa en L');
 
   // Archivo inválido: texto con extensión de imagen.
@@ -431,7 +439,11 @@ if (run('plano')) {
   const lintel = innerModel.pieces.find((p) => p.kind === 'lintel');
   check('la puerta es un hueco real en el muro, con dintel', !!lintel && near(lintel.u1 - lintel.u0, 0.9, 1e-6) && near(lintel.y0, 2.1, 1e-6) && !innerModel.pieces.some((p) => p.kind !== 'lintel' && p.u0 < lintel.u1 - 1e-6 && p.u1 > lintel.u0 + 1e-6));
   check('la visita va de exterior a maqueta y a un interior validado', model.stops[0] === 'Exterior' && model.stops[1] === 'Maqueta' && model.stops.includes('Salón'));
-  check('las etapas solo usan lo definido y marcan lo ilustrativo', !model.stages.some((s) => s.layers.includes('estructura') || s.layers.includes('cubierta') || s.layers.includes('mobiliario')) && model.stages.at(-1).illustrative);
+  check(
+    'las etapas no inventan estructura y marcan como ilustrativo lo añadido',
+    !model.stages.some((s) => s.layers.includes('estructura')) &&
+      model.stages.every((s) => !(s.layers.includes('cubierta') || s.layers.includes('mobiliario')) || s.illustrative),
+  );
 
   await click(page, 'siguiente');
   await tourSettled(page);
@@ -458,10 +470,32 @@ if (run('plano')) {
   const blocked = await walk({ x: wallX - 2, y: doorY + 1.3 });
   check('y no por el muro', blocked.x < wallX - 0.05 - 0.2, `x final = ${blocked.x.toFixed(2)}`);
 
-  // Acabados.
-  await click(page, 'abrir-acabados');
+  // Acabados y presentación.
+  await openFinishes(page);
   await click(page, 'acabado-terrazo');
   await settle(page, 500);
+  const furnished = await page.evaluate(() => (window.__studio.def.furnishing ?? []).filter((f) => f.items > 0).length);
+  check('el modelo se amuebla de forma ilustrativa según el nombre de cada estancia', furnished === 2, `${furnished} estancias`);
+  check('y tiene cubierta y recorrido continuo entre estancias', await page.evaluate(() => !!window.__studio.def.roof && window.__studio.def.tour.legs.at(-1).kind === 'path'));
+
+  // Enlace para compartir: se abre en otra pestaña sin datos locales.
+  await click(page, 'compartir');
+  await page.waitForSelector('[data-testid="aviso"]');
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  check('«Compartir» copia un enlace con el modelo dentro', link.includes('#/ver/v1.') && link.length < 6000, `${link.length} caracteres`);
+  const guest = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const guestPage = await guest.newPage();
+  await guestPage.goto(link);
+  await viewerReady(guestPage);
+  const shared = await guestPage.evaluate(() => ({ title: window.__studio.def.title, walls: window.__studio.def.layouts.length, floor: window.__studio.def.project.finishes.floor }));
+  check('quien recibe el enlace ve el mismo modelo en su móvil, sin cuenta', shared.title === 'Casa en L' && shared.walls === 7 && shared.floor === 'terrazo', JSON.stringify(shared));
+  await guest.close();
+  // Las comprobaciones de paso por la puerta se hacen sin muebles de ejemplo.
+  await openFinishes(page);
+  await click(page, 'pres-amueblar');
+  await page.waitForFunction(() => window.__studio && window.__studio.def.furnishing === undefined, null, { timeout: 30000 });
+  await viewerReady(page);
+  check('el amueblado se puede quitar: el modelo vuelve a ser solo lo trazado', await page.evaluate(() => !window.__studio.def.parts.some((p) => p.layer === 'mobiliario')));
 
   // Cambio de posición de la puerta: se actualizan 3D y colisión.
   await click(page, 'salir');
@@ -571,6 +605,75 @@ if (run('plano')) {
   await page.waitForFunction(() => document.querySelectorAll('[data-testid="tarjeta-proyecto"]').length === 1);
   check('un proyecto se puede eliminar', !(await page.locator('.card__name').allTextContents()).includes('Casa en L (PDF)'));
   check('se aclara que solo está en este dispositivo', (await page.textContent('.projects__list-head')).includes('solo en este dispositivo'));
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
+// 3b. Promoción de pisos (uso inmobiliario)
+// ---------------------------------------------------------------------------
+if (run('edificio')) {
+  section('Residencial Alameda · promoción de pisos');
+  const { context, page } = await newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+  await page.goto(BASE_URL);
+  await page.tap('[data-testid="ver-edificio"]');
+  await page.waitForSelector('[data-testid="lista-pisos"]');
+  check('la promoción lista 12 viviendas con su estado', (await page.locator('.flat-row').count()) === 12);
+  await page.tap('[data-testid="piso-3B"]');
+  await page.waitForSelector('[data-testid="detalle-piso"]');
+  check('al elegir un piso se ve su ficha', (await page.textContent('[data-testid="detalle-piso"]')).includes('3º B'));
+  await page.tap('[data-testid="entrar-piso"]');
+  await viewerReady(page);
+  await setQuality(page, 'baja');
+  const flat = await page.evaluate(() => ({ title: window.__studio.def.title, ground: window.__studio.def.groundY, rooms: window.__studio.def.entryPoints.map((e) => e.id) }));
+  check('se entra al piso a su altura real (3.ª planta, calle 9,3 m más abajo)', flat.title.includes('3º B') && Math.abs(flat.ground + 9.32) < 0.05, JSON.stringify(flat));
+  await page.evaluate(() => window.__studio.controller.enterAt('salon'));
+  await page.waitForFunction(() => window.__studio.controller.debug().mode === 'caminar');
+  await settle(page, 600);
+  const out = await page.evaluate(() => window.__studio.controller.simulateWalk({ x: 9.0, y: 7.4 }, 0, 6));
+  check('se sale al balcón y la barandilla detiene el paso', out.y > 8.6 && out.y < 10.1 - 0.06 - 0.2 + 0.01, `z final = ${out.y.toFixed(2)}`);
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
+// 3c. Foto realista (trazado de rayos)
+// ---------------------------------------------------------------------------
+if (run('foto')) {
+  section('Foto realista');
+  const { context, page } = await newPage({ viewport: { width: 320, height: 180 }, reducedMotion: 'reduce' });
+  await page.goto(`${BASE_URL}#/demo`);
+  await viewerReady(page);
+  await setQuality(page, 'baja');
+  await page.evaluate(() => window.__studio.controller.goToStop(3));
+  await settle(page, 3000);
+  await click(page, 'foto-realista');
+  await page.waitForFunction(() => /Calculando|Listo/.test(document.querySelector('[data-testid="foto-estado"]')?.textContent ?? ''), null, { timeout: 180000 });
+  await page.waitForFunction(() => /(\d+) de/.test(document.querySelector('[data-testid="foto-estado"]')?.textContent ?? '') && +document.querySelector('[data-testid="foto-estado"]').textContent.match(/(\d+) de/)[1] >= 20, null, { timeout: 600000, polling: 2000 });
+  check('el trazado de rayos acumula muestras sobre el encuadre actual', true, await text(page, 'foto-estado'));
+  const [download] = await Promise.all([page.waitForEvent('download', { timeout: 60000 }), click(page, 'descargar-foto')]);
+  check('la imagen se descarga como JPG', download.suggestedFilename().endsWith('.jpg'), download.suggestedFilename());
+  await click(page, 'cerrar-foto');
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
+// 3d. Modelo 3D importado (GLB)
+// ---------------------------------------------------------------------------
+if (run('glb')) {
+  section('Modelo 3D importado (GLB)');
+  const { context, page } = await newPage({ reducedMotion: 'reduce' });
+  await page.goto(`${BASE_URL}#/proyectos`);
+  await page.waitForSelector('[data-testid="proyectos"]');
+  await page.setInputFiles('[data-testid="archivo-glb"]', { name: 'casa.glb', mimeType: 'model/gltf-binary', buffer: Buffer.from('no soy un glb') });
+  await page.waitForSelector('.projects__error');
+  check('un archivo que no es GLB se rechaza con explicación', (await page.textContent('.projects__error')).includes('no es un archivo GLB'));
+  await page.setInputFiles('[data-testid="archivo-glb"]', { name: 'casita.glb', mimeType: 'model/gltf-binary', buffer: sampleGlb() });
+  await page.waitForSelector('[data-testid="visor-modelo"]', { timeout: 60000 });
+  await page.waitForFunction(() => /centímetros/.test(document.querySelector('.toast')?.textContent ?? ''), null, { timeout: 30000 });
+  const label = await page.textContent('.vfoot__label');
+  check('el GLB se abre en órbita y detecta que viene en centímetros', label.includes('9,60 × 7,60 m') && label.includes('3,30 m de alto'), label);
+  await page.goto(`${BASE_URL}#/proyectos`);
+  await page.waitForSelector('[data-testid="tarjeta-proyecto"]');
+  check('queda guardado entre los proyectos como modelo importado', (await page.textContent('[data-testid="proyectos"]')).includes('Modelo 3D importado'));
   await context.close();
 }
 

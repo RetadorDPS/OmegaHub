@@ -24,6 +24,10 @@ export default function WorkspacePage({ id, view }: { id: string; view: 'plano' 
     loadProject(id)
       .then(async (p) => {
         if (!alive) return;
+        if (p.model) {
+          navigate({ name: 'modelo', id: p.id }, true);
+          return;
+        }
         openProject(p);
         savedRevision.current = useEditor.getState().revision;
         setSave({ kind: 'guardado', at: p.updatedAt });

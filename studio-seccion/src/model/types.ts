@@ -116,6 +116,15 @@ export interface Project {
   rooms: Room[];
   finishes: Finishes;
   presentation?: Presentation;
+  /** Si existe, el proyecto es un modelo 3D importado (GLB) y no un trazado. */
+  model?: ImportedModel;
+}
+
+export interface ImportedModel {
+  fileName: string;
+  bytes: number;
+  /** Unidad en la que viene el archivo; el visor lo pasa a metros. */
+  units: 'm' | 'cm' | 'mm';
 }
 
 /** Parte del proyecto que entra en deshacer/rehacer. */
