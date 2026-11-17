@@ -244,29 +244,32 @@ No se empaquetan vídeos, imágenes ni modelos de terceros salvo los HDRI CC0 in
 
 ## Verificación realizada
 
-Ejecutado en este entorno (contenedor Linux, Chromium sin GPU con WebGL por software):
+Ejecutado en este entorno (contenedor Linux, Chromium sin GPU, con WebGL por software):
 
 | Qué | Resultado |
 | --- | --- |
-| `npm test` | 40 pruebas unitarias correctas |
+| `npm test` | 51 pruebas unitarias correctas |
 | `npm run typecheck` | sin errores |
-| `npm run build` | correcto |
-| `npm run e2e` sobre el build de producción | 78 comprobaciones correctas (ver detalle abajo) |
+| `npm run build` | correcto (local y en Vercel) |
+| `npm run e2e`, villa, móvil y movimiento reducido (build local) | 34/34 |
+| `npm run e2e`, plano propio, PDF/JPG, edificio, GLB y editor móvil (build local) | 58/58 |
+| `npm run e2e` contra **https://studio-seccion.vercel.app** | plano propio, PDF y móvil: 46/46 (versión anterior); edificio, foto realista y GLB: 11/11 (versión final) |
 
-Lo que cubren las pruebas de extremo a extremo:
+Qué cubren, además de lo de la primera versión:
 
-- **Demo en escritorio:** portada con las dos entradas; los cinco capítulos en orden; altura de ojos de 1,60 m; retroceso con teclado; pausa a mitad de tramo (la cámara se detiene y deja de dibujarse); paso a modo libre sin cambiar de sitio; caminar con teclado; el muro este y la cristalera fija bloquean, la corredera abierta no; reinicio de cámara; vuelta a la guía; maqueta sin cubierta; cinco etapas con capas distintas, vuelta a una etapa anterior idéntica a la primera vez y nuevo avance.
-- **Demo en móvil (390 × 844, táctil):** botones táctiles, mando para caminar, tamaño del panel inferior.
-- **Movimiento reducido:** el cambio de capítulo es un fundido, sin travelling.
-- **Plano propio:** archivo inválido; PNG, PDF, PDF de dos páginas y JPG; calibración de 4 m; contorno en L (8 · 4 · 4 · 3 · 4 · 7 m); tabique de 4,00 m con la misma cota en editor y modelo; puerta como hueco real con dintel; paso por la puerta y bloqueo en el muro; mover la puerta actualiza 3D y colisión; rechazo de huecos imposibles; deshacer/rehacer; acabados; recarga completa del navegador conservando plano, escala y cambios; proyecto sin estancia válida (se explica qué falta); proyectos separados y eliminación.
-- **Sin WebGL (simulado):** con el contexto 3D bloqueado aparece el mensaje alternativo y el plano 2D sigue accesible.
+- **Villa Mirador:** seis capítulos en orden, altura de ojos, pausa a mitad de tramo sin seguir dibujando, modo libre, colisiones de fachada, cristalera, corredera y piscina, maqueta, cinco etapas reversibles.
+- **Plano propio:** amueblado ilustrativo por estancia, que también se puede quitar; cubierta; recorrido continuo por las puertas; enlace compartido abierto en otro navegador móvil con el mismo modelo.
+- **Residencial Alameda:** lista de 12 viviendas, ficha, entrada al 3.º B a 9,3 m sobre la calle, salida al balcón con barandilla.
+- **Foto realista:** acumulación de muestras y descarga en JPG.
+- **GLB:** rechazo de archivos no válidos, apertura en órbita, detección de centímetros y guardado.
 - **Red:** ninguna petición sale del origen de la app; sin errores de consola.
 
-Durante el desarrollo una comprobación (ajustar el grosor de un muro) falló de forma intermitente en una pasada: el campo numérico podía confirmar el valor anterior si se pulsaba Intro en el mismo instante de teclear. Se corrigió leyendo el valor del propio campo y la batería completa volvió a pasar.
+Durante el desarrollo una comprobación (el grosor de un muro) falló de forma intermitente: el campo numérico podía confirmar el valor anterior si se pulsaba Intro al instante. Se corrigió y las baterías volvieron a pasar.
 
 **Sin verificar** (queda fuera de lo que este entorno permite comprobar):
 
-- **Rendimiento y fluidez en hardware real.** Aquí WebGL corre por software (~2–10 fotogramas por segundo según la calidad), así que no hay medidas reales de FPS en ordenadores ni en móviles. Reproducción: abrir `#/demo`, elegir calidad en el panel de ayuda (`?`) y recorrer la visita.
+- **Rendimiento y fluidez en hardware real.** Aquí WebGL corre por software (1–10 fotogramas por segundo según la calidad), así que no hay medidas reales en ordenadores ni en móviles. Tampoco cuánto tarda la foto realista en un móvil real: aquí, a 320 × 180 px, tardó unos 50 s en preparar la escena y luego avanzó varias muestras por segundo.
+- **Grabación de vídeo.** Implementada con `MediaRecorder`, pero sin prueba automática: con WebGL por software la visita completa tarda demasiado. Reproducción: abrir `#/demo`, elegir calidad en el panel de ayuda (`?`) y recorrer la visita.
 - **Dispositivos táctiles físicos.** El móvil se probó con emulación de Chromium (viewport, eventos táctiles); no en iOS/Android reales.
 - **Safari y Firefox.** Solo se ejecutó Chromium.
 - **Ausencia real de WebGL.** Se probó bloqueando el contexto 3D desde la prueba, no en un equipo que de verdad carezca de él. Reproducción: Chromium con `--disable-gpu --disable-software-rasterizer` y abrir `#/demo`.
