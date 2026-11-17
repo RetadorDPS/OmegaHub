@@ -86,11 +86,13 @@ function useDisposable<T extends { dispose: () => void }>(make: () => T, deps: u
 type RevealKind = 'grow' | 'drop' | 'none';
 
 function Reveal({
+  name,
   visible,
   kind,
   pivotY = 0,
   children,
 }: {
+  name: string;
   visible: boolean;
   kind: RevealKind;
   pivotY?: number;
@@ -130,7 +132,7 @@ function Reveal({
   });
 
   return (
-    <group ref={ref} visible={visible}>
+    <group ref={ref} visible={visible} name={`capa:${name}`}>
       {children}
     </group>
   );
@@ -717,11 +719,15 @@ const REVEAL: Record<Layer, RevealKind> = {
 };
 
 function Driver({ controller }: { controller: ViewerController }) {
-  const { camera, gl, invalidate } = useThree();
+  const { camera, gl, invalidate, scene } = useThree();
   useEffect(() => {
     controller.attach(camera as PerspectiveCamera, gl.domElement, invalidate);
-    return () => controller.detach();
-  }, [controller, camera, gl, invalidate]);
+    controller.scene = scene;
+    return () => {
+      controller.scene = null;
+      controller.detach();
+    };
+  }, [controller, camera, gl, invalidate, scene]);
   useFrame((state, dt) => {
     if (controller.update(dt)) state.invalidate();
   });
@@ -761,7 +767,7 @@ function SceneContents({ def, materials, controller }: { def: SceneDef; material
   }, [mode, stage, quality, showDimensions, tick, invalidate]);
 
   const layer = (name: Layer, extra?: ReactNode) => (
-    <Reveal key={name} visible={visible.has(name)} kind={REVEAL[name]} pivotY={name === 'base' ? def.groundY : 0}>
+    <Reveal key={name} name={name} visible={visible.has(name)} kind={REVEAL[name]} pivotY={name === 'base' ? def.groundY : 0}>
       {byLayer.has(name) && <PartsGroup parts={byLayer.get(name)!} materials={materials} />}
       {extra}
     </Reveal>

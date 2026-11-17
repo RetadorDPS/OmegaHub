@@ -3,7 +3,7 @@
  * cada fotograma y la interfaz le envía órdenes. Devuelve si necesita otro
  * fotograma, de modo que la escena solo se dibuja mientras algo se mueve.
  */
-import { MathUtils, Spherical, Vector3, type PerspectiveCamera } from 'three';
+import { MathUtils, Spherical, Vector3, type Object3D, type PerspectiveCamera } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { DEFAULTS, type Vec2 } from '../model/types';
 import { isFree, moveWithCollisions, nearestFreePoint } from '../generate/collision';
@@ -40,6 +40,8 @@ export class ViewerController {
   private orbit: OrbitControls | null = null;
   private invalidate: () => void = () => {};
   private reduced = prefersReducedMotion();
+  /** Escena de Three.js, solo para inspección en pruebas. */
+  scene: Object3D | null = null;
   private disposers: (() => void)[] = [];
 
   // Visita guiada
@@ -733,6 +735,21 @@ export class ViewerController {
       walk: { ...this.walk },
       fov: c?.fov ?? 0,
     };
+  }
+
+  /** Capas de la escena que están visibles ahora mismo y cuántos objetos dibujan. */
+  debugLayers(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const child of this.scene?.children ?? []) {
+      if (!child.name.startsWith('capa:') || !child.visible) continue;
+      let n = 0;
+      child.traverse((o) => {
+        const mesh = o as Object3D & { isMesh?: boolean; count?: number };
+        if (mesh.isMesh) n += mesh.count ?? 1;
+      });
+      out[child.name.slice(5)] = n;
+    }
+    return out;
   }
 
   /**
