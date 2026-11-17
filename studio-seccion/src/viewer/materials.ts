@@ -6,6 +6,7 @@ import {
   Color,
   DoubleSide,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   type Material,
   type Texture,
@@ -22,11 +23,16 @@ import {
 import {
   artTexture,
   blueprintTexture,
+  concreteNormal,
   concreteTexture,
+  deckNormal,
   deckTexture,
+  finishNormal,
   finishTexture,
   grassTexture,
+  gravelNormal,
   gravelTexture,
+  soffitNormal,
   soffitTexture,
 } from './textures';
 
@@ -35,6 +41,8 @@ interface Spec {
   roughness?: number;
   metalness?: number;
   map?: () => Texture;
+  normal?: () => Texture;
+  normalScale?: number;
   emissive?: string;
   emissiveIntensity?: number;
   flat?: boolean;
@@ -43,18 +51,18 @@ interface Spec {
 const SPECS: Partial<Record<MatKey, Spec>> = {
   'wall-raw': { color: '#cfc9bd', roughness: 1 },
   'wall-cap': { color: '#d8d2c6', roughness: 0.95 },
-  concrete: { color: '#a5a29b', roughness: 0.9, map: concreteTexture },
-  'concrete-dark': { color: '#6b6a67', roughness: 0.9, map: concreteTexture },
+  concrete: { color: '#a5a29b', roughness: 0.9, map: concreteTexture, normal: concreteNormal, normalScale: 0.6 },
+  'concrete-dark': { color: '#6b6a67', roughness: 0.9, map: concreteTexture, normal: concreteNormal, normalScale: 0.6 },
   frame: { color: '#27231f', roughness: 0.45, metalness: 0.55 },
   door: { color: '#9a7652', roughness: 0.6 },
   stud: { color: '#dcb886', roughness: 0.8 },
   roof: { color: '#303236', roughness: 0.85 },
   'roof-raw': { color: '#8a8780', roughness: 0.95 },
-  soffit: { color: '#a8794f', roughness: 0.7, map: soffitTexture },
+  soffit: { color: '#a8794f', roughness: 0.7, map: soffitTexture, normal: soffitNormal, normalScale: 0.5 },
   ceiling: { color: '#f2ede3', roughness: 0.96 },
-  deck: { color: '#99745a', roughness: 0.72, map: deckTexture },
+  deck: { color: '#99745a', roughness: 0.72, map: deckTexture, normal: deckNormal, normalScale: 0.8 },
   ground: { color: '#4a5a44', roughness: 1, map: grassTexture },
-  gravel: { color: '#9a958a', roughness: 1, map: gravelTexture },
+  gravel: { color: '#9a958a', roughness: 1, map: gravelTexture, normal: gravelNormal, normalScale: 1 },
   paver: { color: '#bdb8ad', roughness: 0.9 },
   oak: { color: '#b98d5f', roughness: 0.55 },
   walnut: { color: '#5f4535', roughness: 0.5 },
@@ -80,6 +88,10 @@ const SPECS: Partial<Record<MatKey, Spec>> = {
   'book-a': { color: '#2f3a4a', roughness: 0.8 },
   'book-b': { color: '#c9b79a', roughness: 0.8 },
   'book-c': { color: '#8a4f3a', roughness: 0.8 },
+  'pool-tile': { color: '#86d4e2', roughness: 0.3, emissive: '#2bb3d6', emissiveIntensity: 0.6 },
+  tile: { color: '#dcd6cc', roughness: 0.28 },
+  mirror: { color: '#e4ebee', roughness: 0.02, metalness: 1 },
+  leather: { color: '#7a5034', roughness: 0.55 },
 };
 
 /** Materiales cuya textura se repite por metros y necesitan UV en escala de mundo. */
@@ -131,6 +143,10 @@ export class MaterialSet {
     m.roughness = preset.roughness;
     const t = finishTexture(preset.texture, preset.tile);
     m.map = t ? this.own(t) : null;
+    const n = finishNormal(preset.texture, preset.tile);
+    m.normalMap = n ? this.own(n) : null;
+    const k = preset.texture === 'planks' || preset.texture === 'boards-vertical' ? 0.7 : 0.35;
+    m.normalScale.set(k, k);
     m.needsUpdate = true;
   }
 
@@ -153,6 +169,19 @@ export class MaterialSet {
           side: DoubleSide,
           envMapIntensity: 2.2,
         });
+      case 'water':
+        return new MeshPhysicalMaterial({
+          color: '#2f9fbb',
+          roughness: 0.03,
+          metalness: 0,
+          ior: 1.33,
+          transparent: true,
+          opacity: 0.72,
+          depthWrite: false,
+          envMapIntensity: 1.8,
+          clearcoat: 1,
+          clearcoatRoughness: 0.02,
+        });
       case 'chalk':
         return new MeshBasicMaterial({ color: '#f4f6fb', fog: false });
       case 'blueprint':
@@ -167,6 +196,10 @@ export class MaterialSet {
           flatShading: spec.flat ?? false,
         });
         if (spec.map) m.map = this.own(spec.map());
+        if (spec.normal) {
+          m.normalMap = this.own(spec.normal());
+          m.normalScale.set(spec.normalScale ?? 0.5, spec.normalScale ?? 0.5);
+        }
         if (spec.emissive) {
           m.emissive = new Color(spec.emissive);
           m.emissiveIntensity = spec.emissiveIntensity ?? 1;

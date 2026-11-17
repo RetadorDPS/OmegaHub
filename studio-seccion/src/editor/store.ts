@@ -185,7 +185,7 @@ export function redo() {
 }
 
 /** Cambios que no forman parte de la geometría (nombre, opacidad, acabados, plano). */
-export function patchMeta(patch: Partial<Pick<Project, 'name' | 'planOpacity' | 'finishes' | 'plan'>>) {
+export function patchMeta(patch: Partial<Pick<Project, 'name' | 'planOpacity' | 'finishes' | 'plan' | 'presentation'>>) {
   const { project } = get();
   if (!project) return;
   set((s) => ({ project: { ...project, ...patch, updatedAt: Date.now() }, revision: s.revision + 1 }));

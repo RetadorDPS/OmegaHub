@@ -4,7 +4,7 @@
 //   npm run build && npm run preview     (en otra terminal)
 //   npm run capturas
 //
-// Resultado: public/poster-casa-mirador.jpg (se empaqueta en el siguiente build).
+// Resultado: public/poster-villa-mirador.jpg (se empaqueta en el siguiente build).
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { BASE_URL, launch } from './lib/browser.mjs';
@@ -45,6 +45,6 @@ await quality('alta');
 // Solo la escena: se oculta toda la interfaz del visor.
 await page.addStyleTag({ content: '.viewer > :not(.viewer__stage) { display: none !important; }' });
 await idle();
-await page.screenshot({ path: join(root, 'public', 'poster-casa-mirador.jpg'), type: 'jpeg', quality: 84, timeout: 120000 });
+await page.screenshot({ path: join(root, 'public', 'poster-villa-mirador.jpg'), type: 'jpeg', quality: 84, timeout: 120000 });
 await browser.close();
-console.log('Póster generado: public/poster-casa-mirador.jpg');
+console.log('Póster generado: public/poster-villa-mirador.jpg');

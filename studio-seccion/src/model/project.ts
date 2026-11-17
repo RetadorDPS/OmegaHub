@@ -1,4 +1,5 @@
 import {
+  DEFAULT_PRESENTATION,
   DEFAULTS,
   SCHEMA_VERSION,
   type GeometrySnapshot,
@@ -40,6 +41,7 @@ export function createProject(name: string): Project {
     slab: null,
     rooms: [],
     finishes: { ...DEFAULT_FINISHES },
+    presentation: { ...DEFAULT_PRESENTATION },
   };
 }
 
@@ -188,5 +190,6 @@ export function migrateProject(raw: unknown): Project {
     slab: p.slab ?? null,
     rooms: Array.isArray(p.rooms) ? p.rooms : [],
     finishes: { ...DEFAULT_FINISHES, ...(p.finishes ?? {}) },
+    presentation: { ...DEFAULT_PRESENTATION, ...(p.presentation ?? {}) },
   };
 }

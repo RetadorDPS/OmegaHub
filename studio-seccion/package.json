@@ -22,11 +22,17 @@
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/instrument-sans": "^5.3.0",
     "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@pmndrs/assets": "^1.7.0",
     "@react-three/fiber": "^9.8.2",
+    "n8ao": "^2.1.0",
     "pdfjs-dist": "^6.5.438",
+    "postprocessing": "^6.39.6",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "three": "^0.187.0",
+    "three-gpu-pathtracer": "^0.0.28",
+    "three-mesh-bvh": "^0.9.18",
+    "xatlas-web": "^0.1.0",
     "zustand": "^5.1.0"
   },
   "devDependencies": {

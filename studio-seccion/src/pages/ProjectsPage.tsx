@@ -82,7 +82,7 @@ export default function ProjectsPage() {
           Studio Sección
         </a>
         <a className="link" href={hrefFor({ name: 'demo' })}>
-          Ver Casa Mirador
+          Ver Villa Mirador
         </a>
       </header>
 

@@ -2063,3 +2063,267 @@ body:has(.workspace) {
     display: block;
   }
 }
+
+/* --- Foto realista -------------------------------------------------------- */
+
+.vbar__photo {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px 0 10px;
+  margin-right: 4px;
+  border-radius: 999px;
+  background: var(--copper);
+  color: #1a120b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vbar__photo:hover:not(:disabled) {
+  background: var(--copper-2);
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 16px max(18px, env(safe-area-inset-bottom));
+  /* Bloquea la escena mientras se calcula: la cámara no debe moverse. */
+  background: linear-gradient(0deg, rgba(8, 10, 16, 0.7), rgba(8, 10, 16, 0) 40%);
+}
+
+.photo__card {
+  width: min(460px, 100%);
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(22, 23, 26, 0.92);
+}
+
+.photo__kicker {
+  color: var(--copper-2);
+}
+
+.photo__status {
+  margin-top: 6px;
+  font-family: var(--display);
+  font-size: 20px;
+}
+
+.photo__bar {
+  height: 3px;
+  margin-top: 10px;
+  background: rgba(239, 233, 221, 0.15);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.photo__bar span {
+  display: block;
+  height: 100%;
+  background: var(--copper-2);
+  transition: width 0.3s;
+}
+
+.photo__hint {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.photo__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.viewer[data-photo='on'] .vfoot,
+.viewer[data-photo='on'] .free-badge,
+.viewer[data-photo='on'] .joystick {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .vbar__photo span {
+    display: none;
+  }
+
+  .vbar__photo {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+}
+
+/* --- Residencial Alameda (uso inmobiliario) ------------------------------- */
+
+.building {
+  position: fixed;
+  inset: 0;
+  background: #0b1222;
+  color: var(--ivory);
+}
+
+.building__stage {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.building__bar {
+  grid-template-columns: auto auto auto 1fr auto;
+}
+
+.building__bar .vbar__back {
+  text-decoration: none;
+}
+
+.building__toggle {
+  justify-self: end;
+}
+
+.building__panel {
+  position: absolute;
+  top: calc(var(--bar) + 8px);
+  right: 12px;
+  bottom: 12px;
+  width: min(360px, calc(100% - 24px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(22, 23, 26, 0.9);
+  overflow: hidden;
+}
+
+.building__head {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.building__head h2,
+.flat-detail h2 {
+  margin-top: 4px;
+  font-family: var(--display);
+  font-weight: 420;
+  font-size: 28px;
+}
+
+.building__head .chips {
+  margin-top: 10px;
+}
+
+.flat-list {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.flat-row {
+  display: grid;
+  grid-template-columns: 54px 1fr auto 12px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 10px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 13.5px;
+}
+
+.flat-row:hover,
+.flat-row[data-hover='true'] {
+  background: rgba(239, 233, 221, 0.08);
+}
+
+.flat-row__label {
+  font-family: var(--display);
+  font-size: 18px;
+}
+
+.flat-row__meta {
+  color: var(--muted);
+}
+
+.flat-row__price {
+  font-variant-numeric: tabular-nums;
+}
+
+.flat-row__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.flat-detail {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.flat-detail__kicker {
+  margin-top: 14px;
+  color: var(--copper-2);
+}
+
+.flat-detail__price {
+  margin-top: 4px;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.flat-detail__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin: 14px 0 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+  font-size: 13.5px;
+  color: var(--ivory-2);
+}
+
+.flat-detail__facts b {
+  color: var(--ivory);
+  font-size: 16px;
+}
+
+.flat-detail__status {
+  margin-top: 10px;
+  font-size: 13.5px;
+}
+
+.flat-detail__actions {
+  margin-top: 14px;
+}
+
+.flat-detail__actions .btn {
+  width: 100%;
+}
+
+@media (max-width: 820px) {
+  .building__bar {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .building__bar .tag {
+    display: none;
+  }
+
+  .building__panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 44%;
+    border-radius: 16px 16px 0 0;
+    border-width: 1px 0 0;
+  }
+}

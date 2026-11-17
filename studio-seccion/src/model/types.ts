@@ -87,6 +87,17 @@ export interface Finishes {
   floor: string;
 }
 
+/** Opciones de presentación del modelo 3D (no cambian la geometría del proyecto). */
+export interface Presentation {
+  /** Amueblado automático ilustrativo según el nombre de cada estancia. */
+  furnish: boolean;
+  /** Cubierta plana ilustrativa sobre el contorno de la losa. */
+  roof: boolean;
+  ambience: 'day' | 'dusk';
+}
+
+export const DEFAULT_PRESENTATION: Presentation = { furnish: true, roof: true, ambience: 'dusk' };
+
 export interface Project {
   schemaVersion: number;
   id: string;
@@ -104,6 +115,7 @@ export interface Project {
   slab: Slab | null;
   rooms: Room[];
   finishes: Finishes;
+  presentation?: Presentation;
 }
 
 /** Parte del proyecto que entra en deshacer/rehacer. */

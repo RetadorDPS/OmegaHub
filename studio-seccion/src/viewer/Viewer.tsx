@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { Finishes } from '../model/types';
 import { ViewerController } from './controller';
@@ -5,7 +6,7 @@ import { EXTERIOR_WALL_FINISHES, FLOOR_FINISHES, INTERIOR_WALL_FINISHES, type Fi
 import { MaterialSet } from './materials';
 import { SceneCanvas, hasWebGL } from './SceneCanvas';
 import type { SceneDef } from './sceneDef';
-import { prefersReducedMotion, resetViewerUI, useViewer, type Mode, type Quality } from './store';
+import { prefersReducedMotion, resetViewerUI, showToast, useViewer, type Mode, type Quality } from './store';
 
 export interface ViewerProps {
   def: SceneDef;
@@ -19,6 +20,10 @@ export interface ViewerProps {
   notices?: string[];
   /** Enlace alternativo cuando no hay WebGL. */
   fallback?: { label: string; onClick: () => void };
+  /** Si existe, muestra «Compartir» y devuelve la URL que se comparte. */
+  share?: () => Promise<string>;
+  /** Controles adicionales al principio del panel de acabados. */
+  presentationPanel?: React.ReactNode;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -31,7 +36,7 @@ const MODE_LABEL: Record<Mode, string> = {
   obra: 'Obra',
 };
 
-function Icon({ name }: { name: 'prev' | 'next' | 'play' | 'pause' | 'reset' | 'help' | 'close' | 'back' | 'swatch' }) {
+function Icon({ name }: { name: 'prev' | 'next' | 'play' | 'pause' | 'reset' | 'help' | 'close' | 'back' | 'swatch' | 'camera' | 'spark' }) {
   const paths: Record<string, string> = {
     prev: 'M14.5 5.5 8 12l6.5 6.5',
     next: 'M9.5 5.5 16 12l-6.5 6.5',
@@ -42,6 +47,8 @@ function Icon({ name }: { name: 'prev' | 'next' | 'play' | 'pause' | 'reset' | '
     close: 'M6 6l12 12M18 6 6 18',
     back: 'M11 5.5 4.5 12l6.5 6.5M5 12h14.5',
     swatch: 'M5 5h6v6H5zM13 5h6v6h-6zM5 13h6v6H5zM13 13h6v6h-6z',
+    camera: 'M4 8h3.5L9 5.5h6L16.5 8H20v11H4zM12 16.5a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z',
+    spark: 'M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18',
   };
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -137,7 +144,7 @@ function FinishGroup({
   );
 }
 
-export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishesChange, notices = [], fallback }: ViewerProps) {
+export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishesChange, notices = [], fallback, share, presentationPanel }: ViewerProps) {
   const ui = useViewer();
   const webgl = useMemo(() => hasWebGL(), []);
   const controller = useMemo(() => new ViewerController(def), [def]);
@@ -194,7 +201,7 @@ export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishes
   const activeTab = free ? 'libre' : ui.mode;
 
   return (
-    <div className="viewer" data-mode={ui.mode} data-testid="viewer" data-ready={ui.ready}>
+    <div className="viewer" data-mode={ui.mode} data-testid="viewer" data-ready={ui.ready} data-photo={ui.photo === "off" ? "off" : "on"}>
       <div className="viewer__stage">
         {webgl ? (
           <SceneCanvas def={def} materials={materials} controller={controller} />
@@ -240,6 +247,52 @@ export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishes
               {secondary.label}
             </button>
           )}
+          {share && (
+            <button
+              type="button"
+              className="vbar__text"
+              data-testid="compartir"
+              onClick={async () => {
+                try {
+                  const url = await share();
+                  const nav = navigator as Navigator & { share?: (d: { title: string; url: string }) => Promise<void> };
+                  if (nav.share && window.matchMedia('(pointer: coarse)').matches) {
+                    await nav.share({ title: def.title, url }).catch(() => undefined);
+                    return;
+                  }
+                  await navigator.clipboard.writeText(url);
+                  showToast('Enlace copiado. Quien lo abra verá este recorrido en su navegador, sin cuenta.', 4500);
+                } catch (e) {
+                  showToast((e as Error).message || 'No se pudo preparar el enlace.', 5000);
+                }
+              }}
+            >
+              Compartir
+            </button>
+          )}
+          <button
+            type="button"
+            className="vbar__photo"
+            data-testid="foto-realista"
+            disabled={!webgl || ui.photo !== 'off'}
+            onClick={() => {
+              controller.freeze();
+              useViewer.setState({ photo: 'rendering', photoSamples: 0, helpOpen: false, finishesOpen: false });
+            }}
+          >
+            <Icon name="spark" />
+            <span>Foto realista</span>
+          </button>
+          <button
+            type="button"
+            className="vbar__icon"
+            aria-label="Guardar imagen de la vista"
+            data-testid="capturar"
+            disabled={!webgl}
+            onClick={() => useViewer.setState({ capture: true, tick: ui.tick + 1 })}
+          >
+            <Icon name="camera" />
+          </button>
           <button
             type="button"
             className="vbar__icon"
@@ -473,6 +526,7 @@ export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishes
         <p className="panel__hint">
           Opciones predefinidas para comparar ambientes. {def.kind === 'proyecto' ? 'Se guardan con el proyecto en este dispositivo.' : ''}
         </p>
+        {presentationPanel}
         <FinishGroup title="Paredes interiores" list={INTERIOR_WALL_FINISHES} value={finishes.interiorWall} onPick={(id) => onFinishesChange({ ...finishes, interiorWall: id })} />
         <FinishGroup title="Fachada" list={EXTERIOR_WALL_FINISHES} value={finishes.exteriorWall} onPick={(id) => onFinishesChange({ ...finishes, exteriorWall: id })} />
         <FinishGroup title="Pavimento" list={FLOOR_FINISHES} value={finishes.floor} onPick={(id) => onFinishesChange({ ...finishes, floor: id })} />
@@ -515,6 +569,49 @@ export function Viewer({ def, onExit, exitLabel, secondary, finishes, onFinishes
           iluminación precalculada.
         </p>
       </aside>
+
+      {ui.photo !== 'off' && (
+        <div className="photo" role="dialog" aria-label="Foto realista" data-testid="panel-foto">
+          <div className="photo__card">
+            <p className="mono photo__kicker">Foto realista · trazado de rayos</p>
+            <p className="photo__status" data-testid="foto-estado">
+              {ui.photoTarget === 0
+                ? 'Preparando la escena…'
+                : ui.photo === 'done'
+                  ? `Listo · ${ui.photoSamples} muestras`
+                  : `Calculando la luz · ${ui.photoSamples} de ${ui.photoTarget} muestras`}
+            </p>
+            <div className="photo__bar" aria-hidden="true">
+              <span style={{ width: `${ui.photoTarget ? Math.min(100, (ui.photoSamples / ui.photoTarget) * 100) : 0}%` }} />
+            </div>
+            <p className="photo__hint">
+              La imagen se afina sola: cuantas más muestras, menos grano. Se calcula en tu dispositivo; en un móvil puede tardar un par de minutos.
+            </p>
+            <div className="photo__actions">
+              <button
+                type="button"
+                className="btn btn--light btn--small"
+                data-testid="descargar-foto"
+                disabled={ui.photoTarget === 0}
+                onClick={() => useViewer.setState({ capture: true, tick: ui.tick + 1 })}
+              >
+                Descargar imagen
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost btn--small"
+                data-testid="cerrar-foto"
+                onClick={() => {
+                  useViewer.setState({ photo: 'off', photoTarget: 0, photoSamples: 0 });
+                  controller.unfreeze();
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {ui.toast && (
         <div className="toast" role="status" data-testid="aviso">

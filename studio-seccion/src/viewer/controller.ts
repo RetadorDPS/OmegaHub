@@ -45,6 +45,7 @@ export class ViewerController {
   /** Fotogramas dibujados (para comprobar que en reposo no se renderiza). */
   private frames = 0;
   private disposers: (() => void)[] = [];
+  private frozen = false;
 
   // Visita guiada
   private s = 0;
@@ -160,6 +161,7 @@ export class ViewerController {
     const dt = Math.min(rawDt, 0.1);
     const mode = useViewer.getState().mode;
     let active = false;
+    if (this.frozen) return false;
 
     if (this.fly) {
       active = true;
@@ -522,6 +524,27 @@ export class ViewerController {
     } else this.setMode(mode, true);
   }
 
+  /** Detiene todo movimiento y bloquea la entrada (modo foto). */
+  freeze() {
+    this.frozen = true;
+    this.pause();
+    this.keys.clear();
+    this.joystick.x = this.joystick.y = 0;
+    this.fly = null;
+    if (this.orbit) this.orbit.enabled = false;
+  }
+
+  unfreeze() {
+    this.frozen = false;
+    const mode = useViewer.getState().mode;
+    if (this.orbit && ORBIT_MODES.includes(mode)) {
+      this.orbit.enabled = true;
+      this.orbit.target.copy(this.look);
+      this.orbit.update();
+    }
+    this.invalidate();
+  }
+
   // -------------------------------------------------------------------------
   // Transiciones
   // -------------------------------------------------------------------------
@@ -643,6 +666,7 @@ export class ViewerController {
   // -------------------------------------------------------------------------
 
   private onPointerDown = (e: PointerEvent) => {
+    if (this.frozen) return;
     if (useViewer.getState().mode !== 'caminar' || this.cutting) return;
     this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
     try {
@@ -669,6 +693,7 @@ export class ViewerController {
   };
 
   private onWheel = (e: WheelEvent) => {
+    if (this.frozen) return;
     const mode = useViewer.getState().mode;
     if (mode !== 'guia') return;
     // La rueda avanza capítulos SOLO sobre el visor y en modo presentación.
@@ -684,6 +709,7 @@ export class ViewerController {
   };
 
   private onKeyDown = (e: KeyboardEvent) => {
+    if (this.frozen) return;
     if (isTyping(e) || e.metaKey || e.ctrlKey || e.altKey) return;
     const key = e.key.toLowerCase();
     const st = useViewer.getState();

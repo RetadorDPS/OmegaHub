@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
-import { casaMirador, DEMO_BOUNDS, DEMO_COLLIDERS, DEMO_ENTRY_POINTS, DEMO_PARTS, ROOF } from './casaMirador';
+import { villaMirador, DEMO_BOUNDS, DEMO_COLLIDERS, DEMO_ENTRY_POINTS, DEMO_PARTS, ROOF } from './villaMirador';
 import { demoTour } from './tour';
 import { buildCollisionWorld, firstBlockedPoint, isFree } from '../generate/collision';
 import { poseAt, sampleLegPlan } from '../viewer/tour';
@@ -8,15 +8,15 @@ import { validateProject } from '../model/validate';
 import { layoutWalls } from '../generate/walls';
 import { wallFraming } from '../generate/framing';
 
-const world = buildCollisionWorld(casaMirador, DEMO_COLLIDERS, DEMO_BOUNDS);
+const world = buildCollisionWorld(villaMirador, DEMO_COLLIDERS, DEMO_BOUNDS);
 /** Holgura de la cámara respecto a muros, vidrios y muebles. */
 const CLEARANCE = 0.2;
 
-describe('Casa Mirador', () => {
+describe('Villa Mirador', () => {
   it('es un proyecto válido con el mismo modelo que un plano subido', () => {
-    const v = validateProject(casaMirador);
+    const v = validateProject(villaMirador);
     expect(v.issues.filter((i) => i.level === 'error')).toEqual([]);
-    expect(v.walkableRooms).toHaveLength(casaMirador.rooms.length);
+    expect(v.walkableRooms).toHaveLength(villaMirador.rooms.length);
   });
 
   it('tiene puntos de entrada libres de obstáculos', () => {
@@ -26,8 +26,8 @@ describe('Casa Mirador', () => {
   });
 
   it('genera entramado y piezas etiquetadas por capa', () => {
-    const studs = wallFraming(layoutWalls(casaMirador));
-    expect(studs.length).toBeGreaterThan(120);
+    const studs = wallFraming(layoutWalls(villaMirador));
+    expect(studs.length).toBeGreaterThan(250);
     const layers = new Set(DEMO_PARTS.map((p) => p.layer));
     for (const l of ['base', 'cubierta', 'mobiliario', 'entorno', 'acabados']) {
       expect(layers.has(l as never), l).toBe(true);
@@ -35,13 +35,14 @@ describe('Casa Mirador', () => {
   });
 });
 
-describe('visita guiada de Casa Mirador', () => {
-  it('recorre exterior, acercamiento, terraza, salón y dormitorio', () => {
+describe('visita guiada de Villa Mirador', () => {
+  it('recorre exterior, acercamiento, terraza, salón, cocina y dormitorio', () => {
     expect(demoTour.stops.map((s) => s.id)).toEqual([
       'exterior',
       'acercamiento',
       'terraza',
       'salon',
+      'cocina',
       'dormitorio',
     ]);
     expect(demoTour.legs).toHaveLength(demoTour.stops.length - 1);

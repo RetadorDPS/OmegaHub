@@ -4,7 +4,7 @@
  * por metros reales gracias a las UV en escala de mundo de la geometría.
  * No hay imágenes externas ni activos con licencia de terceros.
  */
-import { CanvasTexture, RepeatWrapping, SRGBColorSpace, type Texture } from 'three';
+import { CanvasTexture, NoColorSpace, RepeatWrapping, SRGBColorSpace, type Texture } from 'three';
 import type { TextureKind } from './finishes';
 
 /** Generador pseudoaleatorio determinista: las texturas son iguales en cada carga. */
@@ -106,7 +106,7 @@ function terrazzo(): HTMLCanvasElement {
 
 /** Tablas horizontales (suelo, tarima) o verticales (fachada de madera). */
 function boards(seed: number, rows: number, vertical: boolean, contrast: number): HTMLCanvasElement {
-  const size = 512;
+  const size = 1024;
   const { c, g } = canvas(size);
   const r = rng(seed);
   const rowH = size / rows;
@@ -202,6 +202,47 @@ function art(seed: number, palette: string[]): HTMLCanvasElement {
 }
 
 const cache = new Map<string, Texture>();
+const sources = new Map<string, HTMLCanvasElement>();
+
+/** Mapa de normales a partir de la luminancia (las juntas y vetas oscuras se leen como hendiduras). */
+function normalFromCanvas(src: HTMLCanvasElement, strength: number): HTMLCanvasElement {
+  const w = src.width;
+  const h = src.height;
+  const data = src.getContext('2d')!.getImageData(0, 0, w, h).data;
+  const lum = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) lum[i] = (data[i * 4] * 0.3 + data[i * 4 + 1] * 0.59 + data[i * 4 + 2] * 0.11) / 255;
+  const { c, g } = canvas(w, h);
+  const out = g.createImageData(w, h);
+  const at = (x: number, y: number) => lum[((y + h) % h) * w + ((x + w) % w)];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * strength;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * strength;
+      const len = Math.hypot(dx, dy, 1);
+      const i = (y * w + x) * 4;
+      out.data[i] = ((-dx / len) * 0.5 + 0.5) * 255;
+      out.data[i + 1] = ((dy / len) * 0.5 + 0.5) * 255;
+      out.data[i + 2] = ((1 / len) * 0.5 + 0.5) * 255;
+      out.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(out, 0, 0);
+  return c;
+}
+
+function linear(c: HTMLCanvasElement, tileMeters: number): CanvasTexture {
+  const t = finish(c, tileMeters);
+  t.colorSpace = NoColorSpace;
+  return t;
+}
+
+const NORMAL_STRENGTH: Record<Exclude<TextureKind, 'none'>, number> = {
+  plaster: 2.2,
+  concrete: 2.6,
+  terrazzo: 1.2,
+  planks: 5,
+  'boards-vertical': 5,
+};
 
 function cached(key: string, make: () => Texture): Texture {
   let t = cache.get(key);
@@ -213,29 +254,47 @@ function cached(key: string, make: () => Texture): Texture {
 }
 
 /** Textura de detalle para un acabado. Se clona por material porque la repetición es propia de cada uno. */
-export function finishTexture(kind: TextureKind, tile: number): Texture | null {
-  if (kind === 'none') return null;
-  return cached(`${kind}@${tile}`, () => {
-    switch (kind) {
-      case 'plaster':
-        return finish(plaster(), tile);
-      case 'concrete':
-        return finish(concrete(), tile);
-      case 'terrazzo':
-        return finish(terrazzo(), tile);
-      case 'planks':
-        return finish(boards(71, 16, false, 34), tile);
-      case 'boards-vertical':
-        return finish(boards(83, 10, true, 40), tile);
-    }
-  });
+function sourceCanvas(kind: Exclude<TextureKind, 'none'>): HTMLCanvasElement {
+  let c = sources.get(kind);
+  if (!c) {
+    c =
+      kind === 'plaster'
+        ? plaster()
+        : kind === 'concrete'
+          ? concrete()
+          : kind === 'terrazzo'
+            ? terrazzo()
+            : kind === 'planks'
+              ? boards(71, 16, false, 34)
+              : boards(83, 10, true, 40);
+    sources.set(kind, c);
+  }
+  return c;
 }
 
-export const deckTexture = () => cached('deck', () => finish(boards(97, 14, false, 30), 1.9));
-export const soffitTexture = () => cached('soffit', () => finish(boards(103, 20, false, 22), 2.2));
+export function finishTexture(kind: TextureKind, tile: number): Texture | null {
+  if (kind === 'none') return null;
+  return cached(`${kind}@${tile}`, () => finish(sourceCanvas(kind), tile));
+}
+
+/** Relieve del acabado: misma repetición que su textura de color. */
+export function finishNormal(kind: TextureKind, tile: number): Texture | null {
+  if (kind === 'none') return null;
+  return cached(`${kind}-n@${tile}`, () => linear(normalFromCanvas(sourceCanvas(kind), NORMAL_STRENGTH[kind]), tile));
+}
+
+const deckCanvas = () => sources.get('deck') ?? (sources.set('deck', boards(97, 14, false, 30)), sources.get('deck')!);
+const soffitCanvas = () => sources.get('soffit') ?? (sources.set('soffit', boards(103, 20, false, 22)), sources.get('soffit')!);
+const gravelCanvas = () => sources.get('gravel') ?? (sources.set('gravel', gravel()), sources.get('gravel')!);
+export const deckTexture = () => cached('deck', () => finish(deckCanvas(), 1.9));
+export const deckNormal = () => cached('deck-n', () => linear(normalFromCanvas(deckCanvas(), 5), 1.9));
+export const soffitTexture = () => cached('soffit', () => finish(soffitCanvas(), 2.2));
+export const soffitNormal = () => cached('soffit-n', () => linear(normalFromCanvas(soffitCanvas(), 4), 2.2));
 export const grassTexture = () => cached('grass', () => finish(grass(), 13));
-export const gravelTexture = () => cached('gravel', () => finish(gravel(), 1.4));
-export const concreteTexture = () => cached('concrete-base', () => finish(concrete(), 3));
+export const gravelTexture = () => cached('gravel', () => finish(gravelCanvas(), 1.4));
+export const gravelNormal = () => cached('gravel-n', () => linear(normalFromCanvas(gravelCanvas(), 4), 1.4));
+export const concreteTexture = () => cached('concrete-base', () => finish(sourceCanvas('concrete'), 3));
+export const concreteNormal = () => cached('concrete-base-n', () => linear(normalFromCanvas(sourceCanvas('concrete'), 2.6), 3));
 export const blueprintTexture = () => cached('blueprint', () => finish(blueprintGrid(), 4));
 export const artTexture = (which: 'a' | 'b') =>
   cached(`art-${which}`, () => {

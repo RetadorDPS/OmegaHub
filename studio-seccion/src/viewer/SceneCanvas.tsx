@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
-  ACESFilmicToneMapping,
   BackSide,
   BoxGeometry,
   Color,
@@ -40,6 +39,8 @@ import { MaterialSet, WORLD_UV_MATS } from './materials';
 import { finalLayers, type LightingPreset, type SceneDef } from './sceneDef';
 import { prefersReducedMotion, useViewer, type Quality } from './store';
 import { labelTexture } from './textures';
+import { loadHdri, type HdriName } from './hdri';
+import { RenderLoop } from './render';
 
 // ---------------------------------------------------------------------------
 // Geometrías compartidas
@@ -201,7 +202,7 @@ function SinglePart({ part, material }: { part: Part; material: Material }) {
   );
 }
 
-function PartsGroup({ parts, materials }: { parts: Part[]; materials: MaterialSet }) {
+export function PartsGroup({ parts, materials }: { parts: Part[]; materials: MaterialSet }) {
   const { batches, singles } = useMemo(() => {
     const map = new Map<string, { parts: Part[]; shape: Part['shape']; mat: MatKey; shadows: boolean }>();
     const single: Part[] = [];
@@ -314,6 +315,25 @@ function SlabMesh({ def, materials, finished }: { def: SceneDef; materials: Mate
   );
 }
 
+/** Cubierta plana y techo sobre el contorno validado (planos propios). */
+function RoofMesh({ def, materials }: { def: SceneDef; materials: MaterialSet }) {
+  const roof = def.roof;
+  const geometries = useDisposable(() => {
+    const shape = new Shape();
+    (roof?.points ?? []).forEach((p, i) => (i === 0 ? shape.moveTo(p.x, -p.y) : shape.lineTo(p.x, -p.y)));
+    const slab = new ExtrudeGeometry(shape, { depth: roof?.thickness ?? 0.3, bevelEnabled: false });
+    const ceiling = new ExtrudeGeometry(shape, { depth: 0.015, bevelEnabled: false });
+    return { slab, ceiling, dispose: () => (slab.dispose(), ceiling.dispose()) };
+  }, [roof]);
+  if (!roof || roof.points.length < 3) return null;
+  return (
+    <>
+      <mesh geometry={geometries.ceiling} material={materials.get('ceiling')} rotation-x={-Math.PI / 2} position-y={roof.y - 0.015} receiveShadow />
+      <mesh geometry={geometries.slab} material={[materials.get('roof'), materials.get('black')]} rotation-x={-Math.PI / 2} position-y={roof.y} castShadow receiveShadow />
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Rótulos: cotas y nombres de estancia
 // ---------------------------------------------------------------------------
@@ -384,9 +404,11 @@ interface Ambient {
   env: number;
   exposure: number;
   interior: number;
+  /** Cielo HDRI para iluminación y reflejos (null = entorno neutro generado). */
+  hdri: HdriName | null;
 }
 
-const AMBIENTS: Record<LightingPreset, Ambient> = {
+export const AMBIENTS: Record<LightingPreset, Ambient> = {
   dusk: {
     top: '#0a1429',
     mid: '#2b426e',
@@ -399,9 +421,10 @@ const AMBIENTS: Record<LightingPreset, Ambient> = {
     sun: '#b3c4ff',
     sunI: 0.62,
     sunDir: [-0.5, 0.62, 0.6],
-    env: 0.2,
+    env: 0.42,
     exposure: 1.0,
     interior: 1,
+    hdri: 'sunset',
   },
   day: {
     top: '#6d99cf',
@@ -415,9 +438,10 @@ const AMBIENTS: Record<LightingPreset, Ambient> = {
     sun: '#fff1da',
     sunI: 2.5,
     sunDir: [0.52, 0.85, 0.5],
-    env: 0.5,
+    env: 0.75,
     exposure: 0.92,
     interior: 0,
+    hdri: 'park',
   },
   blueprint: {
     top: '#0f2a52',
@@ -434,6 +458,7 @@ const AMBIENTS: Record<LightingPreset, Ambient> = {
     env: 0.2,
     exposure: 1,
     interior: 0,
+    hdri: null,
   },
 };
 
@@ -458,7 +483,7 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
-function Atmosphere({
+export function Atmosphere({
   def,
   preset,
   quality,
@@ -497,12 +522,11 @@ function Atmosphere({
   );
 
   useEffect(() => {
-    // Entorno neutro generado en local para los reflejos PBR (sin HDRI externos).
+    // Entorno neutro inmediato; el HDRI del ambiente lo sustituye en cuanto carga.
     const pmrem = new PMREMGenerator(gl);
     const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     scene.environment = env;
     scene.fog = new FogExp2(AMBIENTS[preset].fog, AMBIENTS[preset].fogDensity);
-    gl.toneMapping = ACESFilmicToneMapping;
     gl.outputColorSpace = SRGBColorSpace;
     invalidate();
     return () => {
@@ -513,6 +537,34 @@ function Atmosphere({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gl, scene]);
+
+  const hdriName = AMBIENTS[preset].hdri;
+  useEffect(() => {
+    if (!hdriName) return;
+    let alive = true;
+    let envMap: { dispose: () => void } | null = null;
+    const previous = scene.environment;
+    loadHdri(hdriName)
+      .then((tex) => {
+        if (!alive) return;
+        const pmrem = new PMREMGenerator(gl);
+        const rt = pmrem.fromEquirectangular(tex);
+        pmrem.dispose();
+        envMap = rt;
+        scene.environment = rt.texture;
+        invalidate();
+      })
+      .catch(() => {
+        // Sin HDRI se mantiene el entorno neutro.
+      });
+    return () => {
+      alive = false;
+      if (envMap) {
+        scene.environment = previous;
+        envMap.dispose();
+      }
+    };
+  }, [hdriName, gl, scene, invalidate]);
 
   useEffect(() => {
     settled.current = false;
@@ -630,14 +682,14 @@ function Atmosphere({
       >
         <orthographicCamera attach="shadow-camera" args={[-reach, reach, reach, -reach, 1, def.radius * 6 + 90]} />
       </directionalLight>
-      {def.lights.slice(0, quality === 'baja' ? 4 : def.lights.length).map((l, i) => (
+      {def.lights.slice(0, quality === 'baja' ? 5 : quality === 'media' ? 9 : def.lights.length).map((l, i) => (
         <pointLight
           key={i}
           ref={(el) => {
             lights.current[i] = el;
           }}
           position={l.p}
-          color="#ffc98f"
+          color={l.color ?? '#ffc98f'}
           distance={l.distance}
           decay={1.8}
           intensity={0}
@@ -657,7 +709,7 @@ function Atmosphere({
   );
 }
 
-function Ground({ def, materials }: { def: SceneDef; materials: MaterialSet }) {
+export function Ground({ def, materials }: { def: SceneDef; materials: MaterialSet }) {
   const geometry = useDisposable(() => {
     const size = 560;
     const g = new PlaneGeometry(size, size);
@@ -716,6 +768,7 @@ const REVEAL: Record<Layer, RevealKind> = {
   acabados: 'none',
   mobiliario: 'grow',
   entorno: 'none',
+  contexto: 'none',
 };
 
 function Driver({ controller }: { controller: ViewerController }) {
@@ -745,7 +798,10 @@ function SceneContents({ def, materials, controller }: { def: SceneDef; material
   const stageDef = mode === 'obra' ? def.stages[stage] : def.stages[def.stages.length - 1];
   const visible = useMemo(() => {
     const set = new Set<Layer>(mode === 'obra' ? stageDef.layers : finalLayers(def));
-    if (mode === 'maqueta') set.delete('cubierta');
+    if (mode === 'maqueta') {
+      set.delete('cubierta');
+      set.delete('contexto');
+    }
     return set;
   }, [mode, stageDef, def]);
   const lighting: LightingPreset = mode === 'obra' ? stageDef.lighting : def.presentLighting;
@@ -777,16 +833,29 @@ function SceneContents({ def, materials, controller }: { def: SceneDef; material
     <>
       <Driver controller={controller} />
       <Atmosphere def={def} preset={lighting} quality={quality} interiorOn={visible.has('mobiliario')} />
+      <RenderLoop
+        quality={quality}
+        title={def.title}
+        photoSky={{
+          top: AMBIENTS[lighting].top,
+          mid: AMBIENTS[lighting].mid,
+          horizon: AMBIENTS[lighting].horizon,
+          ground: AMBIENTS[lighting].hemiGround,
+          hdri: AMBIENTS[lighting].hdri ?? 'sky',
+          envIntensity: AMBIENTS[lighting].env * 1.3,
+        }}
+      />
       {layer('plano', <BlueprintSheet def={def} materials={materials} />)}
       {layer('trazado')}
       {layer('base', <SlabMesh def={def} materials={materials} finished={finished} />)}
       {layer('estructura')}
       {layer('cerramientos', <Walls layouts={def.layouts} materials={materials} raw={raw} />)}
       {layer('carpinterias')}
-      {layer('cubierta')}
+      {layer('cubierta', <RoofMesh def={def} materials={materials} />)}
       {layer('acabados')}
       {layer('mobiliario')}
       {layer('entorno', <Ground def={def} materials={materials} />)}
+      {layer('contexto')}
       {mode === 'maqueta' && <ModelLabels def={def} dimensions={showDimensions} />}
     </>
   );

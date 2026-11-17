@@ -28,6 +28,12 @@ export interface ViewerUI {
   ready: boolean;
   /** Se incrementa para pedir un redibujado desde fuera del lienzo. */
   tick: number;
+  /** Modo foto realista (trazado de rayos). */
+  photo: 'off' | 'rendering' | 'done';
+  photoSamples: number;
+  photoTarget: number;
+  /** Petición de guardar el fotograma actual como imagen. */
+  capture: boolean;
 }
 
 export function detectQuality(): Quality {
@@ -56,6 +62,10 @@ const initial = (): ViewerUI => ({
   toast: null,
   ready: false,
   tick: 0,
+  photo: 'off',
+  photoSamples: 0,
+  photoTarget: 0,
+  capture: false,
 });
 
 export const useViewer = create<ViewerUI>(() => initial());

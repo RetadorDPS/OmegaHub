@@ -14,7 +14,9 @@ export type Layer =
   | 'cubierta'
   | 'acabados'
   | 'mobiliario'
-  | 'entorno';
+  | 'entorno'
+  /** Resto del edificio alrededor de un piso (se oculta en la maqueta). */
+  | 'contexto';
 
 export type MatKey =
   | 'wall-int'
@@ -61,7 +63,12 @@ export type MatKey =
   | 'book-c'
   | 'steel'
   | 'chalk'
-  | 'blueprint';
+  | 'blueprint'
+  | 'water'
+  | 'pool-tile'
+  | 'tile'
+  | 'mirror'
+  | 'leather';
 
 export type Shape = 'box' | 'rbox' | 'cyl' | 'sphere';
 

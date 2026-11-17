@@ -4,7 +4,7 @@
 //   npm run e2e                             (usa http://127.0.0.1:4173/)
 //   BASE_URL=http://127.0.0.1:5173/ npm run e2e   (contra el servidor de desarrollo)
 //
-// Recorre las pruebas de aceptación: visita guiada de Casa Mirador, obra por
+// Recorre las pruebas de aceptación: visita guiada de Villa Mirador, obra por
 // etapas reversible, flujo plano → escala → trazado → 3D → recorrido, cambio de
 // puerta, persistencia, entradas PDF e imagen, archivo inválido, movimiento
 // reducido y ausencia de peticiones a terceros. Deja capturas en docs/capturas/.
@@ -59,18 +59,23 @@ const tourSettled = (page) =>
       return Math.abs(d.s - d.target) < 1e-4 && Number.isInteger(Math.round(d.s * 1e4) / 1e4);
     },
     null,
-    { timeout: 120000 },
+    { timeout: 300000 },
   );
 const text = (page, id) => page.textContent(`[data-testid="${id}"]`);
+async function setQuality(page, q) {
+  await page.click('[data-testid="abrir-ayuda"]');
+  await page.click(`[data-testid="calidad-${q}"]`);
+  await page.keyboard.press('Escape');
+}
 const click = (page, id) => page.click(`[data-testid="${id}"]`);
 const settle = (page, ms = 700) => page.waitForTimeout(ms);
 const run = (name) => !only || only.includes(name);
 
 // ---------------------------------------------------------------------------
-// 1. Casa Mirador en escritorio
+// 1. Villa Mirador en escritorio
 // ---------------------------------------------------------------------------
 if (run('demo')) {
-  section('Casa Mirador · escritorio');
+  section('Villa Mirador · escritorio');
   const { context, page } = await newPage();
   await page.goto(BASE_URL);
   await page.waitForSelector('[data-testid="portada"]');
@@ -80,9 +85,11 @@ if (run('demo')) {
 
   await click(page, 'entrar-demo');
   await viewerReady(page);
+  // Sin GPU (WebGL por software) se prueba la lógica en calidad baja para que los travellings no tarden minutos.
+  await setQuality(page, 'baja');
   check('abre directamente, sin iniciar sesión', (await text(page, 'capitulo')) === 'Exterior');
 
-  const expected = ['Acercamiento', 'Terraza', 'Salón', 'Dormitorio'];
+  const expected = ['Acercamiento', 'Terraza', 'Salón', 'Cocina', 'Dormitorio'];
   for (const chapter of expected) {
     await click(page, 'siguiente');
     await tourSettled(page);
@@ -99,11 +106,11 @@ if (run('demo')) {
   // Retroceso con teclado, pausa a mitad de tramo y cambio a modo libre.
   await page.keyboard.press('ArrowLeft');
   await tourSettled(page);
-  check('la flecha izquierda retrocede al salón', (await text(page, 'capitulo')) === 'Salón');
+  check('la flecha izquierda retrocede a la cocina', (await text(page, 'capitulo')) === 'Cocina');
   await click(page, 'reproducir');
   await page.waitForFunction(() => {
     const d = window.__studio.controller.debug();
-    return d.s > 3.12 && d.s < 3.9;
+    return d.s > 4.12 && d.s < 4.9;
   }, null, { timeout: 60000 });
   await click(page, 'reproducir');
   // La cámara frena con una deceleración corta; se espera a que deje de dibujar.
@@ -130,13 +137,15 @@ if (run('demo')) {
   const free1 = await debug(page);
   check('camina con el teclado', Math.hypot(free1.camera[0] - free0.camera[0], free1.camera[2] - free0.camera[2]) > 0.15);
 
-  // Colisiones de la demo: contra el muro este y a través de la corredera.
-  const wallHit = await page.evaluate(() => window.__studio.controller.simulateWalk({ x: 6.5, y: 5.3 }, Math.PI / 2, 12));
-  check('el muro este detiene el paso', wallHit.x < 12 - 0.12 - 0.2, `x final = ${wallHit.x.toFixed(2)}`);
-  const glass = await page.evaluate(() => window.__studio.controller.simulateWalk({ x: 9.9, y: 5.9 }, 0, 6));
-  check('la cristalera fija no se atraviesa', glass.y < 6.4 - 0.12 - 0.2, `z final = ${glass.y.toFixed(2)}`);
-  const slider = await page.evaluate(() => window.__studio.controller.simulateWalk({ x: 6.7, y: 5.6 }, 0, 3));
-  check('la corredera abierta sí deja salir a la terraza', slider.y > 7.2, `z final = ${slider.y.toFixed(2)}`);
+  // Colisiones de la demo: muro de fachada, cristalera fija y corredera abierta.
+  const wallHit = await page.evaluate(() => window.__studio.controller.simulateWalk({ x: 2.0, y: 5.3 }, -Math.PI / 2, 6));
+  check('el muro de fachada detiene el paso al final del pasillo', wallHit.x > 0.125 + 0.2, `x final = ${wallHit.x.toFixed(2)}`);
+  const glass = await page.evaluate(() => window.__studio.controller.simulateWalk({ x: 17.8, y: 7.4 }, 0, 4));
+  check('la cristalera fija no se atraviesa', glass.y < 8 - 0.125 - 0.2, `z final = ${glass.y.toFixed(2)}`);
+  const slider = await page.evaluate(() => window.__studio.controller.simulateWalk({ x: 14.7, y: 7.4 }, 0, 2));
+  check('la corredera abierta sí deja salir a la terraza', slider.y > 9, `z final = ${slider.y.toFixed(2)}`);
+  const pool = await page.evaluate(() => window.__studio.controller.simulateWalk({ x: 15.5, y: 9.8 }, 0, 4));
+  check('no se puede caminar sobre la piscina', pool.y < 10.7 - 0.2, `z final = ${pool.y.toFixed(2)}`);
 
   await click(page, 'reiniciar');
   await settle(page, 900);
@@ -144,7 +153,7 @@ if (run('demo')) {
   await click(page, 'volver-guia');
   await page.waitForFunction(() => window.__studio.controller.debug().mode === 'guia');
   await tourSettled(page);
-  check('vuelve a la guía en un capítulo', ['Salón', 'Dormitorio'].includes(await text(page, 'capitulo')));
+  check('vuelve a la guía en un capítulo', ['Salón', 'Cocina', 'Dormitorio'].includes(await text(page, 'capitulo')));
 
   // Maqueta.
   await click(page, 'modo-maqueta');
@@ -180,13 +189,14 @@ if (run('demo')) {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Casa Mirador en móvil y con movimiento reducido
+// 2. Villa Mirador en móvil y con movimiento reducido
 // ---------------------------------------------------------------------------
 if (run('movil')) {
-  section('Casa Mirador · móvil (390 × 844, táctil)');
+  section('Villa Mirador · móvil (390 × 844, táctil)');
   const { context, page } = await newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
   await page.goto(`${BASE_URL}#/demo`);
   await viewerReady(page);
+  await setQuality(page, 'baja');
   await page.tap('[data-testid="siguiente"]');
   await tourSettled(page);
   check('los botones táctiles avanzan la visita', (await text(page, 'capitulo')) === 'Acercamiento');
@@ -218,7 +228,7 @@ if (run('movil')) {
   check('el panel inferior deja libre la mayor parte de la escena', foot.height < 844 * 0.42, `${Math.round(foot.height)} px`);
   await context.close();
 
-  section('Casa Mirador · movimiento reducido');
+  section('Villa Mirador · movimiento reducido');
   const reduced = await newPage({ reducedMotion: 'reduce' });
   await reduced.page.goto(`${BASE_URL}#/demo`);
   await viewerReady(reduced.page);
