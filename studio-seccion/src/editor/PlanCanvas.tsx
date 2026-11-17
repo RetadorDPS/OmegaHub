@@ -307,17 +307,25 @@ export function PlanCanvas({ handle }: { handle: React.RefObject<PlanCanvasHandl
 
   // --- Punteros ----------------------------------------------------------------
 
+  const capture = (id: number) => {
+    try {
+      svgRef.current?.setPointerCapture(id);
+    } catch {
+      // Un puntero ya liberado no se puede capturar; el gesto sigue sin captura.
+    }
+  };
+
   const startDrag = (e: ReactPointerEvent, drag: Drag) => {
     if (useEditor.getState().tool !== 'select' || e.button !== 0) return;
     e.stopPropagation();
-    svgRef.current?.setPointerCapture(e.pointerId);
+    capture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     press.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, mode: 'drag', view: viewRef.current, drag };
     beginGesture();
   };
 
   const onPointerDown = (e: ReactPointerEvent) => {
-    svgRef.current?.setPointerCapture(e.pointerId);
+    capture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
       const [p1, p2] = [...pointers.current.values()];

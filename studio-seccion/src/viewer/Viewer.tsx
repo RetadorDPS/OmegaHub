@@ -88,7 +88,11 @@ function Joystick({ controller }: { controller: ViewerController }) {
       aria-label="Mando para caminar: arriba avanza, abajo retrocede, los lados giran"
       onPointerDown={(e) => {
         active.current = e.pointerId;
-        e.currentTarget.setPointerCapture(e.pointerId);
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // Sin captura el mando sigue funcionando mientras el dedo no salga de él.
+        }
         move(e);
       }}
       onPointerMove={move}

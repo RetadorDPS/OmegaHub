@@ -66,9 +66,11 @@ function MetersField({
   useEffect(() => {
     if (!focused) setText(shown);
   }, [shown, focused]);
-  const parse = () => {
-    const v = Number(text.replace(',', '.').trim());
-    if (Number.isFinite(v) && v >= min) onCommit(v);
+  // Se lee el valor del propio campo, no del estado: así Intro justo después de
+  // teclear nunca confirma un texto anterior.
+  const parse = (raw: string) => {
+    const v = Number(raw.replace(',', '.').trim());
+    if (raw.trim() !== '' && Number.isFinite(v) && v >= min) onCommit(v);
     else setText(shown);
   };
   return (
@@ -85,17 +87,17 @@ function MetersField({
             e.currentTarget.select();
           }}
           onChange={(e) => setText(e.target.value)}
-          onBlur={() => {
+          onBlur={(e) => {
             setFocused(false);
-            parse();
+            parse(e.currentTarget.value);
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              parse();
+              // Al perder el foco se confirma el valor (una sola vez).
               e.currentTarget.blur();
             } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
               e.preventDefault();
-              const v = Number(text.replace(',', '.'));
+              const v = Number(e.currentTarget.value.replace(',', '.'));
               if (Number.isFinite(v)) {
                 const next = Math.max(min, Math.round((v + (e.key === 'ArrowUp' ? step : -step)) * 1000) / 1000);
                 setText(next.toFixed(2).replace('.', ','));
@@ -405,6 +407,16 @@ export function Editor({ onGenerate }: { onGenerate: () => void }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // En pantallas estrechas el panel está plegado: se abre solo cuando toca escribir la longitud real.
+  const calibrationReady = useEditor((s) => s.tool === 'calibrate' && !!s.calibration.a && !!s.calibration.b);
+  useEffect(() => {
+    if (calibrationReady) setPanelOpen(true);
+  }, [calibrationReady]);
+  const calibrated = !!project.calibration;
+  useEffect(() => {
+    if (calibrated) setPanelOpen(false);
+  }, [calibrated]);
 
   const hint = TOOLS.find((t) => t.id === tool)?.hint ?? '';
   const fixIssue = (issue: Issue) => {

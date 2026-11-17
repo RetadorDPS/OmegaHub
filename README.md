@@ -11,6 +11,12 @@ las creatividades de tu campaña con IA.
 
 ---
 
+> **Este repositorio contiene además [Studio Sección](studio-seccion/README.md)**, una aplicación independiente
+> (React + Vite + Three.js) para presentar proyectos de arquitectura como recorridos 3D. Vive en
+> `studio-seccion/` con sus propias dependencias y comandos; no comparte código con TrendHunter Pro.
+
+---
+
 ## Índice
 
 1. [Módulos](#módulos)

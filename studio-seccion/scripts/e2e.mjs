@@ -106,11 +106,18 @@ if (run('demo')) {
     return d.s > 3.12 && d.s < 3.9;
   }, null, { timeout: 60000 });
   await click(page, 'reproducir');
-  await settle(page, 900);
+  // La cámara frena con una deceleración corta; se espera a que deje de dibujar.
+  let frames = -1;
+  for (let i = 0; i < 30; i++) {
+    await settle(page, 1800);
+    const f = (await debug(page)).frames;
+    if (f === frames) break;
+    frames = f;
+  }
   const paused1 = await debug(page);
-  await settle(page, 900);
+  await settle(page, 2500);
   const paused2 = await debug(page);
-  check('pausa a mitad de tramo y la cámara se queda quieta', near(paused1.s, paused2.s, 1e-6) && paused1.s % 1 > 0.05, `s = ${paused1.s.toFixed(3)}`);
+  check('pausa a mitad de tramo y la cámara se queda quieta (sin seguir dibujando)', near(paused1.s, paused2.s, 1e-9) && paused1.frames === paused2.frames && paused1.s % 1 > 0.05, `s = ${paused1.s.toFixed(3)}`);
 
   await click(page, 'explorar-libre');
   await page.waitForSelector('[data-testid="insignia-libre"]');
@@ -224,6 +231,33 @@ if (run('movil')) {
 }
 
 // ---------------------------------------------------------------------------
+// 2b. Navegador sin WebGL (simulado: el lienzo no entrega contexto 3D)
+// ---------------------------------------------------------------------------
+if (run('sin-webgl')) {
+  section('Sin WebGL');
+  const { context, page } = await newPage();
+  await context.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+      if (String(type).startsWith('webgl') || type === 'experimental-webgl') return null;
+      return original.call(this, type, ...rest);
+    };
+  });
+  await page.goto(`${BASE_URL}#/demo`);
+  await page.waitForSelector('.viewer__nowebgl');
+  check('sin WebGL se muestra un mensaje claro en lugar de una pantalla vacía', (await page.textContent('.viewer__nowebgl')).includes('no puede mostrar la vista 3D'));
+  await page.click('.viewer__nowebgl button');
+  await page.waitForSelector('[data-testid="proyectos"]');
+  await page.fill('[data-testid="nombre-proyecto"]', 'Sin 3D');
+  await click(page, 'crear-proyecto');
+  await page.waitForSelector('[data-testid="inicio-plano"]');
+  await click(page, 'ejemplo-png');
+  await page.waitForSelector('[data-testid="fondo-plano"]', { timeout: 30000 });
+  check('y el plano 2D sigue siendo accesible', await page.isVisible('[data-testid="lienzo"]'));
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
 // 3. Crear desde mi plano
 // ---------------------------------------------------------------------------
 const edState = (page) =>
@@ -330,7 +364,8 @@ if (run('plano')) {
   await page.waitForSelector('[data-testid="props-muro"]');
   await page.fill('[data-testid="muro-grosor"]', '0,10');
   await page.keyboard.press('Enter');
-  check('se puede ajustar el grosor del muro', near((await edState(page)).walls[6].thickness, 0.1, 1e-6));
+  const afterThickness = await edState(page);
+  check('se puede ajustar el grosor del muro', near(afterThickness.walls[6].thickness, 0.1, 1e-6), `grosores: ${afterThickness.walls.map((w) => w.thickness).join(' ')} · selección: ${await page.evaluate(() => JSON.stringify(window.__editor.state().selection))}`);
 
   await click(page, 'proponer-losa');
   st = await edState(page);
@@ -493,6 +528,28 @@ if (run('plano')) {
   check('la misma cota de 4 m sale al calibrar el PDF', pdf.walls.length === 1 && near(pdf.walls[0].length, 4, 0.02), pdf.walls[0]?.length.toFixed(3));
   await page.waitForFunction(() => document.querySelector('[data-testid="estado-guardado"]')?.textContent?.includes('Guardado'), null, { timeout: 15000 });
 
+  // PDF de varias páginas: se elige la página y la escala no se hereda.
+  const scratch = await context.newPage();
+  await scratch.setContent('<div style="height:600px;font:40px sans-serif">Página 1</div><div style="break-before:page;font:40px sans-serif">Página 2 · planta</div>');
+  const twoPages = await scratch.pdf({ width: '800px', height: '700px' });
+  const jpeg = await scratch.screenshot({ type: 'jpeg', quality: 80 });
+  await scratch.close();
+  await click(page, 'herramienta-select');
+  await page.setInputFiles('[data-testid="archivo-plano-panel"]', { name: 'dos-paginas.pdf', mimeType: 'application/pdf', buffer: twoPages });
+  await page.waitForFunction(() => window.__editor.state().project.plan?.fileName === 'dos-paginas.pdf' && !!window.__editor.state().raster, null, { timeout: 60000 });
+  pdf = await edState(page);
+  check('al cambiar de plano hay que volver a calibrar', pdf.plan.pageCount === 2 && pdf.plan.page === 1 && pdf.calibration === null);
+  await page.selectOption('[data-testid="pagina-pdf"]', '2');
+  await page.waitForFunction(() => window.__editor.state().project.plan?.page === 2 && !window.__editor.state().rasterBusy, null, { timeout: 60000 });
+  check('se puede elegir la página del PDF', (await edState(page)).plan.page === 2);
+
+  // JPG.
+  await page.setInputFiles('[data-testid="archivo-plano-panel"]', { name: 'foto-plano.jpg', mimeType: 'image/jpeg', buffer: jpeg });
+  await page.waitForFunction(() => window.__editor.state().project.plan?.fileName === 'foto-plano.jpg' && !!window.__editor.state().raster, null, { timeout: 60000 });
+  pdf = await edState(page);
+  check('también se admite JPG', pdf.plan.kind === 'image' && pdf.plan.mime === 'image/jpeg' && pdf.plan.width > 100);
+  await page.waitForFunction(() => document.querySelector('[data-testid="estado-guardado"]')?.textContent?.includes('Guardado'), null, { timeout: 15000 });
+
   // Lista de proyectos: ambos existen por separado; se elimina uno.
   await page.goto(`${BASE_URL}#/proyectos`);
   await page.waitForSelector('[data-testid="tarjeta-proyecto"]');
@@ -517,6 +574,16 @@ if (run('editor-movil')) {
   await page.tap('[data-testid="ejemplo-png"]');
   await page.waitForSelector('[data-testid="fondo-plano"]', { timeout: 30000 });
   check('el plano de ejemplo se abre en móvil', (await edState(page)).plan?.fileName === 'plano-en-L.png');
+  for (const [x, y] of [REFERENCIA.a, REFERENCIA.b]) {
+    const p = await planPoint(page, x, y);
+    await page.touchscreen.tap(p.x, p.y);
+    await page.waitForTimeout(120);
+  }
+  await page.waitForSelector('[data-testid="escala-metros"]:not([disabled])', { state: 'visible' });
+  await page.fill('[data-testid="escala-metros"]', '4');
+  await page.tap('[data-testid="escala-aplicar"]');
+  await page.waitForFunction(() => !!window.__editor.state().project.calibration);
+  check('se calibra con toques y el panel se abre solo para escribir la longitud', near((await edState(page)).calibration.metersPerPixel, 1 / 140, 1e-5));
   await settle(page, 500);
   await page.screenshot({ path: join(shots, 'movil-editor.png') });
   await context.close();

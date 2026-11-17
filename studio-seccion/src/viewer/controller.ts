@@ -42,6 +42,8 @@ export class ViewerController {
   private reduced = prefersReducedMotion();
   /** Escena de Three.js, solo para inspección en pruebas. */
   scene: Object3D | null = null;
+  /** Fotogramas dibujados (para comprobar que en reposo no se renderiza). */
+  private frames = 0;
   private disposers: (() => void)[] = [];
 
   // Visita guiada
@@ -154,6 +156,7 @@ export class ViewerController {
   update(rawDt: number): boolean {
     const camera = this.camera;
     if (!camera) return false;
+    this.frames += 1;
     const dt = Math.min(rawDt, 0.1);
     const mode = useViewer.getState().mode;
     let active = false;
@@ -162,7 +165,7 @@ export class ViewerController {
       active = true;
       this.stepFly(dt);
     } else if (mode === 'guia') {
-      active = this.updateTour(dt);
+      active = this.updateTour(dt, Math.min(rawDt, 0.5));
     } else if (mode === 'caminar') {
       active = this.updateWalk(dt);
     } else if (this.orbit?.enabled) {
@@ -214,7 +217,7 @@ export class ViewerController {
     if (st.stop !== stop || st.moving !== moving) useViewer.setState({ stop, moving });
   }
 
-  private updateTour(dt: number): boolean {
+  private updateTour(dt: number, wallDt: number): boolean {
     if (this.cutting) return false;
     const { tour } = this.def;
     const last = tour.stops.length - 1;
@@ -234,7 +237,8 @@ export class ViewerController {
         });
         return false;
       }
-      this.rate = MathUtils.damp(this.rate, this.hold ? 0 : 1, 7, dt);
+      // El frenado usa el tiempo real: en equipos lentos la pausa responde igual de rápido.
+      this.rate = MathUtils.damp(this.rate, this.hold ? 0 : 1, 7, wallDt);
       const limit = dir > 0 ? Math.min(boundary, this.target) : Math.max(boundary, this.target);
       let next = this.s + dir * (dt / leg.seconds) * this.rate;
       if ((dir > 0 && next >= limit) || (dir < 0 && next <= limit)) next = limit;
@@ -641,7 +645,11 @@ export class ViewerController {
   private onPointerDown = (e: PointerEvent) => {
     if (useViewer.getState().mode !== 'caminar' || this.cutting) return;
     this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
-    this.dom?.setPointerCapture?.(e.pointerId);
+    try {
+      this.dom?.setPointerCapture(e.pointerId);
+    } catch {
+      // Sin captura el arrastre funciona igual dentro del lienzo.
+    }
   };
 
   private onPointerMove = (e: PointerEvent) => {
@@ -734,6 +742,7 @@ export class ViewerController {
       look: [this.look.x, this.look.y, this.look.z],
       walk: { ...this.walk },
       fov: c?.fov ?? 0,
+      frames: this.frames,
     };
   }
 

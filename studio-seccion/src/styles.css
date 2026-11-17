@@ -106,6 +106,7 @@ p {
   letter-spacing: 0.01em;
   white-space: nowrap;
   transition: background 0.18s, color 0.18s, border-color 0.18s;
+  text-decoration: none;
 }
 
 .btn--light {
@@ -199,7 +200,7 @@ p {
   z-index: -1;
   background:
     linear-gradient(180deg, rgba(10, 13, 22, 0.62) 0%, rgba(10, 13, 22, 0) 26%),
-    linear-gradient(0deg, rgba(10, 13, 22, 0.86) 0%, rgba(10, 13, 22, 0.28) 44%, rgba(10, 13, 22, 0) 68%);
+    linear-gradient(0deg, rgba(10, 13, 22, 0.88) 0%, rgba(10, 13, 22, 0.34) 30%, rgba(10, 13, 22, 0) 52%);
 }
 
 .cover__top {
@@ -251,20 +252,21 @@ p {
 
 .cover__kicker {
   color: var(--copper-2);
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .cover__title {
   font-family: var(--display);
-  font-weight: 380;
-  font-size: clamp(44px, 8.2vw, 104px);
-  line-height: 0.95;
-  letter-spacing: -0.02em;
+  font-weight: 400;
+  /* Título contenido: el encuadre arquitectónico es el protagonista. */
+  font-size: clamp(30px, 3.8vw, 50px);
+  line-height: 1.02;
+  letter-spacing: -0.012em;
   font-variation-settings: 'opsz' 144;
 }
 
 .cover__lede {
-  margin-top: 18px;
+  margin-top: 10px;
   max-width: 46ch;
   color: var(--ivory-2);
   font-size: clamp(15px, 1.5vw, 17px);
@@ -274,7 +276,7 @@ p {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 26px;
+  margin-top: 20px;
 }
 
 .cover__foot {
