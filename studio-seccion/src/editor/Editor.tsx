@@ -191,6 +191,9 @@ function StartScreen({ onBlank }: { onBlank: () => void }) {
           <button type="button" className="link" disabled={busy} data-testid="ejemplo-png" onClick={() => run(() => attachSamplePlan('./ejemplos/plano-en-L.png', 'plano-en-L.png'))}>
             Plano de ejemplo (PNG)
           </button>
+          <button type="button" className="link" disabled={busy} data-testid="ejemplo-mansion" onClick={() => run(() => attachSamplePlan('./ejemplos/mansion-en-U.pdf', 'mansion-en-U.pdf'))}>
+            Mansión de 440 m² (PDF)
+          </button>
           <button type="button" className="link" disabled={busy} data-testid="sin-plano" onClick={onBlank}>
             Trazar sin fondo, sobre cuadrícula de 1 m
           </button>

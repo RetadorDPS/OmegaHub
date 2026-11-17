@@ -10,12 +10,13 @@ import { validateProject } from '../model/validate';
 import { buildCollisionWorld, type Collider, type CollisionWorld } from '../generate/collision';
 import { furnishProject, type Furnishing } from '../generate/furnish';
 import { findPath, pathLength } from '../generate/pathfind';
+import { firstBlockedPoint } from '../generate/collision';
 import { layoutWalls, type WallLayout } from '../generate/walls';
 import { openingParts } from '../generate/openings';
 import { planLineParts } from '../generate/planLines';
 import { roofJoists, wallFraming } from '../generate/framing';
 import type { Layer, Part } from '../generate/parts';
-import type { Pose, Tour, TourLeg, TourStop, V3 } from './tour';
+import { sampleLegPlan, type Pose, type Tour, type TourLeg, type TourStop, type V3 } from './tour';
 import {
   villaMirador,
   DEMO_BOUNDS,
@@ -273,8 +274,16 @@ export function buildProjectScene(project: Project, opts: ProjectSceneOptions = 
     if (i === 1) return { kind: 'cut' };
     const from = entryPoints[i - 2].point;
     const to = entryPoints[i - 1].point;
-    const path = findPath(world, from, to, { radius: DEFAULTS.bodyRadius + 0.05, bounds: searchBox });
-    if (!path) return { kind: 'cut' };
+    const raw = findPath(world, from, to, { radius: DEFAULTS.bodyRadius + 0.05, bounds: searchBox });
+    if (!raw) return { kind: 'cut' };
+    // Se remuestrea cada 40 cm para que la curva suave no recorte las esquinas de las puertas.
+    const path: Vec2[] = [raw[0]];
+    for (let k = 1; k < raw.length; k++) {
+      const a = raw[k - 1];
+      const b = raw[k];
+      const n = Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / 0.4));
+      for (let j = 1; j <= n; j++) path.push({ x: a.x + ((b.x - a.x) * j) / n, y: a.y + ((b.y - a.y) * j) / n });
+    }
     const via = path.slice(1, -1);
     const target = stops[i + 1].pose.look;
     return {
@@ -290,7 +299,13 @@ export function buildProjectScene(project: Project, opts: ProjectSceneOptions = 
       }),
     };
   });
+  // Seguridad: un tramo cuya curva rozara un muro o un mueble se sustituye por un fundido.
   const tour: Tour = { stops, legs };
+  tour.legs = legs.map((leg, i) => {
+    if (leg.kind !== 'path' || i < 2) return leg;
+    const probe: Tour = { stops, legs };
+    return firstBlockedPoint(sampleLegPlan(probe, i, 500), world, 0.2, 0.02) ? { kind: 'cut' } : leg;
+  });
 
   const margin = Math.max(3, span * 0.35);
   const stagePose: Pose = exterior;
